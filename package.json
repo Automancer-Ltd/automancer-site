@@ -18,13 +18,13 @@
     "verify": "pnpm run check && pnpm run test"
   },
   "dependencies": {
-    "@astrojs/sitemap": "^3.7.3",
-    "@sentry/browser": "^10.72.0",
-    "astro": "^7.2.9"
+    "@astrojs/sitemap": "^3.7.4",
+    "@sentry/browser": "^10.73.0",
+    "astro": "^7.2.10"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.10",
-    "happy-dom": "^20.11.15",
+    "happy-dom": "^20.13.2",
     "node-html-parser": "^9.0.2",
     "typescript": "^6.0.3",
     "vitest": "^4.1.11"
