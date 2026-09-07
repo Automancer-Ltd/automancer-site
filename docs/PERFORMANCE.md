@@ -132,6 +132,17 @@ tables; it is not a new page. Redirect stubs are unchanged.
 When this table next needs to be rewritten, re-measure every page in one pass
 rather than patching rows.
 
+### Later additions
+
+New pages added after the 2026-08-31 pass, each measured individually with
+`node tests/support/perf-cli.ts --csv` against a fresh
+`PUBLIC_AUT_SENTRY_WEB_DSN=""` build at the time it was added, not
+estimated from a neighbouring post.
+
+| page | html | css | js | fonts | images | total |
+|---|---:|---:|---:|---:|---:|---:|
+| `/field-notes/how-ai-agents-actually-make-decisions/` (2026-09-07) | 19,087 | 52,026 | 4,751 | 120,620 | 6,960 | **203,444** |
+
 ## What changed, and why rendering is byte-for-byte identical
 
 ### 1. The 26 font files were really 8 binaries, and half were unreachable
