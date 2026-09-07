@@ -36,6 +36,9 @@ const MEASURED_TOTAL: Record<string, number> = {
   '/field-notes/cqc-compliance-evidence-stop-scrambling/': 203978,
   '/field-notes/credit-hire-website-compliance-trust-checklist/': 206179,
   '/field-notes/five-signs-spreadsheet-problem/': 205242,
+  // Measured 2026-09-07 (added with this post): node tests/support/perf-cli.ts --csv
+  // against a fresh PUBLIC_AUT_SENTRY_WEB_DSN="" build.
+  '/field-notes/how-ai-agents-actually-make-decisions/': 203444,
   '/field-notes/manufacturing-order-processing-phone-and-memory-pricing/': 204965,
   '/field-notes/new-business-website-legal-compliance-checklist/': 205529,
   '/field-notes/self-storage-software-what-to-check-before-you-sign/': 204657,
