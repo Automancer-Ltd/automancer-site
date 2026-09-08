@@ -9,7 +9,7 @@ what "done" looks like, and what has already been measured, so nobody re-derives
 
 Measured 31 Aug at the fully-revealed page state a reader actually experiences (140 nodes: 121 pass,
 19 fail, 0 unmeasurable, plus 2 axe-computed). Full per-element table with method and ratios:
-`docs/lanes/orch-auto-site-contrast-notes.md`.
+`docs/lanes/orch-auto-site-contrast-notes.md` (closed run record — see `docs/README.md`).
 
 - **Footer spectral tagline** "very good engineering" (gradient text, 13.76px): **1.47 / 1.62 / 1.48**
   against a 4.5 threshold, at the darkest gradient stop over the black footer. **Real readable text
