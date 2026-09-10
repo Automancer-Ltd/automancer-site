@@ -1,5 +1,15 @@
 # Release notes
 
+## v2026.09.10.1 — 10 September 2026
+
+This release makes Automancer’s public information clearer and more transparent.
+
+### Clarity and transparency
+
+- The site now explains that agents monitor software spend and prepare invoices, while Waseem approves and issues them. Bookkeeping remains manual.
+- A new field note explains how AI agents make decisions.
+
+
 ## v2026.09.05.1 — 5 September 2026
 
 This release includes a security improvement that supports a safe, dependable experience.
