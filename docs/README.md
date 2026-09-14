@@ -4,9 +4,8 @@ Authority inside this repository, highest first. A newer dated document supersed
 older one on the same subject; this file is the index that says so.
 
 1. **`VISION.md`** (repo root) — what the site is for. Authority 0; only Waseem changes it.
-2. **`docs/SPEC.md`** — what is being built. *Not present.* This repo has never carried a
-   separate spec: `VISION.md` plus the root `README.md` (stack and build) have stood in for
-   one. Recorded here so the next agent stops looking rather than writing a duplicate.
+2. **`SPEC.md`** (repo root) — the living contract for what is built, planned, and undecided.
+   Update its relevant module section in the same branch as any behaviour change.
 3. **`docs/ARCHITECTURE.md`** — how it is built and where it runs. *Not present.* The deploy
    contract lives in `docs/DEPLOYMENT.md` (below); the stack is in the root `README.md`.
 4. **`docs/DECISIONS.md`** — append-only decision record. *Not present.* Site decisions have
