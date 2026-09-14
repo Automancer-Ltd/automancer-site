@@ -142,6 +142,7 @@ estimated from a neighbouring post.
 | page | html | css | js | fonts | images | total |
 |---|---:|---:|---:|---:|---:|---:|
 | `/field-notes/how-ai-agents-actually-make-decisions/` (2026-09-07) | 19,087 | 52,026 | 4,751 | 120,620 | 6,960 | **203,444** |
+| `/field-notes/what-governed-ai-means-and-why-it-matters/` (2026-09-14) | 19,497 | 52,026 | 4,751 | 120,620 | 6,960 | **203,854** |
 
 ## What changed, and why rendering is byte-for-byte identical
 
