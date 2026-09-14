@@ -44,6 +44,9 @@ const MEASURED_TOTAL: Record<string, number> = {
   '/field-notes/self-storage-software-what-to-check-before-you-sign/': 204657,
   '/field-notes/small-business-website-cost-2026/': 204682,
   '/field-notes/what-does-an-ai-agent-actually-cost/': 203469,
+  // Measured 2026-09-14 (added with this post): node tests/support/perf-cli.ts --csv
+  // against a fresh PUBLIC_AUT_SENTRY_WEB_DSN="" build.
+  '/field-notes/what-governed-ai-means-and-why-it-matters/': 203854,
   '/privacy/': 206084,
   '/services/': 207911,
   '/terms/': 196795,
