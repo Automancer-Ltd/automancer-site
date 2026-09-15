@@ -1,5 +1,10 @@
 # Release notes
 
+## v2026.09.15.1 — 15 September 2026
+
+A new field note explains what governed AI means and why it matters.
+
+
 ## v2026.09.10.1 — 10 September 2026
 
 This release makes Automancer’s public information clearer and more transparent.
