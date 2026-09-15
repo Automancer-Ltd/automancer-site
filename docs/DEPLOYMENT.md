@@ -9,25 +9,37 @@ configuration. Where the config and reality disagree, reality is recorded.
 database, and no migration step. `.github/workflows/deploy.yml` builds the site
 and publishes it to GitHub Pages; a push reaches production in roughly 40 seconds.
 
-## The gate nobody documented
+## There is no gate on the push (corrected 2026-09-15, AUT-9174)
 
-A `pre-push` hook blocks any push to `main` that carries **user-facing commits
-with no release notes**. It is managed by `/opt/automancer/auto/scripts/release-notes.mjs`.
-If your push is refused with `BLOCKED — HEAD is N user-facing commit(s) ahead`,
-the fix is to write the notes, not to bypass the hook:
+This section used to describe a `pre-push` hook that blocked a push to `main`
+carrying user-facing commits with no release notes. That estate-wide guard was
+retired by board decision on 2026-09-01 ("gate the deploy, not the push") and
+was never actually replaced here — `.githooks/pre-push` in this repo only runs
+a gitleaks secret scan and always has. `release-notes.mjs hook-status --repo
+"$PWD"` confirms this today: `release guard ABSENT`. A push with unreleased
+user-facing commits goes straight to GitHub Pages, same as any other push.
+
+Because `deploy.yml` runs entirely on GitHub-hosted runners with no VPS step
+to call `release-notes.mjs auto` from (and the writer model is an on-box
+subscription CLI a hosted runner cannot reach), the deploy-time write the
+rest of the estate relies on cannot run for this repo either. Instead, the VPS
+polls: `scripts/release-notes-catchup.sh --repo <path>` (in `automancer-auto`)
+treats "origin/main is ahead of the last release tag" as the deploy signal,
+since GitHub has already built and served the change by the time it runs, and
+performs the same sequence a human would run by hand:
 
 ```bash
 node /opt/automancer/auto/scripts/release-notes.mjs preview --repo "$PWD"   # read it first
 node /opt/automancer/auto/scripts/release-notes.mjs release --repo "$PWD" --yes
 git push && git push --tags
-node /opt/automancer/auto/scripts/release-notes.mjs publish --repo "$PWD" --version vYYYY.MM.DD.N
+node /opt/automancer/auto/scripts/release-notes.mjs publish --repo "$PWD" --ref "$(git rev-parse HEAD)" --tag vYYYY.MM.DD.N
 ```
 
-The tag must be on `origin` before `publish` will run. Docs-only commits pass the
-gate untouched — the tool classifies them as not user-facing.
+Docs-only commits are classified as not user-facing and need no release at all.
 
-`RELEASE_NOTES_SKIP=1` exists. It is for a genuine emergency and using it means
-production ships changes nobody has written up.
+`RELEASE_NOTES_SKIP=1` exists for `auto`/`release-notes-on-deploy.sh` on repos
+that do have a deploy script. It has no effect here since nothing in this
+repo's own pipeline calls the writer.
 
 ## Before you push
 
