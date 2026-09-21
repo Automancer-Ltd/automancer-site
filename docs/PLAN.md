@@ -67,6 +67,18 @@ theoretical one** — on 31 Aug an agent elsewhere on the estate disarmed a work
 running `git config` inside a linked worktree. **The test before any config write:** `.git` a FILE
 means a linked worktree sharing its primary's config; `.git` a DIRECTORY means a standalone clone.
 
+**Guard added 2026-09-21:** `scripts/safe-git-config.sh` is a `git config` wrapper that classifies
+the checkout (`.git` file vs directory) and **refuses** a config write in a linked worktree, printing
+the safe alternatives (`git config --worktree`, run it in the primary, or set
+`ALLOW_LINKED_WORKTREE_CONFIG=1` for a deliberate shared write). Standalone clones pass straight
+through; outside a git repo it refuses. Suggested alias so the guard is the default path:
+`git config alias.cfg '!scripts/safe-git-config.sh'` → `git cfg <args>` (set it in a standalone
+clone). The hook wiring in this repo is shared estate tooling (`release-notes.mjs`), so the guard is
+a repo-local script rather than a hook — hooks cannot intercept a bare `git config` anyway.
+`tests/git-config-guard.test.ts` proves classification against three real fixtures and proves the
+hazard itself: bypassing the guard in a linked-worktree fixture demonstrably writes the **primary**
+checkout's config.
+
 ## 5. Leftover design-tool directories
 
 `./.impeccable` and siblings are still sitting in the repo. Cosmetic; decide keep or remove.
