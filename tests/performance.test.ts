@@ -35,6 +35,9 @@ const MEASURED_TOTAL: Record<string, number> = {
   '/field-notes/b2b-trade-portals-what-to-build-first/': 204679,
   '/field-notes/cqc-compliance-evidence-stop-scrambling/': 203978,
   '/field-notes/credit-hire-website-compliance-trust-checklist/': 206179,
+  // Measured 2026-09-21 (added with this post): node tests/support/perf-cli.ts --csv
+  // against a fresh PUBLIC_AUT_SENTRY_WEB_DSN="" build.
+  '/field-notes/duplicate-data-what-identity-matching-fixes/': 205211,
   '/field-notes/five-signs-spreadsheet-problem/': 205242,
   // Measured 2026-09-07 (added with this post): node tests/support/perf-cli.ts --csv
   // against a fresh PUBLIC_AUT_SENTRY_WEB_DSN="" build.
