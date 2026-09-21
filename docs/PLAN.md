@@ -21,6 +21,7 @@ Measured 31 Aug at the fully-revealed page state a reader actually experiences (
   passes at **11.62** while "01" sits at **1.73** and "04" at **1.64**. One of three passing by a
   factor of seven suggests the light and dark stroke tokens are swapped on two of them. **Check that
   before treating it as an exception.**
+  - *Finding (2026-09-21):* **Not a token swap.** Verified in `src/styles/global.css`, `src/pages/services.astro`, and rendered DOM via Chromium. The CSS rules systematically assign `-webkit-text-stroke-color: var(--ghost-paper)` (`#c4c4cc`, light) on `.on-paper` sections, and fallback `-webkit-text-stroke: 1px var(--border-strong)` (`#34343d`, dark) on default/dark sections. Both pairs are deliberate low-contrast "ghost" strokes against their backdrops (~1.73:1 for light stroke on white paper `#ffffff` on 01/03, ~1.64:1 for dark stroke on black `#000000`/`#08080a` on 02/04). The apparent 11.62 ratio for "02" in the 31 Aug contrast notes was a measurement anomaly in the test script (which recorded `#offer-2` as having light stroke `rgb(196, 196, 204)` and `#offer-3` as `rgba(0,0,0,0)`); in reality, in computed style `#offer-2` has `strokeColor: rgb(52, 52, 61)` (1.64:1), identical to `#offer-4`. No colours changed; remains a deliberate decorative choice (`aria-hidden="true"`, EX-2 exception candidate for Waseem under AUT-7594).
 
 **Accepted exceptions, recorded not silently passed:** the 14 proof-strip separator dots (EX-1) and
 the numerals as decoration (EX-2) — both `aria-hidden` candidates.
@@ -46,6 +47,19 @@ safely before doing it — that judgement is the work.
 Scored 63/100 before the agent-readiness work shipped and never re-run, so nobody knows what the
 work bought. **Done looks like:** re-run and record both numbers together.
 
+**Re-measured 2026-09-21:**
+- **Baseline (2026-08-22):** **63 / 100** ("Important blockers remain", 8 failed · 3 partial)
+  - Essential: 48.9 / 80 (5 / 9 passed)
+  - Recommended: 11.5 / 20 (7 / 14 passed)
+  - Bonus: +2.1 (10 positive signals)
+- **Re-run (2026-09-21T20:56:48.003Z via official scan stream API / `npx is-agentic automancer.uk`):** **79 / 100** ("Ready with a few material gaps", 6 failed · 3 partial)
+  - Essential: 61.8 / 80 (8 / 11 passed)
+  - Recommended: 14.7 / 20 (14 / 20 passed)
+  - Bonus: +2.1 (10 positive signals)
+  - Net gain: **+16 points**.
+  - Remaining 6 failures: JSON error responses (Essential, static host limitation), Markdown content negotiation (Essential, acceptmarkdown.com / GitHub Pages limitation), REST typed error model (Recommended), REST versioning / deprecation policy (Recommended), CLI tool available (Recommended), Rate limit response headers (Recommended).
+  - Remaining 3 partials: Agent-friendly 404s (Essential), Developer resource discoverability (Recommended), Brand name discoverability (Recommended).
+
 ## 4. Two worktrees share this repo's git settings
 
 A `git config` change in one silently changes the other. **This is a live foot-gun, not a
@@ -56,6 +70,14 @@ means a linked worktree sharing its primary's config; `.git` a DIRECTORY means a
 ## 5. Leftover design-tool directories
 
 `./.impeccable` and siblings are still sitting in the repo. Cosmetic; decide keep or remove.
+
+**Resolved 2026-09-21:**
+- **Inventory in primary checkout (`/opt/automancer/projects/automancer/automancer-site`):**
+  - `.impeccable/` (8.0 KB) — contains `hook.cache.json` (3,081 bytes), tool session cache from July/August 2026.
+  - `src/content/case-studies/.impeccable/` (8.0 KB) — contains `hook.cache.json` (778 bytes), tool session cache from July 2026.
+- **Reference check:** Full grep confirmed zero references in the site application code, configs, scripts, or tests.
+- **Git status:** These directories were never committed or tracked in git history; worktree checkouts do not contain them.
+- **Action taken:** Added `.impeccable/` to `.gitignore` so that future sessions using the `impeccable` skill never leave untracked scratch directories visible to git. Untracked scratch files in the primary checkout left for the repo owner per estate boundary rules.
 
 ---
 
