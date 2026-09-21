@@ -25,3 +25,7 @@ pnpm-debug.log*
 
 # Local Claude Code harness settings (per-worktree, contains absolute paths).
 .claude/
+
+# Impeccable skill session cache
+.impeccable/
+
