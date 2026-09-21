@@ -143,6 +143,7 @@ estimated from a neighbouring post.
 |---|---:|---:|---:|---:|---:|---:|
 | `/field-notes/how-ai-agents-actually-make-decisions/` (2026-09-07) | 19,087 | 52,026 | 4,751 | 120,620 | 6,960 | **203,444** |
 | `/field-notes/what-governed-ai-means-and-why-it-matters/` (2026-09-14) | 19,497 | 52,026 | 4,751 | 120,620 | 6,960 | **203,854** |
+| `/field-notes/duplicate-data-what-identity-matching-fixes/` (2026-09-21) | 20,854 | 52,026 | 4,751 | 120,620 | 6,960 | **205,211** |
 
 ## What changed, and why rendering is byte-for-byte identical
 
