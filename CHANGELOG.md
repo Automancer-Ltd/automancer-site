@@ -1,5 +1,10 @@
 # Release notes
 
+## v2026.09.21.1 — 21 September 2026
+
+A new field note explains how identity matching helps reduce duplicate data and orphan records.
+
+
 ## v2026.09.15.1 — 15 September 2026
 
 A new field note explains what governed AI means and why it matters.
