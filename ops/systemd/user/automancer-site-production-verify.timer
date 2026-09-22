@@ -1,0 +1,14 @@
+[Unit]
+Description=Verify automancer.uk production every 30 minutes
+Documentation=file:/opt/automancer/auto/automancer-detectors/site/docs/DEPLOYMENT.md
+
+[Timer]
+# Use a wall-clock schedule. OnUnitActiveSec can park after a missed run in
+# this estate's user manager while still appearing enabled and active.
+OnCalendar=*:0/30
+Persistent=true
+AccuracySec=1min
+Unit=automancer-site-production-verify.service
+
+[Install]
+WantedBy=timers.target

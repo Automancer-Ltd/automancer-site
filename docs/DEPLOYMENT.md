@@ -112,7 +112,13 @@ ops/verify-production.sh https://automancer.uk
 
 ## Uptime monitoring
 
-Two GitHub Actions workflows call `ops/verify-production.sh` against
+UptimeRobot checks `https://automancer.uk/` from outside the estate. That is
+the independent availability signal: it answers whether the public URL
+responds, but it does not validate the deployed revision, declared assets,
+legal footer anchor, Sentry destination, real 404 behaviour, or the TLS
+certificate's 21-day expiry floor.
+
+Two GitHub Actions workflows currently call `ops/verify-production.sh` against
 production:
 
 - **`deploy.yml` → `verify` job** — runs after every deploy and fails the
@@ -121,10 +127,24 @@ production:
   everything between deploys: site down, certificate expiring, a bad change
   landing out-of-band.
 
-Failures surface as red runs (GitHub notifies maintainers of failing
-scheduled workflows by email). There is no dedicated pager or external
-multi-region vantage point — if monitoring needs to survive GitHub itself
-being unable to see the site, that remains outstanding work.
+The cron is transitional. The replacement user timer is defined at
+`ops/systemd/user/automancer-site-production-verify.{service,timer}` and runs
+the same script every 30 minutes from the reviewed pin at
+`/opt/automancer/auto/automancer-detectors/site`. Failures use the estate's
+`alert-email@%n.service` route into the daily digest. The deploy command is:
+
+```bash
+ops/deploy-production-monitor.sh <full-reviewed-main-sha>
+```
+
+The deploy refuses before changing anything when AUT-9801's dangling
+release-note unit links are present, because `systemctl --user daemon-reload`
+would otherwise drop four live writers. Once that prerequisite is resolved,
+activate the timer, observe two consecutive scheduled runs about 30 minutes
+apart, and prove the failure route with the established no-send alert test.
+Only then remove `schedule` from `uptime.yml`; keep `workflow_dispatch` as the
+on-demand production check. UptimeRobot remains the independent availability
+monitor throughout the cutover.
 
 ## Sentry, and how it fails silently
 

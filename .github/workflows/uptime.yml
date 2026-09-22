@@ -1,8 +1,9 @@
 name: Uptime
 
-# Production uptime monitor. The site has no other availability signal:
-# Sentry's browser SDK captures client-side JS errors only and would not
-# notice the site down, a failed deploy, or an expired certificate.
+# Scheduled production correctness verification. UptimeRobot independently
+# checks https://automancer.uk/ from outside this estate, so basic URL
+# availability does not depend on this workflow. Sentry's browser SDK captures
+# client-side JS errors only.
 #
 # Runs ops/verify-production.sh — the exact same assertions as the verify
 # job in deploy.yml, from one shared script so the two can never drift.
@@ -13,6 +14,10 @@ name: Uptime
 # estate's alert-email path into Waseem's next daily digest. This is deliberate:
 # Gmail contains no past failed-Uptime notice, so GitHub's optional scheduled-
 # workflow mail is not treated as the delivery contract.
+#
+# TRANSITIONAL: keep the cron until the reviewed auto-vps timer has fired on its
+# real interval and its failure route to the daily digest is proved. AUT-9908's
+# follow-up then removes only schedule, retaining workflow_dispatch.
 #
 # Cron is UTC. The expression asks for every 30 minutes; GitHub's shared
 # scheduler does not honour that as the detection window. Measured 31 Aug 2026
