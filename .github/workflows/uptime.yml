@@ -29,11 +29,10 @@ permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  group: uptime
   # Never cancel an in-flight check: a slow run must finish and report, not
-  # vanish because the next scheduled run started. This workflow has no
-  # pull_request trigger, so this always evaluates false.
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  # vanish because the next scheduled run started.
+  cancel-in-progress: false
 
 jobs:
   check:
