@@ -29,17 +29,19 @@ permissions:
   contents: read
 
 concurrency:
-  group: uptime
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
   # Never cancel an in-flight check: a slow run must finish and report, not
-  # vanish because the next scheduled run started.
-  cancel-in-progress: false
+  # vanish because the next scheduled run started. This workflow has no
+  # pull_request trigger, so this always evaluates false.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   check:
-    runs-on: ubuntu-latest
-    # Worst case is every check burning its full 90s retry budget (~19 min);
-    # a healthy site finishes in under a minute.
-    timeout-minutes: 25
+    runs-on: ${{ fromJSON(vars.CI_RUNNER || '"ubuntu-latest"') }}
+    # A healthy site finishes in under a minute (measured: 9-45s across the
+    # last 20 scheduled runs). The cap bounds a down-site run instead of
+    # letting every check burn its full 90s retry budget (~19 min).
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
