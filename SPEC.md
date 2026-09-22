@@ -64,7 +64,7 @@ Provide a truthful public front door for Automancer. Give people and machines th
 
 ### Runtime health signals
 
-- What it does: Reports production browser errors to the configured Sentry project. UptimeRobot independently checks public URL availability. The deeper production verifier checks the deployed content and TLS contract; its reviewed auto-vps timer is defined in this repository, with the GitHub Actions schedule retained only until activation is observed.
+- What it does: Reports production browser errors to the configured Sentry project. UptimeRobot independently checks public URL availability. The production verifier checks deployed content and TLS. This repository defines its reviewed auto-vps timer. The GitHub Actions schedule remains until the timer is observed.
 - State: built
 - Shaped by: `src/scripts/sentry.ts`, `.github/workflows/uptime.yml`, `ops/verify-production.sh`, and `ops/systemd/user/`.
 
