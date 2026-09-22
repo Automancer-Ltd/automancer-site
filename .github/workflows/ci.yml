@@ -3,9 +3,11 @@ name: CI
 # Build + typecheck + test on every PR and every push to main. The deploy
 # workflow (deploy.yml) is untouched and remains the only path to Pages.
 #
-# Estate CI rules applied: per-job timeout, concurrency group keyed on the
-# ref that cancels superseded runs, push filtered to the default branch so
-# branch pushes aren't billed twice alongside their pull_request run.
+# Estate CI rules applied: per-job timeout, concurrency group keyed per
+# workflow, event and PR-or-ref that cancels superseded pull-request runs,
+# push filtered to the default branch so branch pushes aren't billed twice
+# alongside their pull_request run, and the runner taken from the org's
+# CI_RUNNER variable.
 
 on:
   push:
@@ -13,16 +15,16 @@ on:
   pull_request:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
 
 jobs:
   test:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
+    runs-on: ${{ fromJSON(vars.CI_RUNNER || '"ubuntu-latest"') }}
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -54,7 +56,7 @@ jobs:
   # 127.0.0.1 (never production) and asserts each can go red and green. No pnpm or
   # Node needed — just bash, curl, python3 and openssl.
   self-test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(vars.CI_RUNNER || '"ubuntu-latest"') }}
     timeout-minutes: 5
     steps:
       - name: Checkout
