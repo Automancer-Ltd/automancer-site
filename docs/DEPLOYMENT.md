@@ -83,8 +83,10 @@ curl -s -o /dev/null -w '%{http_code}\n' https://automancer.uk/definitely-not-a-
 
 `ops/verify-production.sh` automates a stronger version of this: page
 statuses, a real (not soft) 404, `llms.txt`, sitemap XML validity, the legal
-footer anchor on the homepage, and TLS certificate expiry more than 14 days
-out — each retried for up to 90 seconds so a lagging Pages deploy is ridden
+footer anchor on the homepage, and TLS certificate expiry more than 21 days
+out (`TLS_MIN_DAYS=21` in the script — corrected from "14" on 2026-09-22; the
+threshold must sit below Let's Encrypt's ~29-day renewal point) — each
+retried for up to 90 seconds so a lagging Pages deploy is ridden
 out but a real failure still fails. It takes the base URL as its argument,
 so it can be pointed at a preview:
 
