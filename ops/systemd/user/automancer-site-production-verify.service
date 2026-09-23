@@ -1,0 +1,16 @@
+[Unit]
+Description=Verify automancer.uk production content and TLS
+Documentation=file:/opt/automancer/auto/automancer-detectors/site/docs/DEPLOYMENT.md
+Wants=network-online.target
+After=network-online.target
+OnFailure=alert-email@%n.service
+
+[Service]
+Type=oneshot
+Environment=HOME=/home/ubuntu
+Environment=PATH=/home/ubuntu/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=/opt/automancer/auto/automancer-detectors/site/ops/verify-production.sh https://automancer.uk
+# The verifier has a bounded 90-second retry budget for each independent
+# assertion. Keep the service bounded above the workflow's existing ceiling.
+TimeoutStartSec=25min
+Nice=10

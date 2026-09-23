@@ -63,4 +63,6 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Self-test the production checker
-        run: ops/verify-production.sh --self-test
+        run: |
+          ops/verify-production.sh --self-test
+          ops/test-production-monitor.sh

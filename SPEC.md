@@ -64,17 +64,16 @@ Provide a truthful public front door for Automancer. Give people and machines th
 
 ### Runtime health signals
 
-- What it does: Reports production browser errors to the configured Sentry project. It runs the production verifier on a GitHub Actions schedule.
+- What it does: Reports production browser errors to the configured Sentry project. UptimeRobot independently checks public URL availability. The production verifier checks deployed content and TLS. This repository defines its reviewed auto-vps timer. The GitHub Actions schedule remains until the timer is observed.
 - State: built
-- Shaped by: `src/scripts/sentry.ts`, `.github/workflows/uptime.yml`, and `ops/verify-production.sh`.
+- Shaped by: `src/scripts/sentry.ts`, `.github/workflows/uptime.yml`, `ops/verify-production.sh`, and `ops/systemd/user/`.
 
 ### Provider-independent availability monitoring
 
-- What it does: Would detect an outage when GitHub Actions cannot check the site.
-- State: planned
-- Shaped by: The monitoring limitation recorded in `docs/DEPLOYMENT.md`.
+- What it does: Detects basic URL unavailability independently of GitHub Actions through UptimeRobot.
+- State: built
+- Shaped by: The monitoring contract recorded in `docs/DEPLOYMENT.md`.
 
 ## Open decisions
 
-- Decide whether availability monitoring must run outside GitHub Actions.
 - Decide whether production failures need a dedicated pager or the current digest route.

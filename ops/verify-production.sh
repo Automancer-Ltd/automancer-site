@@ -11,8 +11,8 @@
 # check stayed green), the legal footer anchor is on the homepage, and the
 # TLS certificate is valid and not about to expire. Both
 # .github/workflows/deploy.yml (post-deploy verify job) and
-# .github/workflows/uptime.yml (cron monitor) call THIS script — the checks
-# exist once so the two callers can never drift apart.
+# .github/workflows/uptime.yml and the auto-vps production-verifier timer call
+# THIS script — the checks exist once so the callers can never drift apart.
 #
 # Every check retries transiently: Pages can lag a few seconds behind a fresh
 # deploy, and a monitor that cries wolf gets muted. Each check polls for up
