@@ -1,6 +1,6 @@
 name: Uptime
 
-# Scheduled production correctness verification. UptimeRobot independently
+# On-demand production correctness verification. UptimeRobot independently
 # checks https://automancer.uk/ from outside this estate, so basic URL
 # availability does not depend on this workflow. Sentry's browser SDK captures
 # client-side JS errors only.
@@ -8,26 +8,16 @@ name: Uptime
 # Runs ops/verify-production.sh — the exact same assertions as the verify
 # job in deploy.yml, from one shared script so the two can never drift.
 #
-# Human delivery is external to this workflow: auto-vps's live
-# ci-alert-check.timer discovers every repository-owned workflow, including
-# this scheduled one. A sustained red on automancer-site is routed through the
-# estate's alert-email path into Waseem's next daily digest. This is deliberate:
-# Gmail contains no past failed-Uptime notice, so GitHub's optional scheduled-
-# workflow mail is not treated as the delivery contract.
-#
-# TRANSITIONAL: keep the cron until the reviewed auto-vps timer has fired on its
-# real interval and its failure route to the daily digest is proved. AUT-9908's
-# follow-up then removes only schedule, retaining workflow_dispatch.
-#
-# Cron is UTC. The expression asks for every 30 minutes; GitHub's shared
-# scheduler does not honour that as the detection window. Measured 31 Aug 2026
-# from all 174 scheduled runs (22 Aug 01:57Z – 31 Aug 00:43Z): median gap
-# 45.5 minutes, mean 74.5 minutes, longest 12.5 hours. workflow_dispatch
-# allows triggering a check on demand.
+# There is deliberately no schedule. The recurring check is the auto-vps user
+# timer ops/systemd/user/automancer-site-production-verify.timer, which runs
+# this same script every 30 minutes from the reviewed pin and routes a failure
+# through OnFailure=alert-email@%n.service into Waseem's daily digest
+# (AUT-9926). The cron it replaced was the estate's whole Actions bill, and
+# GitHub's shared scheduler never honoured it as a detection window: measured
+# 31 Aug 2026 from all 174 scheduled runs, median gap 45.5 minutes, longest
+# 12.5 hours. Do not add a schedule back; fix the timer instead.
 
 on:
-  schedule:
-    - cron: '*/30 * * * *'
   workflow_dispatch:
 
 permissions:
@@ -36,7 +26,7 @@ permissions:
 concurrency:
   group: uptime
   # Never cancel an in-flight check: a slow run must finish and report, not
-  # vanish because the next scheduled run started.
+  # vanish because a second dispatch started.
   cancel-in-progress: false
 
 jobs:

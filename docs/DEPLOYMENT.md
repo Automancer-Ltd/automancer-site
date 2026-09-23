@@ -118,33 +118,38 @@ responds, but it does not validate the deployed revision, declared assets,
 legal footer anchor, Sentry destination, real 404 behaviour, or the TLS
 certificate's 21-day expiry floor.
 
-Two GitHub Actions workflows currently call `ops/verify-production.sh` against
-production:
+Three things call `ops/verify-production.sh` against production:
 
 - **`deploy.yml` → `verify` job** — runs after every deploy and fails the
   release run if production does not serve what was shipped.
-- **`uptime.yml`** — cron every 30 minutes plus on-demand dispatch, covering
+- **The auto-vps user timer** — `automancer-site-production-verify.timer`,
+  every 30 minutes on the wall clock (`OnCalendar=*:0/30`), covering
   everything between deploys: site down, certificate expiring, a bad change
-  landing out-of-band.
+  landing out-of-band. Unit files live at
+  `ops/systemd/user/automancer-site-production-verify.{service,timer}` and run
+  from the reviewed pin at `/opt/automancer/auto/automancer-detectors/site`.
+  A failure follows `OnFailure=alert-email@%n.service` into the estate's
+  alert-email path; `automancer-site-production-verify.service failed` matches
+  no page rule, so it lands in the daily digest and files a Paperclip issue.
+- **`uptime.yml`** — on-demand only (`workflow_dispatch`). It has no schedule:
+  the cron was retired by AUT-9926 once the timer had fired twice on its real
+  interval and the failure route was proved without sending mail.
 
-The cron is transitional. The replacement user timer is defined at
-`ops/systemd/user/automancer-site-production-verify.{service,timer}` and runs
-the same script every 30 minutes from the reviewed pin at
-`/opt/automancer/auto/automancer-detectors/site`. Failures use the estate's
-`alert-email@%n.service` route into the daily digest. The deploy command is:
+Merging to `main` does **not** move the pin. To ship a change to the verifier
+or its units, deploy the reviewed merge commit:
 
 ```bash
 ops/deploy-production-monitor.sh <full-reviewed-main-sha>
 ```
 
-The deploy refuses before changing anything when AUT-9801's dangling
-release-note unit links are present, because `systemctl --user daemon-reload`
-would otherwise drop four live writers. Once that prerequisite is resolved,
-activate the timer, observe two consecutive scheduled runs about 30 minutes
-apart, and prove the failure route with the established no-send alert test.
-Only then remove `schedule` from `uptime.yml`; keep `workflow_dispatch` as the
-on-demand production check. UptimeRobot remains the independent availability
-monitor throughout the cutover.
+The deploy refuses before changing anything when a release-note unit link is
+dangling (AUT-9801), because `systemctl --user daemon-reload` would otherwise
+drop a live writer. Check the timer with
+`systemctl --user list-timers automancer-site-production-verify.timer` and the
+last run with `journalctl --user -u automancer-site-production-verify.service`.
+
+UptimeRobot remains the independent availability monitor: it does not depend
+on auto-vps or on GitHub Actions.
 
 ## Sentry, and how it fails silently
 
@@ -186,7 +191,7 @@ curl -s https://automancer.uk/ | grep -c 'Automancer'
 ops/verify-production.sh --assert-sentry-bundle <a-local-copy-of-the-js-bundle>
 ```
 
-The production verify job and the uptime cron run the same assertion against
+The production verify job and the auto-vps timer run the same assertion against
 the live homepage bundle. Do not grep the bundle for an ingest host and treat
 a non-zero count as success — that is the check this replaced.
 

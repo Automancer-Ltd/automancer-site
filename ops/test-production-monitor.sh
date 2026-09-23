@@ -15,6 +15,14 @@ grep -Fqx 'OnCalendar=*:0/30' "$timer"
 grep -Fqx 'Persistent=true' "$timer"
 grep -Fqx 'AccuracySec=1min' "$timer"
 
+# The timer replaced the Actions cron (AUT-9926); the workflow stays on-demand.
+uptime="$root/.github/workflows/uptime.yml"
+grep -Eq '^  workflow_dispatch:' "$uptime"
+if grep -Eq '^[[:space:]]*(schedule:|- cron:)' "$uptime"; then
+  printf 'uptime.yml must not carry a schedule; the auto-vps timer owns the recurring check\n' >&2
+  exit 1
+fi
+
 AUTOMANCER_USER_UNIT_DIR="$scratch/units" "$deploy" --preflight-only >/dev/null
 
 mkdir -p "$scratch/units"
