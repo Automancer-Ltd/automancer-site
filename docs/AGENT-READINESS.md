@@ -70,7 +70,7 @@ The response, now enforced in code and tests:
 4. **Production is checked, not just the artifact.** `ops/verify-production.sh`
    asserts `/agent.json` answers 200 with parseable JSON and `/security.txt`
    answers 200 satisfying RFC 9116 (including that `Canonical` matches the
-   served URL). It runs post-deploy and on the uptime cron.
+   served URL). It runs post-deploy and on the auto-vps 30-minute timer.
 
 ## How is-agentic.com scores
 
