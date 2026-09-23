@@ -32,7 +32,7 @@ concurrency:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(vars.CI_RUNNER || '"ubuntu-latest"') }}
     timeout-minutes: 10
     steps:
       - name: Checkout
@@ -71,7 +71,7 @@ jobs:
 
   deploy:
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(vars.CI_RUNNER || '"ubuntu-latest"') }}
     timeout-minutes: 10
     environment:
       name: github-pages
@@ -93,10 +93,11 @@ jobs:
   # this job is mandatory, a red verify means a red release.
   verify:
     needs: deploy
-    runs-on: ubuntu-latest
-    # Worst case is every check burning its full 90s retry budget (~19 min);
-    # a healthy deploy finishes this job in under a minute.
-    timeout-minutes: 25
+    runs-on: ${{ fromJSON(vars.CI_RUNNER || '"ubuntu-latest"') }}
+    # A healthy deploy finishes this job in under a minute (measured: whole
+    # runs end in ~45-75s). The cap bounds a down-site run instead of letting
+    # every check burn its full 90s retry budget (~19 min).
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
