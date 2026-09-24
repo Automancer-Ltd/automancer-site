@@ -260,7 +260,7 @@ export function measureAllPages(): PageMeasurement[] {
   // tests/performance.test.ts budgets are `for (const p of layoutPages)` and
   // `pages.flatMap(...)`. If this returned an empty array, every one of those
   // would pass VACUOUSLY — zero iterations, an empty offenders list, green.
-  // The stub-size check has its own count, but the four layout budgets and the
+  // The stub-size check has its own count, but the layout budgets and the
   // dangling-asset assertion do not, so an empty dist/ would have proved
   // nothing while reporting success.
   //

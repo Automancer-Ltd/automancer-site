@@ -54,7 +54,8 @@ tests/developer-surface.test.ts  the post-scan surface (2026-08-22): OpenAPI 3.1
 tests/assets.test.ts        rot-guard: every file in public/assets/images must
                             be referenced somewhere in dist/ (this directory
                             collected dead og-image/logo variants before)
-tests/performance.test.ts   byte budgets per page against the fresh build
+tests/performance.test.ts   byte budgets for every built page (one default,
+                            declared exceptions only)
                             (total/js/fonts), derived from measured values —
                             method and tables live in docs/PERFORMANCE.md
 tests/contact-errors.test.ts  lead-API error-copy guard: lifts the built contact
