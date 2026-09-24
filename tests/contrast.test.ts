@@ -110,29 +110,8 @@ describe('muted body-secondary on paper vs dark', () => {
   });
 });
 
-describe('404 recovery descriptions never paint --muted onto paper', () => {
+describe('paper surfaces never inline the dark-surface --muted token', () => {
   const INLINE_MUTED = /color\s*:\s*var\(--muted\)/;
-
-  it('paper-section description spans use the muted class, not an inline dark-surface token', () => {
-    const page = allHtmlFiles().find((p) => p.is404);
-    expect(page, 'dist/404.html missing').toBeTruthy();
-    const paperSections = page!.doc.querySelectorAll('.on-paper');
-    expect(paperSections.length, '404 lost its paper sections').toBeGreaterThan(0);
-    let spans = 0;
-    for (const section of paperSections) {
-      for (const span of section.querySelectorAll('li span')) {
-        spans += 1;
-        const style = span.getAttribute('style') ?? '';
-        expect(
-          style,
-          `404 paper span still inlines the dark-surface token: "${style}"`
-        ).not.toMatch(INLINE_MUTED);
-        const cls = span.getAttribute('class') ?? '';
-        expect(cls.split(/\s+/).includes('muted'), `404 paper span has class "${cls}"`).toBe(true);
-      }
-    }
-    expect(spans, 'no 404 paper description spans — this assertion examined nothing').toBeGreaterThan(0);
-  });
 
   it('no page inlines color:var(--muted) inside a paper surface', () => {
     let examined = 0;

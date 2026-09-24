@@ -209,25 +209,32 @@ plus the weights the page uses, not from a network capture.
 
 ## Enforcing it: tests/performance.test.ts
 
-The budget test measures the fresh production build (globalSetup builds once)
-and fails when any layout page exceeds:
+The budget test measures the fresh production build (globalSetup builds once).
+Every layout page ships the same shared payload (184,676 B on 2026-09-24: CSS,
+`main.js`, the four fonts, favicons) plus its own HTML, so one default budget
+covers every page the build emits. A new page needs no entry. Each layout page
+fails when it exceeds:
 
-- total page weight: measured value (2026-08-31) + max(1024, ceil(2%)) headroom,
+- total page weight: the heaviest layout page measured on 2026-09-24
+  (`/contact/`, 210,164 B) + max(1024, ceil(2%)) headroom = 214,368 B,
 - JS: 4,751 B measured → 5,775 B budget,
-- wired fonts: 120,620 B measured → 123,033 B budget,
+- wired fonts: 120,620 B measured → 123,033 B budget.
 
-plus three structural gates: no page without a budget entry (fail-closed for
-new pages), no reference to a missing asset (catches dangling url()s after any
-future prune), and no unreferenced woff2 shipping (mirrors assets.test.ts).
+A page that genuinely needs more gets an entry in `LAYOUT_EXCEPTIONS` with its
+own measured value and a reason. An exception that names no built page, or
+whose page now fits the default, fails the suite until it is deleted.
 
-The gate has been seen failing: temporarily lowering `/terms/`'s
-`MEASURED_TOTAL` to 190,000 B produces `/terms/: total 196795 B > budget 193800 B …`
-with 1 failed / 135 passed of 136; restoring the measured value returns it to
-green (136/136). A budget table that passes everything proves nothing. Full
-transcript in `docs/lanes/orch-auto-site-perf-budgets-notes.md`.
+Three structural gates sit alongside: no reference to a missing asset (catches
+dangling url()s after any future prune), no unreferenced woff2 shipping
+(mirrors assets.test.ts), and an empty `dist/` throws rather than passing every
+page check with nothing examined.
 
-To re-derive budgets after a deliberate change: build, run
-`node tests/support/perf-cli.ts --csv`, update the MEASURED_* values in
+The gate has been seen failing (2026-09-24): padding `/about/` with ~15.6 KB of
+text produces `/about/: total 217718 B > budget 214368 B …`, and restoring the
+page returns it to green. A budget that passes everything proves nothing.
+
+To re-derive after a deliberate change to the shared payload: build, run
+`node tests/support/perf-cli.ts --csv`, update the measured values in
 tests/performance.test.ts together with the new date, and record the reason
 here.
 
