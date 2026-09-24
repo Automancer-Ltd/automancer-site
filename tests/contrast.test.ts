@@ -48,6 +48,48 @@ describe('services offer labels', () => {
     const ratio = contrast(declaration(textSelector, 'color'), declaration(surfaceSelector, 'background'));
     expect(ratio, `${textSelector} contrast is ${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(4.5);
   });
+
+  // `.on-paper .offer__step` shares this rule; the helper matches the selector that ends it.
+  it.each([
+    ['paper', '.on-paper'],
+    ['paper-2', '.on-paper-2'],
+  ])('STEP labels meet WCAG AA on the %s offer sections', (_name, surfaceSelector) => {
+    const ratio = contrast(declaration('.on-paper-2 .offer__step', 'color'), declaration(surfaceSelector, 'background'));
+    expect(ratio, `.offer__step on ${surfaceSelector} is ${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(4.5);
+  });
+});
+
+describe('footer spectral tagline', () => {
+  // Darkest point of a gradient, sampled along its sRGB interpolation (the CSS default).
+  function darkest(gradientVariable: string, background: string) {
+    const gradient = css!.match(new RegExp(`--${gradientVariable}:linear-gradient\\(90deg,([^;}]+)\\)`))?.[1];
+    expect(gradient, `--${gradientVariable} is undefined`).toBeTruthy();
+    const stops = gradient!.split(',').map((stop) => rgb(stop.trim()));
+    let worst = Infinity;
+    for (let i = 0; i < stops.length - 1; i += 1) {
+      for (let step = 0; step <= 50; step += 1) {
+        const mixed = stops[i].map((channel, c) => Math.round(channel + ((stops[i + 1][c] - channel) * step) / 50));
+        const hex = `#${mixed.map((channel) => channel.toString(16).padStart(2, '0')).join('')}`;
+        worst = Math.min(worst, contrast(hex, background));
+      }
+    }
+    return worst;
+  }
+
+  it('the footer paints the text-safe spectrum on its tagline', () => {
+    expect(declaration('.footer .spectral-text', 'background-image')).toBe('var(--spectrum-text)');
+  });
+
+  it('every point of the text-safe spectrum meets WCAG AA on the footer', () => {
+    const ratio = darkest('spectrum-text', declaration('.footer', 'background'));
+    expect(ratio, `darkest point of --spectrum-text is ${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('the display spectrum is the sub-AA gradient this gate exists to catch', () => {
+    // Positive control: the unlifted violet stop really is below 4.5 on black.
+    const ratio = darkest('spectrum', declaration('.footer', 'background'));
+    expect(ratio, `darkest point of --spectrum is ${ratio.toFixed(2)}:1 — expected below 4.5`).toBeLessThan(4.5);
+  });
 });
 
 describe('muted body-secondary on paper vs dark', () => {
