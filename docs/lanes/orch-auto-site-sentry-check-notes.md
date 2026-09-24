@@ -139,6 +139,13 @@ homepage (`/assets/js/main.js` only) fail + right-project pass. Result line:
 
 ## Alert routing (read-only; this half stays open)
 
+> **Closed 2026-09-24 (AUT-7596, AUT-7568).** The table below is a 2026-08-31
+> snapshot. On 2026-09-01 workflow 709585, and every other alert workflow in
+> the org, was disabled on purpose. Site errors now reach a person through the
+> estate Sentry poller, and a tagged test event proved it end to end. The empty
+> detector wiring is intended. See `docs/DEPLOYMENT.md`, "Where a Sentry error
+> goes".
+
 Executor, `sentry.org.automancer.*`, region `de`, no writes.
 
 On project `automancer-site` (`4511769898647632`):
