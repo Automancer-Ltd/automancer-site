@@ -195,6 +195,37 @@ The production verify job and the auto-vps timer run the same assertion against
 the live homepage bundle. Do not grep the bundle for an ingest host and treat
 a non-zero count as success — that is the check this replaced.
 
+### Where a Sentry error goes (proved 2026-09-24, AUT-7596)
+
+Sentry does **not** email anyone about this project, and that is deliberate.
+Every alert workflow in the `automancer` org was disabled in one sweep on
+2026-09-01 (22:11–22:13Z), the evening the board limited immediate mail to
+four page classes (ops runbook `vps-ops.md`, "Delivery route"). A site error
+is not one of them. Sentry's own error mail would also be invisible: a Gmail
+filter on `waseem@automancer.uk` archives it and marks it read on arrival.
+
+The path we own is the estate poller on auto-vps,
+`/opt/automancer/ops/scripts/sentry-issue-digest.sh`
+(`sentry-issue-digest.timer`, every 15 min plus up to 15 min jitter). It reads
+every unresolved `error`/`fatal` issue in the org, this project included, and
+hands each to `alert-email.sh` on the `digest` route. That files one Paperclip
+`[alert] Sentry issue <shortId>` card (agent work first, per the board's
+2026-08-28 alert contract), and adds the issue to the spool the 06:30Z
+"Automancer digest" mail reads. That mail names only the top three alert
+subjects, so a single site error shows there as a count. The card is where it
+gets acted on.
+
+So the empty `workflowIds` on the "Error Monitor" detector (1529890) is not a
+gap: wiring it would re-enable an interrupt the board removed, into a mailbox
+filter that hides it. Do not "fix" it without a change to the routing table.
+
+The end-to-end proof: one tagged event (`tags.test=alert-path-proof`) sent
+through the site DSN at 02:37:19Z became `AUTOMANCER-SITE-5`. The poller took
+it at 02:42:54Z, spooled it, and filed AUT-10230. It was then resolved in
+Sentry. To repeat it, send the same shape, then check
+`/opt/automancer/var/sentry-issue-digest/latched` and the spool for the
+short id after the next timer run.
+
 ## Local verification runs on a different Node major than CI
 
 | | Node |
