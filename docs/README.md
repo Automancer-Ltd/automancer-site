@@ -29,7 +29,7 @@ work, kept because they carry the method behind a measurement.
 | Path | What it is |
 |---|---|
 | `archive/2026-08-31-ox-alpha-campaign.md` | The Ox Alpha campaign log, closed 2026-08-31. Moved here on 2026-09-05 from `docs/ox-alpha-campaign.md`; older notes that cite the old path mean this file. |
-| `lanes/` | Per-lane measurement records from campaign 003 (contrast, performance budgets, Sentry check), 2026-08-31 |
+| `lanes/` | Per-lane measurement records from campaign 003 (contrast, performance budgets, Sentry check), 2026-08-31, and the AUT-7594 contrast fix-and-re-measure, 2026-09-24 |
 | `notes/` | Per-lane working notes from the 2026-08-30 estate lanes |
 
 ## The rule for adding to this directory

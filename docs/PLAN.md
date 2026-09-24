@@ -5,7 +5,7 @@ campaign queue, which is discarded when the campaign closes. **Nothing here is b
 are filed as Paperclip issues on *AUTO — Website & BD Engine* instead. Each entry says what it is,
 what "done" looks like, and what has already been measured, so nobody re-derives it.
 
-## 1. Three AA contrast failures on readable text — a design call, not a bug fix
+## 1. Three AA contrast failures on readable text — resolved 2026-09-24
 
 Measured 31 Aug at the fully-revealed page state a reader actually experiences (140 nodes: 121 pass,
 19 fail, 0 unmeasurable, plus 2 axe-computed). Full per-element table with method and ratios:
@@ -23,13 +23,22 @@ Measured 31 Aug at the fully-revealed page state a reader actually experiences (
   before treating it as an exception.**
   - *Finding (2026-09-21):* **Not a token swap.** Verified in `src/styles/global.css`, `src/pages/services.astro`, and rendered DOM via Chromium. The CSS rules systematically assign `-webkit-text-stroke-color: var(--ghost-paper)` (`#c4c4cc`, light) on `.on-paper` sections, and fallback `-webkit-text-stroke: 1px var(--border-strong)` (`#34343d`, dark) on default/dark sections. Both pairs are deliberate low-contrast "ghost" strokes against their backdrops (~1.73:1 for light stroke on white paper `#ffffff` on 01/03, ~1.64:1 for dark stroke on black `#000000`/`#08080a` on 02/04). The apparent 11.62 ratio for "02" in the 31 Aug contrast notes was a measurement anomaly in the test script (which recorded `#offer-2` as having light stroke `rgb(196, 196, 204)` and `#offer-3` as `rgba(0,0,0,0)`); in reality, in computed style `#offer-2` has `strokeColor: rgb(52, 52, 61)` (1.64:1), identical to `#offer-4`. No colours changed; remains a deliberate decorative choice (`aria-hidden="true"`, EX-2 exception candidate for Waseem under AUT-7594).
 
-**Accepted exceptions, recorded not silently passed:** the 14 proof-strip separator dots (EX-1) and
-the numerals as decoration (EX-2) — both `aria-hidden` candidates.
+**Resolved 2026-09-24 (AUT-7594; Magnus decided the fix-or-accept split).** The before/after
+re-measure, its method and a calibration are in `docs/lanes/2026-09-24-contrast-remeasure.md`.
 
-**Done looks like:** those elements measure at or above threshold, **re-measured by the same method**
-so the numbers are comparable, or are recorded as accepted exceptions with a stated reason. This is a
-frontend pass (use the `impeccable` skill), not a text edit — changing a gradient stop by eye is
-exactly how a 1.47 becomes a 3.9 that nobody checks.
+- **Footer tagline: fixed. 1.47 / 1.62 / 1.48 (31 Aug) → 4.68 on all three pages.** The footer now
+  paints `--spectrum-text`. That is the same spectrum with the violet stop lifted along its own hue,
+  `#7744ff` → `#8455ff`, and the worst point of the gradient is 4.7:1 on black. Measuring the colour
+  the glyphs are painted with gives **4.04 → 4.68**. The 31 Aug figure of ~1.5 was mostly
+  antialiasing: at 13.76px that statistic reads a solid 9.02:1 link as 1.45. The tagline did fail,
+  but at 4.04. The fix is pinned in `tests/contrast.test.ts`.
+- **`STEP 01` / `STEP 03`: fixed. 4.18 → 5.12.** Paper sections now use `--faint-dark`, the
+  paper-surface label token.
+- **EX-1: accepted exception.** The 14 proof-strip `·` separators, 2.22:1. They are decoration
+  inside the `aria-hidden` marquee track; the static summary carries the content.
+- **EX-2: accepted exception.** The ghost offer numerals, 1.64–1.73:1. They are `aria-hidden`
+  outline figures, and the STEP label and offer name carry the information. Not a token swap
+  (finding above).
 
 ## 2. The rollback runbook has never been run
 
@@ -98,10 +107,6 @@ checkout's config.
 Filed as `WASEEM DECISION` Paperclip issues on *AUTO — Website & BD Engine* as well, so they are
 collectible; repeated here so they survive any tool.
 
-- **AUT-7594 — three pieces of text fail readability, and fixing them means changing colours you
-  chose.** The footer line "very good engineering" measures ~1.5 against a needed 4.5. Two offer
-  labels sit at 4.18. The decorative numerals look like two of three have their light and dark
-  outline colours swapped — check that before treating it as decoration.
 - **AUT-7596 — prove the error alerts reach a real person.** Connecting the detector is
   straightforward; deliberately causing a live error and confirming a named person received the
   alert is not something an agent should do unsupervised.

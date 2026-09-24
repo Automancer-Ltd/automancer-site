@@ -80,6 +80,12 @@ h1, h2, h3, h4, h5, h6 { overflow-wrap: break-word; }
   --spectrum: linear-gradient(90deg,
     var(--spec-1), var(--spec-2), var(--spec-3), var(--spec-4),
     var(--spec-5), var(--spec-6), var(--spec-7), var(--spec-1));
+  /* Same spectrum for small spectral body text: the violet stop is lifted along its
+     own hue so every point of the gradient clears 4.5:1 on black (worst ~4.7:1). */
+  --spec-6-text: #8455ff;
+  --spectrum-text: linear-gradient(90deg,
+    var(--spec-1), var(--spec-2), var(--spec-3), var(--spec-4),
+    var(--spec-5), var(--spec-6-text), var(--spec-7), var(--spec-1));
   --spectrum-soft: linear-gradient(90deg,
     #ff446688, #33dd7788, #3399ff88, #cc44dd88);
 
@@ -652,6 +658,7 @@ strong { font-weight: 600; color: inherit; }
   -webkit-text-stroke: 1px var(--border-strong); }
 .on-paper .offer__num, .on-paper-2 .offer__num { -webkit-text-stroke-color: var(--ghost-paper); }
 .offer__step { font-family: var(--font-mono); font-size: 0.78rem; letter-spacing: 0.08em; color: var(--faint); }
+.on-paper .offer__step, .on-paper-2 .offer__step { color: var(--faint-dark); }
 .offer__name { font-size: var(--t-section); line-height: 1.08; }
 /* The price is a claim: it gets its own plate — amount, unit, then a spectral
    underline that echoes the nav's active language. */
@@ -968,6 +975,7 @@ strong { font-weight: 600; color: inherit; }
   min-height: 24px; min-width: 24px;
 }
 .footer__addr a:hover { color: var(--white); }
+.footer .spectral-text { background-image: var(--spectrum-text); }
 .footer__col h3 { font-family: var(--font-mono); font-size: 0.68rem; letter-spacing: 0.12em; text-transform: uppercase;
   color: var(--faint); margin-bottom: var(--sp-5); }
 .footer__col nav { display: flex; flex-direction: column; gap: var(--sp-3); }
