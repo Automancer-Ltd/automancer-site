@@ -34,13 +34,13 @@ Agents reading the site now see the same one-week meeting promise that people al
 
 This release makes the site clearer and easier to use across key visitor journeys.
 
-## Improvements
+### Improvements
 
 - Navigation links and controls are easier to tap on mobile devices.
 - The site tagline is available to visitors using screen readers.
 - The terms page displays its publication date.
 
-## Fixes
+### Fixes
 
 - Text on the page-not-found screen is easier to read.
 - Contact form errors bring the relevant field into view, so you can see what needs attention.
