@@ -27,7 +27,7 @@ const fmt = (dt: Date) =>
 <BaseLayout title={fitTitle(d.title)} description={fitDescription(d.description)} ogType="article">
   <Fragment slot="head">
     <JsonLd
-      nodes={[articleNode({ path: Astro.url.pathname, title: d.title, description: d.description, date: d.date, author: d.author })]}
+      nodes={[articleNode({ path: Astro.url.pathname, title: d.title, description: d.description, date: d.date, author: d.author, body: entry.body })]}
     />
   </Fragment>
 

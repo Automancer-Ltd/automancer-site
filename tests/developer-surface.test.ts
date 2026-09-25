@@ -481,4 +481,37 @@ describe('JSON-LD — Person and ProfessionalService nodes are complete', () => 
       'structured data claims social profiles that exist nowhere in src/data/ — do not invent them'
     ).toEqual([]);
   });
+
+  it('field-note BlogPosting nodes publish a wordCount that matches the body the API serves', () => {
+    // The word count in JSON-LD must equal the whitespace-token count of the
+    // same note's body in /api/field-notes.json: one article, one length, and
+    // a "wordCount: 0" on a full-length note is exactly the machine/human
+    // disagreement the site must never publish.
+    const payload = JSON.parse(readDistFile('api/field-notes.json') ?? 'null') as {
+      fieldNotes: { slug: string; body: string }[];
+    };
+    const bodyBySlug = new Map(payload.fieldNotes.map((n) => [n.slug, n.body]));
+    expect(bodyBySlug.size, 'api/field-notes.json emitted no notes').toBeGreaterThan(0);
+
+    let checked = 0;
+    for (const page of contentPages()) {
+      const slug = /^\/field-notes\/([^/]+)\/$/.exec(page.route)?.[1];
+      if (!slug) continue;
+      const body = bodyBySlug.get(slug);
+      expect(body, `${page.route}: no matching body in api/field-notes.json`).toBeTruthy();
+      const expected = (body ?? '').split(/\s+/).filter(Boolean).length;
+      for (const block of page.doc.querySelectorAll('script[type="application/ld+json"]')) {
+        const graph = (JSON.parse(block.text) as { '@graph'?: Spec[] })['@graph'] ?? [];
+        for (const node of graph) {
+          if (node['@type'] !== 'BlogPosting') continue;
+          checked++;
+          expect(
+            node.wordCount,
+            `${page.route}: BlogPosting wordCount ${String(node.wordCount)} != body token count ${expected}`
+          ).toBe(expected);
+        }
+      }
+    }
+    expect(checked, 'no BlogPosting node found on any field-note page').toBe(bodyBySlug.size);
+  });
 });
