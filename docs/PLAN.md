@@ -102,11 +102,11 @@ checkout's config.
 
 ---
 
-## NEEDS WASEEM
+## Resolved decisions
 
-Filed as `WASEEM DECISION` Paperclip issues on *AUTO — Website & BD Engine* as well, so they are
-collectible; repeated here so they survive any tool.
-
-- **AUT-7596 — prove the error alerts reach a real person.** Connecting the detector is
-  straightforward; deliberately causing a live error and confirming a named person received the
-  alert is not something an agent should do unsupervised.
+- **AUT-7596 — prove the error alerts reach a real person. Resolved 2026-09-24** (merge
+  `3d94191`). A tagged test event was sent through the live site and traced end to end to the
+  estate poller's Paperclip alert card plus the morning digest — the person-routing this section
+  was waiting on. The proof and repeat-me steps live in `docs/DEPLOYMENT.md` ("Where a Sentry
+  error goes"); the Paperclip issue is closed as done. Nothing else is waiting on Waseem in this
+  repository.
