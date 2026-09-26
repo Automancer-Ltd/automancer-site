@@ -50,6 +50,8 @@ export async function noteFeedItems(): Promise<FeedItem[]> {
 const esc = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
+const escCdata = (s: string) => s.replace(/]]>/g, ']]]]><![CDATA[>');
+
 export function rssFeed(opts: {
   collectionTitle: string;
   collectionPath: string;
@@ -74,7 +76,7 @@ export function rssFeed(opts: {
       `<guid>${esc(new URL(item.path, business.url).toString())}</guid>`,
       `<pubDate>${item.date.toUTCString()}</pubDate>`,
       `<description>${esc(item.description)}</description>`,
-      `<content:encoded xmlns:content="http://purl.org/rss/1.0/modules/content/"><![CDATA[${item.body}]]></content:encoded>`,
+      `<content:encoded xmlns:content="http://purl.org/rss/1.0/modules/content/"><![CDATA[${escCdata(item.body)}]]></content:encoded>`,
       '</item>'
     );
   }
