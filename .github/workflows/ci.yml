@@ -66,3 +66,16 @@ jobs:
         run: |
           ops/verify-production.sh --self-test
           ops/test-production-monitor.sh
+
+  estate-checks:
+    name: estate checks
+    runs-on: ${{ fromJSON(vars.CI_RUNNER || '"ubuntu-latest"') }}
+    timeout-minutes: 5
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Estate Checks
+        uses: Automancer-Ltd/estate-checks@v1
