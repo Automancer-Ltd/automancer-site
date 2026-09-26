@@ -4,6 +4,7 @@
  */
 import { business } from './business';
 import { getStudies, getNotes } from './site-content';
+import { abs, pagePath } from './urls';
 
 export interface FeedItem {
   slug: string;
@@ -25,7 +26,7 @@ export async function studyFeedItems(): Promise<FeedItem[]> {
     parts.push(e.body ?? '');
     return {
       slug: e.id,
-      path: `/work/${e.id}`,
+      path: pagePath(`/work/${e.id}`),
       title: e.data.headline ?? e.data.title,
       description: e.data.description,
       date: e.data.date,
@@ -39,7 +40,7 @@ export async function noteFeedItems(): Promise<FeedItem[]> {
   const notes = await getNotes();
   return notes.map((e) => ({
     slug: e.id,
-    path: `/field-notes/${e.id}`,
+    path: pagePath(`/field-notes/${e.id}`),
     title: e.data.title,
     description: e.data.description,
     date: e.data.date,
@@ -63,7 +64,7 @@ export function rssFeed(opts: {
     '<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">',
     '<channel>',
     `<title>${esc(`${business.tradingName} — ${opts.collectionTitle}`)}</title>`,
-    `<link>${esc(new URL(opts.collectionPath, business.url).toString())}</link>`,
+    `<link>${esc(abs(opts.collectionPath))}</link>`,
     `<description>${esc(business.description)}</description>`,
     '<language>en-gb</language>',
     `<atom:link href="${esc(feedUrl)}" rel="self" type="application/rss+xml" />`,
@@ -72,8 +73,8 @@ export function rssFeed(opts: {
     channel.push(
       '<item>',
       `<title>${esc(item.title)}</title>`,
-      `<link>${esc(new URL(item.path, business.url).toString())}</link>`,
-      `<guid>${esc(new URL(item.path, business.url).toString())}</guid>`,
+      `<link>${esc(abs(item.path))}</link>`,
+      `<guid>${esc(abs(item.path))}</guid>`,
       `<pubDate>${item.date.toUTCString()}</pubDate>`,
       `<description>${esc(item.description)}</description>`,
       `<content:encoded xmlns:content="http://purl.org/rss/1.0/modules/content/"><![CDATA[${escCdata(item.body)}]]></content:encoded>`,
@@ -92,14 +93,14 @@ export function jsonFeed(opts: {
   return {
     version: 'https://jsonfeed.org/version/1.1',
     title: `${business.tradingName} — ${opts.collectionTitle}`,
-    home_page_url: business.url,
+    home_page_url: abs('/'),
     feed_url: new URL(`${opts.collectionPath}feed.json`, business.url).toString(),
     description: business.description,
     language: 'en-GB',
-    authors: [{ name: 'Waseem Ilyas', url: new URL('/about', business.url).toString() }],
+    authors: [{ name: 'Waseem Ilyas', url: abs('/about') }],
     items: opts.items.map((item) => ({
-      id: new URL(item.path, business.url).toString(),
-      url: new URL(item.path, business.url).toString(),
+      id: abs(item.path),
+      url: abs(item.path),
       title: item.title,
       summary: item.description,
       // Raw Markdown is plain-text-safe; full content, not an excerpt.
