@@ -1,0 +1,5 @@
+{
+  "kind": "auto",
+  "url": "https://automancer.uk",
+  "regex": "<span>build:</span><b>([0-9a-f]{7,40})</b>"
+}
