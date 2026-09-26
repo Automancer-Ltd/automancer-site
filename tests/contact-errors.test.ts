@@ -54,9 +54,11 @@ function builtContactScript(): string {
 }
 
 interface StubResponse {
-  status: number;
+  status?: number;
   /** JSON the stubbed lead API answers with. */
   body?: unknown;
+  /** Error thrown by fetch (e.g. AbortError / TimeoutError on network timeout). */
+  reject?: Error;
 }
 
 interface FieldStub {
@@ -75,6 +77,8 @@ interface DriveResult {
   shown: string;
   fields: Record<string, FieldStub>;
   fetchCalls: number;
+  lastFetchInit?: RequestInit;
+  submitBtn: { disabled: boolean; textContent: string };
 }
 
 /**
@@ -118,6 +122,7 @@ async function driveFormState(
   type SubmitHandler = (event: { preventDefault(): void }) => Promise<void>;
   let onSubmit: SubmitHandler | null = null;
   let fetchCalls = 0;
+  let capturedFetchInit: RequestInit | undefined;
 
   const field = (value: string): FieldStub => {
     const attrs: Record<string, string> = {};
@@ -197,9 +202,11 @@ async function driveFormState(
   )(
     documentStub,
     {},
-    async () => {
+    async (_url: string, init?: RequestInit) => {
       fetchCalls += 1;
-      return { status: response.status, json: async () => response.body };
+      capturedFetchInit = init;
+      if (response.reject) throw response.reject;
+      return { status: response.status ?? 200, json: async () => response.body };
     },
     { getItem: () => null },
     { search: '' },
@@ -214,7 +221,16 @@ async function driveFormState(
   for (let i = 0; i < submissions; i++) {
     await onSubmit!({ preventDefault() {} });
   }
-  return { shown: errEl.textContent, fields, fetchCalls };
+  return {
+    shown: errEl.textContent,
+    fields,
+    fetchCalls,
+    lastFetchInit: capturedFetchInit,
+    submitBtn: {
+      disabled: submitBtn.disabled,
+      textContent: btnLabel.textContent,
+    },
+  };
 }
 
 /** Whole-string shape of an API error code: lowercase snake_case, no spaces. */
@@ -403,3 +419,20 @@ describe('client-side validation moves focus to the first invalid field', () => 
     expect(result.fields.name.getAttribute('aria-invalid')).toBeNull();
   });
 });
+
+describe('aborted or timed-out submission', () => {
+  const script = builtContactScript();
+
+  it('passes an AbortSignal timeout to fetch and restores form with direct email fallback on abort', async () => {
+    const abortError = new DOMException('The operation was aborted due to timeout', 'TimeoutError');
+    const result = await driveFormState(script, { reject: abortError });
+
+    expect(result.lastFetchInit?.signal, 'fetch call must receive an AbortSignal').toBeInstanceOf(AbortSignal);
+    expect(result.shown).toContain('Couldn’t reach us just now.');
+    expect(result.shown).toMatch(/email\s+\S+@automancer\.uk/);
+    assertHumanCopy(result.shown, 'aborted fetch error');
+    expect(result.submitBtn.disabled).toBe(false);
+    expect(result.submitBtn.textContent).toBe('Send it to Waseem');
+  });
+});
+
