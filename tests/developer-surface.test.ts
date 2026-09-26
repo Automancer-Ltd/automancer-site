@@ -309,6 +309,14 @@ describe('/developers — human-readable docs linked from the homepage', () => {
     );
   });
 
+  it('is included in production verification routes in ops/verify-production.sh', () => {
+    const script = readFileSync(join(ROOT, 'ops', 'verify-production.sh'), 'utf8');
+    const routesMatch = script.match(/readonly ROUTES=\(([^)]+)\)/);
+    expect(routesMatch, 'ROUTES definition missing from ops/verify-production.sh').toBeTruthy();
+    const routes = routesMatch![1].split(/\s+/).map((r) => r.replace(/^"|"$/g, ''));
+    expect(routes).toContain('/developers');
+  });
+
   it('agent.json advertises the developer docs and OpenAPI spec at servable paths', () => {
     const agent = JSON.parse(readDistFile('agent.json')!) as {
       machineReadable?: {

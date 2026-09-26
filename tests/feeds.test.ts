@@ -11,6 +11,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { SITE_URL, allHtmlFiles, contentPages, readDistFile } from './support/dist';
 import { contentEntries } from './support/content';
 import { business, services } from '../src/data/business';
+import { abs } from '../src/data/urls';
 
 vi.mock('../src/data/site-content', () => ({
   getStudies: async () => [],
@@ -82,11 +83,14 @@ describe('/llms.txt — anti-drift vs src/data/business.ts', () => {
     const lines = raw!.split('\n');
     expect(lines).toContain(`Email: ${business.email}`);
     expect(lines).toContain(`Web: ${business.url}`);
-    expect(lines).toContain(`Contact form: ${business.url}/contact`);
+    expect(lines).toContain(`Contact form: ${abs('/contact')}`);
     const phoneLine = lines.find((l) => l.startsWith('Phone:'));
     expect(phoneLine, 'llms.txt has no Phone line').toBeTruthy();
     // Byte-identical phone number, including spacing.
     expect(phoneLine).toContain(`Phone: ${business.phone} `);
+    const devDocsLine = lines.find((l) => l.includes('Developer docs:'));
+    expect(devDocsLine, 'llms.txt has no Developer docs line').toBeTruthy();
+    expect(devDocsLine).toContain(`Developer docs: ${abs('/developers')} — `);
   });
 
   it('states every service price byte-identically to business.ts', () => {
@@ -209,5 +213,75 @@ describe('RSS feed CDATA escaping', () => {
     expect(xml).toContain('const arr = [[1]]]]><![CDATA[>;` and markup: `<div class="test">nested</div>`.');
     assertWellFormedXml(xml, 'RSS feed with CDATA containing ]]>');
   });
+});
+
+describe('feed link canonical trailing slashes', () => {
+  const feedPaths = [
+    { xml: 'work/rss.xml', json: 'work/feed.json' },
+    { xml: 'field-notes/rss.xml', json: 'field-notes/feed.json' },
+  ];
+
+  for (const { xml, json } of feedPaths) {
+    it(`${xml} channel link, item links and guids carry canonical trailing slashes`, () => {
+      const content = readDistFile(xml);
+      expect(content, `dist/${xml} missing`).toBeTruthy();
+
+      const channelLink = content!.match(/<channel>[\s\S]*?<link>(.*?)<\/link>/)?.[1];
+      expect(channelLink, `missing channel link in ${xml}`).toBeTruthy();
+      expect(
+        new URL(channelLink!).pathname.endsWith('/'),
+        `channel link "${channelLink}" in ${xml} lacks trailing slash`
+      ).toBe(true);
+
+      const itemLinks = [...content!.matchAll(/<item>[\s\S]*?<link>(.*?)<\/link>/g)].map((m) => m[1]);
+      expect(itemLinks.length, `no item links in ${xml}`).toBeGreaterThan(0);
+      for (const link of itemLinks) {
+        expect(
+          new URL(link).pathname.endsWith('/'),
+          `item link "${link}" in ${xml} lacks trailing slash`
+        ).toBe(true);
+      }
+
+      const itemGuids = [...content!.matchAll(/<guid>(.*?)<\/guid>/g)].map((m) => m[1]);
+      expect(itemGuids.length, `no item guids in ${xml}`).toBeGreaterThan(0);
+      for (const guid of itemGuids) {
+        expect(
+          new URL(guid).pathname.endsWith('/'),
+          `item guid "${guid}" in ${xml} lacks trailing slash`
+        ).toBe(true);
+      }
+    });
+
+    it(`${json} item and author URLs carry canonical trailing slashes`, () => {
+      const content = readDistFile(json);
+      expect(content, `dist/${json} missing`).toBeTruthy();
+      const parsed = JSON.parse(content!) as {
+        authors?: { name: string; url?: string }[];
+        items?: { id: string; url: string }[];
+      };
+
+      expect(parsed.authors?.length, `authors missing in ${json}`).toBeGreaterThan(0);
+      for (const author of parsed.authors ?? []) {
+        if (author.url) {
+          expect(
+            new URL(author.url).pathname.endsWith('/'),
+            `author url "${author.url}" in ${json} lacks trailing slash`
+          ).toBe(true);
+        }
+      }
+
+      expect(parsed.items?.length, `items missing in ${json}`).toBeGreaterThan(0);
+      for (const item of parsed.items ?? []) {
+        expect(
+          new URL(item.url).pathname.endsWith('/'),
+          `item url "${item.url}" in ${json} lacks trailing slash`
+        ).toBe(true);
+        expect(
+          new URL(item.id).pathname.endsWith('/'),
+          `item id "${item.id}" in ${json} lacks trailing slash`
+        ).toBe(true);
+      }
+    });
+  }
 });
 

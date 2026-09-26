@@ -76,7 +76,7 @@ export const GET: APIRoute = () => {
   lines.push(`Email: ${business.email}`);
   lines.push(`Phone: ${business.phone} (voicemail line — reaches Waseem, same as the form)`);
   lines.push(`Web: ${business.url}`);
-  lines.push(`Contact form: ${business.url}/contact`);
+  lines.push(`Contact form: ${abs('/contact')}`);
   lines.push('');
 
   lines.push('## Company');
@@ -101,7 +101,7 @@ export const GET: APIRoute = () => {
     `- OpenAPI 3.1 spec: ${business.url}/openapi.json — machine-readable description of every JSON endpoint (unique operationIds, typed response schemas) for function calling.`
   );
   lines.push(
-    `- Developer docs: ${business.url}/developers — human-readable guide to every endpoint, Markdown twin, feed and manifest, with example requests. No authentication; read-only.`
+    `- Developer docs: ${abs('/developers')} — human-readable guide to every endpoint, Markdown twin, feed and manifest, with example requests. No authentication; read-only.`
   );
   lines.push(`- Business facts: ${business.url}/api/business.json`);
   lines.push(`- Services & pricing: ${business.url}/api/services.json`);
