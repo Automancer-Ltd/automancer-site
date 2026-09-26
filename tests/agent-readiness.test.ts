@@ -242,6 +242,23 @@ describe('/llms.txt and /llms-full.txt', () => {
     }
   });
 
+  it('lists canonical sitemap URLs with trailing slashes matching pagePath for directory pages', () => {
+    expect(llms, 'dist/llms.txt missing').toBeTruthy();
+    const siteMapSection = llms!.split('## Site map')[1]?.split(/^##\s/m)[0] ?? '';
+    expect(siteMapSection, 'Site map section missing from llms.txt').toBeTruthy();
+
+    const urls = [...siteMapSection.matchAll(/-\s+(https?:\/\/\S+)/g)].map((m) => m[1]);
+    expect(urls.length, 'expected sitemap URLs in llms.txt').toBeGreaterThan(0);
+
+    for (const url of urls) {
+      const parsed = new URL(url);
+      expect(
+        parsed.pathname.endsWith('/'),
+        `sitemap URL "${url}" lacks canonical trailing slash (would cause redirect hop)`
+      ).toBe(true);
+    }
+  });
+
   it('gives every collection entry a section with non-empty text in llms-full.txt', () => {
     // `e.body ?? ''` makes an empty entry body indistinguishable from "no
     // content yet" — the section would still be emitted, headed and all,

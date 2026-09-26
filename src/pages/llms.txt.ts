@@ -3,6 +3,7 @@
 // drift from the JSON-LD structured data or the services page.
 import type { APIRoute } from 'astro';
 import { business, services } from '../data/business';
+import { abs } from '../data/urls';
 
 const formatPrice = (n: number) =>
   n.toLocaleString('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 });
@@ -118,13 +119,13 @@ export const GET: APIRoute = () => {
   lines.push('');
 
   lines.push('## Site map');
-  lines.push(`- ${business.url}/ — Home`);
-  lines.push(`- ${business.url}/services — Services & pricing`);
-  lines.push(`- ${business.url}/work — Case studies`);
-  lines.push(`- ${business.url}/field-notes — Articles`);
-  lines.push(`- ${business.url}/about — About`);
-  lines.push(`- ${business.url}/contact — Contact`);
-  lines.push(`- ${business.url}/developers — Developer & agent documentation`);
+  lines.push(`- ${abs('/')} — Home`);
+  lines.push(`- ${abs('/services')} — Services & pricing`);
+  lines.push(`- ${abs('/work')} — Case studies`);
+  lines.push(`- ${abs('/field-notes')} — Articles`);
+  lines.push(`- ${abs('/about')} — About`);
+  lines.push(`- ${abs('/contact')} — Contact`);
+  lines.push(`- ${abs('/developers')} — Developer & agent documentation`);
 
   return new Response(lines.join('\n') + '\n', {
     headers: { 'Content-Type': 'text/plain; charset=utf-8' },

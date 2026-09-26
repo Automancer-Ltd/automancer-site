@@ -7,10 +7,17 @@
  * source of truth. If llms.txt drifts from business.ts (or someone edits
  * the generator to hardcode a value), this fails.
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { SITE_URL, allHtmlFiles, contentPages, readDistFile } from './support/dist';
 import { contentEntries } from './support/content';
 import { business, services } from '../src/data/business';
+
+vi.mock('../src/data/site-content', () => ({
+  getStudies: async () => [],
+  getNotes: async () => [],
+}));
+
+import { rssFeed } from '../src/data/feeds';
 
 // Same formatting as src/pages/llms.txt.ts — asserted equal in the
 // generator-parity check below so the two can never silently diverge.
@@ -147,3 +154,60 @@ describe('draft exclusion', () => {
     }
   });
 });
+
+function assertWellFormedXml(xml: string, label: string): void {
+  const stripped = xml
+    .replace(/<\?[\s\S]*?\?>/g, '')
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/<!\[CDATA[\s\S]*?\]\]>/g, '');
+  const tagRe = /<(\/?)([A-Za-z][\w.:-]*)([^>]*?)(\/?)>/g;
+  const stack: string[] = [];
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = tagRe.exec(stripped)) !== null) {
+    expect(
+      stripped.slice(last, m.index).includes('<'),
+      `${label}: stray "<" outside any tag — malformed markup`
+    ).toBe(false);
+    last = tagRe.lastIndex;
+    const [, closing, name, , selfClosing] = m;
+    if (selfClosing) continue;
+    if (closing) {
+      expect(
+        stack.pop(),
+        `${label}: closing </${name}> has no matching open tag`
+      ).toBe(name);
+    } else {
+      stack.push(name);
+    }
+  }
+  expect(
+    stripped.slice(last).includes('<'),
+    `${label}: stray "<" outside any tag — malformed markup`
+  ).toBe(false);
+  expect(stack, `${label}: unclosed element(s): ${stack.join(', ')}`).toEqual([]);
+}
+
+describe('RSS feed CDATA escaping', () => {
+  it('escapes ]]> inside Markdown body so CDATA blocks are well-formed and not prematurely terminated', () => {
+    const rawMarkdown = 'Example with nested arrays: `const arr = [[1]]>;` and markup: `<div class="test">nested</div>`.';
+    const xml = rssFeed({
+      collectionTitle: 'Case Studies',
+      collectionPath: '/work/',
+      items: [
+        {
+          slug: 'test-cdata',
+          path: '/work/test-cdata',
+          title: 'Test CDATA escaping',
+          description: 'Testing CDATA edge case',
+          date: new Date('2026-09-25T12:00:00Z'),
+          body: rawMarkdown,
+        },
+      ],
+    });
+
+    expect(xml).toContain('const arr = [[1]]]]><![CDATA[>;` and markup: `<div class="test">nested</div>`.');
+    assertWellFormedXml(xml, 'RSS feed with CDATA containing ]]>');
+  });
+});
+
