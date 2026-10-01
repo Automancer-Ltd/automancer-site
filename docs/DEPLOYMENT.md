@@ -23,16 +23,53 @@ Because `deploy.yml` runs entirely on GitHub-hosted runners with no VPS step
 to call `release-notes.mjs auto` from (and the writer model is an on-box
 subscription CLI a hosted runner cannot reach), the deploy-time write the
 rest of the estate relies on cannot run for this repo either. Instead, the VPS
-polls: `scripts/release-notes-catchup.sh --repo <path>` (in `automancer-auto`)
-treats "origin/main is ahead of the last release tag" as the deploy signal,
-since GitHub has already built and served the change by the time it runs, and
-performs the same sequence a human would run by hand:
+polls.
+
+### The hourly catch-up (corrected 2026-10-01, AUT-11770)
+
+The website-specific timer was retired in September 2026. The estate-wide
+`automancer-release-notes-catchup.timer` now runs every hour (with up to 5
+minutes' random delay) and starts `automancer-release-notes-catchup.service`.
+That service runs
+`/opt/automancer/srv/detectors/auto/scripts/release-notes-catchup-all.sh`.
+
+The runner only picks up repositories whose `.release-notes.json` on
+`origin/main` declares `"deployTrigger": "push"`, `"mixed"` or `"live"`. This
+repo declares `push`, because a push to `main` is the deploy. Until AUT-11770
+the key was missing, so it defaulted to `ref` and the runner skipped this site
+without saying so. To check it is enrolled, run:
 
 ```bash
-node /opt/automancer/auto/scripts/release-notes.mjs preview --repo "$PWD"   # read it first
-node /opt/automancer/auto/scripts/release-notes.mjs release --repo "$PWD" --yes
-git push && git push --tags
-node /opt/automancer/auto/scripts/release-notes.mjs publish --repo "$PWD" --ref "$(git rev-parse HEAD)" --tag vYYYY.MM.DD.N
+node /opt/automancer/srv/detectors/auto/scripts/release-notes.mjs configured-repos \
+  --root /opt/automancer/projects,/opt/automancer/ops | grep automancer-site
+# push	main	https://github.com/Automancer-Ltd/automancer-site.git	...
+```
+
+The runner never writes in a live checkout. It works in its own clone at
+`/opt/automancer/var/release-notes-catchup/automancer-site-626cb0d091cd`. The
+suffix is the first 12 hex characters of the SHA-256 of the origin URL. In that
+clone it runs `scripts/release-notes-catchup.sh --repo <clone> --branch main`.
+That script treats "origin/main is ahead of the last release tag" as the deploy
+signal, because GitHub has already built and served the change by the time it
+runs. `main` is protected, so the release commit goes to `main` through a
+`release/<version>` pull request with auto-merge. The script then pushes the tag
+and publishes the GitHub release. By hand, the sequence is:
+
+```bash
+RN=/opt/automancer/srv/detectors/auto/scripts/release-notes.mjs
+node "$RN" preview --repo "$PWD"   # read it first
+node "$RN" release --repo "$PWD" --yes --no-publish
+# Do not `git push` main: it is protected. publish pushes release/<tag>, opens
+# the pull request, arms auto-merge, then pushes the tag and the GitHub release.
+node "$RN" publish --repo "$PWD" --ref "$(git rev-parse HEAD)" --tag "$(git describe --tags --exact-match HEAD)"
+```
+
+To run one catch-up now instead of waiting for the hour, run it in the dedicated
+clone. Never run it in a working checkout:
+
+```bash
+/opt/automancer/srv/detectors/auto/scripts/release-notes-catchup.sh \
+  --repo /opt/automancer/var/release-notes-catchup/automancer-site-626cb0d091cd --branch main
 ```
 
 Docs-only commits are classified as not user-facing and need no release at all.
