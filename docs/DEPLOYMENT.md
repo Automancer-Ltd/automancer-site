@@ -51,11 +51,13 @@ suffix is the first 12 hex characters of the SHA-256 of the origin URL. In that
 clone it runs `scripts/release-notes-catchup.sh --repo <clone> --branch main`.
 That script treats "origin/main is ahead of the last release tag" as the deploy
 signal, because GitHub has already built and served the change by the time it
-runs. The script's `publish` step checks branch protection on `main` itself. If
-`main` is protected, the release commit goes through a `release/<version>` pull
-request with auto-merge. If it is not, the release commit is pushed straight to
-`main`. Today `main` has no protection, so `v2026.10.01.1` was pushed directly
-(`gh api repos/Automancer-Ltd/automancer-site/branches/main --jq .protected`).
+runs. The script's `publish` step decides how the release commit reaches
+`main`. It opens a `release/<version>` pull request with auto-merge in two
+cases: when `main` is protected, or when `main` has moved past the release
+commit. In every other case it pushes the release commit straight to `main`.
+On 2026-10-01 `main` had no protection and no rulesets, so `v2026.10.01.1` was
+pushed directly. That describes that day only; check the current state with
+`gh api repos/Automancer-Ltd/automancer-site/branches/main --jq .protected`.
 Either way the script then pushes the tag and publishes the GitHub release. By
 hand, the sequence is:
 
@@ -63,8 +65,9 @@ hand, the sequence is:
 RN=/opt/automancer/srv/detectors/auto/scripts/release-notes.mjs
 node "$RN" preview --repo "$PWD"   # read it first
 node "$RN" release --repo "$PWD" --yes --no-publish
-# Let publish push: it picks a direct push or a release/<tag> pull request from
-# main's protection, then pushes the tag and the GitHub release.
+# Let publish push. It opens a release/<tag> pull request if main is protected
+# or has moved past HEAD, and pushes directly otherwise. It then pushes the tag
+# and the GitHub release.
 node "$RN" publish --repo "$PWD" --ref "$(git rev-parse HEAD)" --tag "$(git describe --tags --exact-match HEAD)"
 ```
 
