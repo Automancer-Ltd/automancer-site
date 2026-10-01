@@ -1,5 +1,23 @@
 # Release notes
 
+## v2026.10.01.1 — 1 October 2026
+
+This release makes key website information easier to read and helps visitors get a response if an enquiry connection stalls. It also adds a new article about why business systems can disagree.
+
+### New article
+
+- Read about why business systems can disagree and the problems that can cause.
+
+### Improvements
+
+- The footer tagline and step labels are easier to read against their backgrounds.
+- Field note pages now provide a word count that matches the article.
+
+### Fixes
+
+- If an enquiry connection stalls, the form now stops waiting and shows a direct email option.
+
+
 ## v2026.09.21.1 — 21 September 2026
 
 A new field note explains how identity matching helps reduce duplicate data and orphan records.
