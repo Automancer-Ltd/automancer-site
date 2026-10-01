@@ -4,6 +4,7 @@
   "tagPrefix": "v",
   "changelog": "CHANGELOG.md",
   "productionRef": "main",
+  "deployTrigger": "push",
   "publishGithub": true,
   "glossary": []
 }
