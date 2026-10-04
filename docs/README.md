@@ -17,7 +17,7 @@ older one on the same subject; this file is the index that says so.
 
 | File | What it answers |
 |---|---|
-| `DEPLOYMENT.md` | How a change reaches automancer.uk, the release-notes pre-push gate, and how to verify a deploy landed |
+| `DEPLOYMENT.md` | How a change reaches automancer.uk, how release notes catch up, and how to verify a deploy landed |
 | `PERFORMANCE.md` | The measured payload budget per page and how it is enforced |
 | `AGENT-READINESS.md` | What the machine surfaces (`llms.txt`, `agent.json`, JSON-LD) promise and the tests that pin them |
 

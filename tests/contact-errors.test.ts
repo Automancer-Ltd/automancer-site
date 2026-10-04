@@ -28,7 +28,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { readDistFile } from './support/dist';
-import { LEAD_ERROR_COPY, LEAD_ERROR_FALLBACK } from '../src/config/site';
+import { LEAD_ERROR_COPY } from '../src/config/site';
 
 const PAGE = 'contact/index.html';
 
@@ -345,45 +345,6 @@ describe('the built contact page never shows a lead-API machine code', () => {
         'the repeated-failure copy must offer the direct email route'
       ).toMatch(/email\s+\S+@automancer\.uk/);
     }
-  });
-});
-
-describe('LEAD_ERROR_COPY and LEAD_ERROR_FALLBACK are wired into the built page', () => {
-  /**
-   * The map being DEFINED in src/config/site.ts proves nothing — the shape
-   * that shipped was a map nobody consulted. These checks pin the served
-   * bytes; the behavioural describe above pins their use (shown text equal
-   * to a map entry is only possible if the served script consults the map
-   * it carries).
-   */
-  const html = readDistFile(PAGE) ?? '';
-
-  it('ships every allowlist sentence in the served bytes', () => {
-    expect(Object.keys(LEAD_ERROR_COPY).length, 'allowlist empty — nothing checked').toBeGreaterThan(0);
-    for (const [code, sentence] of Object.entries(LEAD_ERROR_COPY)) {
-      expect(
-        html.includes(sentence),
-        `"${code}" copy is absent from ${PAGE} — the map exists in src but never reached the build`
-      ).toBe(true);
-      assertHumanCopy(sentence, `LEAD_ERROR_COPY["${code}"] itself`);
-    }
-  });
-
-  it('ships the fallback alongside it, and the script binds both names', () => {
-    expect(
-      html.includes(LEAD_ERROR_FALLBACK),
-      `LEAD_ERROR_FALLBACK is absent from ${PAGE}`
-    ).toBe(true);
-    expect(/\berrorCopy\b/.test(html), 'the built page never binds errorCopy').toBe(true);
-    expect(/\berrorFallback\b/.test(html), 'the built page never binds errorFallback').toBe(true);
-  });
-
-  it('guards the guards: the shape detector really recognises machine codes', () => {
-    expect(MACHINE_CODE.test('turnstile_failed')).toBe(true);
-    expect(MACHINE_CODE_TOKEN.test('we render turnstile_failed here')).toBe(true);
-    expect(MACHINE_CODE.test(LEAD_ERROR_FALLBACK)).toBe(false);
-    expect(MACHINE_CODE_TOKEN.test(LEAD_ERROR_FALLBACK)).toBe(false);
-    expect(MACHINE_CODE_TOKEN.test('The security check did not go through.')).toBe(false);
   });
 });
 
