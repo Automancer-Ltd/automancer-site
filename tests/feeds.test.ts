@@ -63,21 +63,8 @@ describe('sitemap', () => {
   });
 });
 
-describe('robots.txt', () => {
-  it('is emitted and references the correct sitemap URL', () => {
-    const robots = readDistFile('robots.txt');
-    expect(robots, 'dist/robots.txt missing').toBeTruthy();
-    expect(robots!.trim()).toContain(`Sitemap: ${SITE_URL}/sitemap-index.xml`);
-  });
-});
-
 describe('/llms.txt — anti-drift vs src/data/business.ts', () => {
   const raw = readDistFile('llms.txt');
-
-  it('is emitted and non-empty', () => {
-    expect(raw, 'dist/llms.txt missing').toBeTruthy();
-    expect(raw!.trim().length).toBeGreaterThan(0);
-  });
 
   it('states the exact email, phone and web address from business.ts', () => {
     const lines = raw!.split('\n');

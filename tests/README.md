@@ -40,9 +40,10 @@ tests/links.test.ts         every internal href/src/srcset must resolve to a rea
                             no TODO/FIXME/lorem ipsum in the build
 tests/a11y.test.ts          structural accessibility: landmarks, skip link,
                             labelled form controls, named buttons/links
-tests/feeds.test.ts         sitemap exactness vs emitted pages, robots.txt,
+tests/feeds.test.ts         sitemap exactness vs emitted pages,
                             llms.txt byte-parity with src/data/business.ts
                             (the anti-drift test), draft exclusion end to end
+                            (robots.txt is owned by agent-readiness.test.ts)
 tests/agent-readiness.test.ts  the machine-readable surface: Markdown twins,
                             llms.txt, /api/*.json payloads, agent.json +
                             security.txt (both routes, byte-parity), feeds
