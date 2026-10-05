@@ -1,5 +1,10 @@
 # Release notes
 
+## v2026.10.05.2 — 5 October 2026
+
+A new guide helps businesses explore which routine tasks may be suitable for automation on a budget under £1,000.
+
+
 ## v2026.10.01.1 — 1 October 2026
 
 This release makes key website information easier to read and helps visitors get a response if an enquiry connection stalls. It also adds a new article about why business systems can disagree.
