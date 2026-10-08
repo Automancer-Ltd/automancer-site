@@ -23,7 +23,7 @@ permissions:
 
 jobs:
   test:
-    runs-on: ${{ fromJSON(vars.CI_RUNNER || '"ubuntu-latest"') }}
+    runs-on: ${{ fromJSON(vars.CI_RUNNER || '"ubuntu-24.04"') }}
     timeout-minutes: 10
     steps:
       - name: Checkout
@@ -56,7 +56,7 @@ jobs:
   # 127.0.0.1 (never production) and asserts each can go red and green. No pnpm or
   # Node needed — just bash, curl, python3 and openssl.
   self-test:
-    runs-on: ${{ fromJSON(vars.CI_RUNNER || '"ubuntu-latest"') }}
+    runs-on: ${{ fromJSON(vars.CI_RUNNER || '"ubuntu-24.04"') }}
     timeout-minutes: 5
     steps:
       - name: Checkout
@@ -69,7 +69,7 @@ jobs:
 
   estate-checks:
     name: estate checks
-    runs-on: ${{ fromJSON(vars.CI_RUNNER || '"ubuntu-latest"') }}
+    runs-on: ${{ fromJSON(vars.CI_RUNNER || '"ubuntu-24.04"') }}
     timeout-minutes: 5
     steps:
       - name: Checkout code

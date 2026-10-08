@@ -31,7 +31,7 @@ concurrency:
 
 jobs:
   check:
-    runs-on: ${{ fromJSON(vars.CI_RUNNER || '"ubuntu-latest"') }}
+    runs-on: ${{ fromJSON(vars.CI_RUNNER || '"ubuntu-24.04"') }}
     # A healthy site finishes in under a minute (measured: 9-45s across the
     # last 20 scheduled runs). The cap bounds a down-site run instead of
     # letting every check burn its full 90s retry budget (~19 min).
