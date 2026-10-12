@@ -75,6 +75,7 @@ interface FieldStub {
 
 interface DriveResult {
   shown: string;
+  turnstileErrorCallback?: () => boolean;
   fields: Record<string, FieldStub>;
   fetchCalls: number;
   lastFetchInit?: RequestInit;
@@ -188,6 +189,8 @@ async function driveFormState(
     },
   };
 
+  const windowStub: { onTurnstileError?: () => boolean } = {};
+
   // Named parameters shadow Node globals, so the served bytes see exactly
   // what a browser hands a page: no Turnstile yet, no stored utm state, and
   // a fetch that answers with the stubbed response.
@@ -201,7 +204,7 @@ async function driveFormState(
     scriptText,
   )(
     documentStub,
-    {},
+    windowStub,
     async (_url: string, init?: RequestInit) => {
       fetchCalls += 1;
       capturedFetchInit = init;
@@ -222,7 +225,8 @@ async function driveFormState(
     await onSubmit!({ preventDefault() {} });
   }
   return {
-    shown: errEl.textContent,
+    get shown() { return errEl.textContent; },
+    turnstileErrorCallback: windowStub.onTurnstileError,
     fields,
     fetchCalls,
     lastFetchInit: capturedFetchInit,
@@ -397,3 +401,20 @@ describe('aborted or timed-out submission', () => {
   });
 });
 
+
+describe('Turnstile widget execution errors', () => {
+  const script = builtContactScript();
+
+  it('handles 600010, gives the visitor an email fallback, and does not leak an error code', async () => {
+    const html = readDistFile(PAGE)!;
+    expect(html).toContain('data-error-callback="onTurnstileError"');
+
+    const result = await driveFormState(script, { status: 200 });
+    expect(result.turnstileErrorCallback, 'the widget error callback was not installed globally').toBeTypeOf('function');
+    expect(result.turnstileErrorCallback!()).toBe(true);
+    expect(result.shown).toMatch(/security check could not load/i);
+    expect(result.shown).toMatch(/email\s+\S+@automancer\.uk/);
+    expect(result.shown).not.toContain('600010');
+    expect(result.shown).not.toContain('TurnstileError');
+  });
+});

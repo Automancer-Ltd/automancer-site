@@ -129,7 +129,7 @@ const steps = [
 
             <div class="field">
               <span class="sys" style="color:var(--muted)">Security check</span>
-              <div class="cf-turnstile turnstile-slot" data-sitekey={TURNSTILE_SITE_KEY} data-theme="dark"></div>
+              <div class="cf-turnstile turnstile-slot" data-sitekey={TURNSTILE_SITE_KEY} data-theme="dark" data-error-callback="onTurnstileError"></div>
             </div>
 
             <p id="form-error" class="form__micro" style="display:none; color:var(--spec-1)" role="alert"></p>
@@ -226,6 +226,14 @@ const steps = [
         var input = form.querySelector('[name="cf-turnstile-response"]');
         return input ? input.value : '';
       }
+      // Turnstile throws an uncaught TurnstileError (reaching Sentry as
+      // AUTOMANCER-SITE-4, code 600010 from headless browsers) when a widget has
+      // no error-callback. Handle it: tell the visitor the email route works, and
+      // return true so Turnstile treats the error as handled.
+      window.onTurnstileError = function () {
+        showError('The security check could not load. Please email ' + email + ' directly and we\u2019ll pick it up straight away.');
+        return true;
+      };
       function resetTurnstile() { try { if (window.turnstile) window.turnstile.reset(); } catch (e) {} }
 
       // Translate a machine code into copy WE wrote. Never render the code.
