@@ -47,9 +47,13 @@ pre-campaign tag and force-push. **Neither has ever been exercised**, so the fir
 an incident. The force-push path also interacts with the pre-push hooks this repo now has.
 
 **Done looks like:** the single-commit revert path rehearsed end to end at least once and the result
-written into the runbook. **Note the hazard that stopped this being done during the campaign:** the
-site deploys from `main`, so a live rehearsal briefly changes the public site. Plan how to do it
-safely before doing it — that judgement is the work.
+written into the runbook. **The public site deploys from `main`, so do not rehearse against it.** Current `deploy.yml`
+deploys only on pushes to `main` or manual dispatch; PR CI builds and tests without deploying a preview. There is no
+isolated preview target in this workflow. The safe rehearsal therefore needs a separately identified, non-production
+target first. On that target, deploy a harmless candidate from a temporary branch, record the served revision, revert
+the candidate on the branch, and verify the preview serves the starting revision. Keep the full-restore/force-push
+path out of the rehearsal. Do not create a new hosting resource in this task. Until a non-production target is
+available, the runbook rehearsal remains unproven; a local `git revert` alone is not an end-to-end rehearsal.
 
 ## 3. The is-agentic score was never re-measured
 
