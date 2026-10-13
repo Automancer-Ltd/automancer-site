@@ -1,5 +1,10 @@
 # Release notes
 
+## v2026.10.13.1 — 13 October 2026
+
+If the contact form cannot load its security check, visitors can use the email option to get in touch.
+
+
 ## v2026.10.05.2 — 5 October 2026
 
 A new guide helps businesses explore which routine tasks may be suitable for automation on a budget under £1,000.
