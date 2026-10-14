@@ -96,3 +96,10 @@ export const services: ServiceOffering[] = [
     priceUnit: 'month',
   },
 ];
+
+/** The published offering with this stable id. An unknown id is a build error, not a blank price. */
+export function serviceById(id: string): ServiceOffering {
+  const found = services.find((service) => service.id === id);
+  if (!found) throw new Error(`No published service with id "${id}"`);
+  return found;
+}

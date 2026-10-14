@@ -6,6 +6,7 @@
  * Drafts are always excluded here — the mirrors are production surfaces.
  */
 import { getCollection, type CollectionEntry } from 'astro:content';
+import { formatGBP, serviceById } from './business';
 import { abs, pagePath } from './urls';
 
 export { abs };
@@ -111,10 +112,17 @@ export interface PageMeta {
 }
 
 // Descriptions mirror the exact <meta name="description"> each page emits
-// (the BaseLayout props in the corresponding .astro file).
+// (the BaseLayout props in the corresponding .astro file). From-prices are
+// rendered from business.ts so the meta description, pages.json and the
+// visible page cannot quote different numbers.
+const auditPrice = formatGBP(serviceById('automation-opportunity-audit').priceFrom);
+const sprintPrice = formatGBP(serviceById('workflow-implementation-sprint').priceFrom);
+const buildPrice = formatGBP(serviceById('system-agent-build').priceFrom);
+const opsPrice = formatGBP(serviceById('ai-ops-partner').priceFrom);
+
 export const staticPages: PageMeta[] = [
-  { path: '/', title: 'AI & automation for UK small businesses', description: "We make small businesses run like magic. It's not magic. It's very good engineering. AI and workflow automation from Automancer — audits from £450.", type: 'WebPage' },
-  { path: '/services/', title: 'Services & pricing', description: 'Four ways to work with us, with real from-prices. Audit from £450, Workflow Sprint from £1,950, System Build from £4,500, AI Ops Partner from £495/mo.', type: 'CollectionPage' },
+  { path: '/', title: 'AI & automation for UK small businesses', description: `We make small businesses run like magic. It's not magic. It's very good engineering. AI and workflow automation from Automancer — audits from ${auditPrice}.`, type: 'WebPage' },
+  { path: '/services/', title: 'Services & pricing', description: `Four ways to work with us, with real from-prices. Audit from ${auditPrice}, Workflow Sprint from ${sprintPrice}, System Build from ${buildPrice}, AI Ops Partner from ${opsPrice}/mo.`, type: 'CollectionPage' },
   { path: '/work/', title: 'Work', description: 'Real systems, live in production. Case studies from a care provider, a manufacturer, a diversity & inclusion consultancy and small firms — all real work.', type: 'CollectionPage' },
   { path: '/field-notes/', title: 'Field Notes', description: "Dispatches from an AI-run business. Written by the agents, decided by the human. Plain notes on what actually works when you point AI at boring problems.", type: 'CollectionPage' },
   { path: '/about/', title: 'About', description: "An AI-run consultancy with a human at the helm. Automancer's finance, project tracking and website run on agents — every decision taken by Waseem, in Bradford.", type: 'AboutPage' },

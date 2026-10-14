@@ -4,6 +4,9 @@ import JsonLd from '../../components/JsonLd.astro';
 import { articleNode } from '../../data/jsonld';
 import { getCollection, render } from 'astro:content';
 import { fitDescription, fitTitle } from '../../lib/meta';
+import { formatGBP, serviceById } from '../../data/business';
+
+const auditFrom = formatGBP(serviceById('automation-opportunity-audit').priceFrom);
 
 export async function getStaticPaths() {
   const isProd = import.meta.env.PROD;
@@ -74,7 +77,7 @@ const fmt = (dt: Date) =>
         <h2 class="cta__head" style="font-size:var(--t-4)">Sounds like your Tuesday?</h2>
         <p class="cta__body">Tell us what's eating your week. Waseem reads every enquiry himself.</p>
         <div class="cta__ctas">
-          <a href="/contact" class="btn"><span>Book an Audit — from £450</span></a>
+          <a href="/contact" class="btn"><span>Book an Audit — from {auditFrom}</span></a>
         </div>
       </div>
     </section>

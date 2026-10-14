@@ -1,18 +1,26 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
+import { formatGBP, serviceById } from '../data/business';
+import { staticPages } from '../data/site-content';
+
+const audit = serviceById('automation-opportunity-audit');
+const sprint = serviceById('workflow-implementation-sprint');
+const systemBuild = serviceById('system-agent-build');
+const ops = serviceById('ai-ops-partner');
+const servicesDescription = staticPages.find((page) => page.path === '/services/')!.description;
 
 const overview = [
-  { name: 'Automation Opportunity Audit', from: '£450', what: 'A costed map of what to automate first. Fee credited against any follow-on project.' },
-  { name: 'Workflow Sprint', from: '£1,950', what: '1–3 automations live in ~2 weeks.' },
-  { name: 'System / Agent Build', from: '£4,500', what: 'A custom system or AI agent, built properly.' },
-  { name: 'AI Ops Partner', from: '£495/mo', what: 'We run it, watch it, keep automating. Cancel anytime.' },
+  { name: audit.name, from: formatGBP(audit.priceFrom), what: 'A costed map of what to automate first. Fee credited against any follow-on project.' },
+  { name: sprint.name, from: formatGBP(sprint.priceFrom), what: '1–3 automations live in ~2 weeks.' },
+  { name: systemBuild.name, from: formatGBP(systemBuild.priceFrom), what: 'A custom system or AI agent, built properly.' },
+  { name: ops.name, from: `${formatGBP(ops.priceFrom)}/mo`, what: 'We run it, watch it, keep automating. Cancel anytime.' },
 ];
 
 const offers = [
   {
     step: 'Rung 01 · start here',
-    name: 'Automation Opportunity Audit',
-    amt: '£450',
+    name: audit.name,
+    amt: formatGBP(audit.priceFrom),
     note: 'from · credited in full against any project you go on to do',
     one: 'We find where your time and money are leaking — and hand you a costed plan to plug it.',
     who: "You know something's inefficient — the double-entry, the spreadsheet gymnastics, the “can you just chase that again” — but you're not sure what's worth fixing first, or whether AI is hype or help for your business. Start here.",
@@ -22,13 +30,13 @@ const offers = [
       'A costed, plain-English plan: what to do first, what it’ll take, and what it’ll cost.',
       'No obligation to do any of it with us. It’s your plan to keep.',
     ],
-    catch: 'The catch (there isn’t one): if you go on to do a Sprint or a Build with us, the audit fee comes straight off the price. So at worst you’ve bought a clear plan for £450. At best it’s free.',
+    catch: `The catch (there isn’t one): if you go on to do a Sprint or a Build with us, the audit fee comes straight off the price. So at worst you’ve bought a clear plan for ${formatGBP(audit.priceFrom)}. At best it’s free.`,
     cta: 'Book an Audit',
   },
   {
     step: 'Rung 02 · act fast',
-    name: 'Workflow Sprint',
-    amt: '£1,950',
+    name: sprint.name,
+    amt: formatGBP(sprint.priceFrom),
     note: 'from',
     one: '1–3 automations, live and working, in roughly two weeks.',
     who: 'You already know what’s broken — the repetitive multi-step admin that never ends — and you want it gone. Fast, focused, no year-long “transformation programme”.',
@@ -43,8 +51,8 @@ const offers = [
   },
   {
     step: 'Rung 03 · build it right',
-    name: 'System / Agent Build',
-    amt: '£4,500',
+    name: systemBuild.name,
+    amt: formatGBP(systemBuild.priceFrom),
     note: 'from',
     one: 'A proper custom system or AI agent, built to run your business — not bent around someone else’s.',
     who: 'You’ve outgrown spreadsheets and the off-the-shelf box that almost-but-not-quite fits. You need real software: a portal, an internal platform, a compliance system, or an AI agent that reads, decides and acts on your behalf.',
@@ -59,8 +67,8 @@ const offers = [
   },
   {
     step: 'Rung 04 · stay live',
-    name: 'AI Ops Partner',
-    amt: '£495',
+    name: ops.name,
+    amt: formatGBP(ops.priceFrom),
     per: '/mo',
     note: 'from · cancel anytime',
     one: 'We don’t build it and vanish. We stay on, keep it running, and automate the next thing.',
@@ -88,7 +96,7 @@ const faqs = [
 
 <BaseLayout
   title="Services & pricing"
-  description="Four ways to work with us, with real from-prices. Audit from £450, Workflow Sprint from £1,950, System Build from £4,500, AI Ops Partner from £495/mo."
+  description={servicesDescription}
 >
   <!-- Hero -->
   <section class="page-hero hatch">
@@ -192,7 +200,7 @@ const faqs = [
         and the fee comes back to you if you go further.
       </p>
       <div class="cta__ctas">
-        <a href="/contact" class="btn"><span>Book an Audit — from £450</span></a>
+        <a href="/contact" class="btn"><span>Book an Audit — from {formatGBP(audit.priceFrom)}</span></a>
         <a href="/contact" class="btn btn--ghost"><span>Ask us which offer fits</span><span class="btn__arrow">→</span></a>
       </div>
     </div>

@@ -1,6 +1,14 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 import { getCollection } from 'astro:content';
+import { formatGBP, serviceById } from '../data/business';
+import { staticPages } from '../data/site-content';
+
+const audit = serviceById('automation-opportunity-audit');
+const sprint = serviceById('workflow-implementation-sprint');
+const systemBuild = serviceById('system-agent-build');
+const ops = serviceById('ai-ops-partner');
+const homeDescription = staticPages.find((page) => page.path === '/')!.description;
 
 const isProd = import.meta.env.PROD;
 const studies = (await getCollection('case-studies'))
@@ -11,10 +19,10 @@ const feature = studies.find((e) => e.data.featured) ?? studies[0];
 const rest = studies.filter((e) => e.id !== feature?.id).slice(0, 2);
 
 const ladder = [
-  { name: 'Automation Opportunity Audit', desc: "We map where your time and money are leaking, and hand you a costed plan. Fee credited against any project you go on to do.", amt: '£450', unit: 'from' },
-  { name: 'Workflow Sprint', desc: '1–3 automations live in roughly two weeks.', amt: '£1,950', unit: 'from' },
-  { name: 'System / Agent Build', desc: 'A proper custom system or AI agent, built to last.', amt: '£4,500', unit: 'from' },
-  { name: 'AI Ops Partner', desc: 'We run it, watch it, and keep automating. Cancel anytime.', amt: '£495', unit: 'from', per: '/mo' },
+  { name: audit.name, desc: "We map where your time and money are leaking, and hand you a costed plan. Fee credited against any project you go on to do.", amt: formatGBP(audit.priceFrom), unit: 'from' },
+  { name: sprint.name, desc: '1–3 automations live in roughly two weeks.', amt: formatGBP(sprint.priceFrom), unit: 'from' },
+  { name: systemBuild.name, desc: 'A proper custom system or AI agent, built to last.', amt: formatGBP(systemBuild.priceFrom), unit: 'from' },
+  { name: ops.name, desc: 'We run it, watch it, and keep automating. Cancel anytime.', amt: formatGBP(ops.priceFrom), unit: 'from', per: '/mo' },
 ];
 
 const caps = [
@@ -27,7 +35,7 @@ const caps = [
 
 <BaseLayout
   title="AI & automation for UK small businesses"
-  description="We make small businesses run like magic. It's not magic. It's very good engineering. AI and workflow automation from Automancer — audits from £450."
+  description={homeDescription}
 >
   <!-- ─────────────── Hero ─────────────── -->
   <section class="hero hatch">
@@ -48,7 +56,7 @@ const caps = [
         <span class="prompt" aria-hidden="true">&gt;_ </span><span data-typed aria-hidden="true">It's not magic. It's very good engineering.</span><span class="hero__caret" aria-hidden="true"></span>
       </p>
       <div class="hero__ctas">
-        <a href="/contact" class="btn"><span>Book an Automation Audit — from £450</span></a>
+        <a href="/contact" class="btn"><span>Book an Automation Audit — from {formatGBP(audit.priceFrom)}</span></a>
         <a href="/work" class="btn btn--ghost"><span>See the work</span><span class="btn__arrow">→</span></a>
       </div>
     </div>
@@ -223,7 +231,7 @@ const caps = [
         himself and emails you back — and we promise a meeting within one week of first contact.
       </p>
       <div class="cta__ctas">
-        <a href="/contact" class="btn"><span>Start with an Audit — from £450</span></a>
+        <a href="/contact" class="btn"><span>Start with an Audit — from {formatGBP(audit.priceFrom)}</span></a>
         <a href="/contact" class="btn btn--ghost"><span>Just ask a question</span><span class="btn__arrow">→</span></a>
       </div>
       <p class="cta__reassure">

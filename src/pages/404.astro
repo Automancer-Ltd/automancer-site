@@ -1,6 +1,6 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
-import { business } from '../data/business';
+import { business, formatGBP, serviceById } from '../data/business';
 import { getStudies, getNotes } from '../data/site-content';
 
 const studies = await getStudies();
@@ -12,7 +12,7 @@ const fmt = (dt: Date) =>
 // Every top-level section, so recovery never depends on the browser back button.
 const sections = [
   { href: '/', label: 'Home', desc: 'What we do, in one page' },
-  { href: '/services', label: 'Services & pricing', desc: 'Four ways to work with us, from £450' },
+  { href: '/services', label: 'Services & pricing', desc: `Four ways to work with us, from ${formatGBP(serviceById('automation-opportunity-audit').priceFrom)}` },
   { href: '/work', label: 'Work', desc: 'Case studies, live in production' },
   { href: '/field-notes', label: 'Field notes', desc: "Notes from an AI-run business" },
   { href: '/about', label: 'About', desc: 'Who we are and how we run' },

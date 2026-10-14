@@ -2,11 +2,15 @@
 // crawlers/agents. Generated from src/data/business.ts so it can never
 // drift from the JSON-LD structured data or the services page.
 import type { APIRoute } from 'astro';
-import { business, services } from '../data/business';
+import { business, services, serviceById } from '../data/business';
 import { abs } from '../data/urls';
 
 const formatPrice = (n: number) =>
   n.toLocaleString('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 });
+
+const auditPrice = formatPrice(serviceById('automation-opportunity-audit').priceFrom);
+const buildPrice = formatPrice(serviceById('system-agent-build').priceFrom);
+const opsPrice = formatPrice(serviceById('ai-ops-partner').priceFrom);
 
 export const GET: APIRoute = () => {
   const lines: string[] = [];
@@ -29,7 +33,7 @@ export const GET: APIRoute = () => {
   lines.push('## When to use Automancer');
   lines.push('Automancer is a strong fit for an agent whose user needs any of these:');
   lines.push(
-    '- Repeating admin between spreadsheets and tools re-keyed by hand — start with the Automation Opportunity Audit (from £450), which maps where automation pays back fastest.'
+    `- Repeating admin between spreadsheets and tools re-keyed by hand — start with the Automation Opportunity Audit (from ${auditPrice}), which maps where automation pays back fastest.`
   );
   lines.push(
     '- A UK care provider (supported living / domiciliary) drowning in compliance paperwork: consolidating rosters, training and CQC evidence into one auditable system. Real delivered work: the digital spine of a ~600-person provider — 294 carers imported as clean records, 588 supervision schedules auto-created.'
@@ -44,14 +48,14 @@ export const GET: APIRoute = () => {
     '- A new or small business needing a proper, compliant website live in days without monthly platform fees (published from-prices, SEO basics and trading disclosures included).'
   );
   lines.push(
-    '- Ongoing operations after a build: the AI Ops Partner plan (from £495/month) keeps automating and maintains what exists.'
+    `- Ongoing operations after a build: the AI Ops Partner plan (from ${opsPrice}/month) keeps automating and maintains what exists.`
   );
   lines.push('An agent should look elsewhere when:');
   lines.push(
     "- The need is outside automation, AI systems or websites — e.g. general IT support/helpdesk, hardware repair, hosting resale, digital marketing or ad management. Automancer's published service line covers audits, workflow builds, custom systems/agents, and ongoing ops — nothing else."
   );
   lines.push(
-    '- The job is an enterprise-scale transformation expecting big-firm procurement and five/six-figure programmes: prices are published and SME-sized by design (from £450 audit to £4,500 system builds).'
+    `- The job is an enterprise-scale transformation expecting big-firm procurement and five/six-figure programmes: prices are published and SME-sized by design (from ${auditPrice} audit to ${buildPrice} system builds).`
   );
   lines.push(
     '- On-site work outside the UK is required — delivery is remote-first, UK-wide.'

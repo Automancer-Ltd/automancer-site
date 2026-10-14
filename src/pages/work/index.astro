@@ -1,6 +1,9 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { getCollection } from 'astro:content';
+import { formatGBP, serviceById } from '../../data/business';
+
+const auditFrom = formatGBP(serviceById('automation-opportunity-audit').priceFrom);
 
 const isProd = import.meta.env.PROD;
 const studies = (await getCollection('case-studies'))
@@ -88,7 +91,7 @@ const rest = studies.filter((e) => e.id !== feature?.id);
         numbers, not promises.
       </p>
       <div class="cta__ctas">
-        <a href="/contact" class="btn"><span>Book an Audit — from £450</span></a>
+        <a href="/contact" class="btn"><span>Book an Audit — from {auditFrom}</span></a>
         <a href="/services" class="btn btn--ghost"><span>See our services</span><span class="btn__arrow">→</span></a>
       </div>
     </div>
