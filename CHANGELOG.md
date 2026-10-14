@@ -1,5 +1,18 @@
 # Release notes
 
+## v2026.10.14.1 — 14 October 2026
+
+A clearer, more consistent picture of Automancer’s services and pricing across the website and its published information.
+
+### Services
+
+- The service names on the home page, services page, and published service information now match.
+
+### Pricing
+
+- Published starting prices stay consistent across the website and service information.
+
+
 ## v2026.10.13.1 — 13 October 2026
 
 If the contact form cannot load its security check, visitors can use the email option to get in touch.
