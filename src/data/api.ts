@@ -41,7 +41,7 @@ export const API_ENDPOINTS: ApiEndpoint[] = [
     operationId: 'getServices',
     summary: 'Services and published from-prices',
     description:
-      'Service offerings with published from-prices (GBP), billing units and stable ids — the same data the /services pricing page is generated from.',
+      'Service offerings with published from-prices (GBP), billing units and stable ids. Those from-prices are the numbers the /services page shows. The page also carries longer sales copy that this payload does not.',
   },
   {
     path: '/api/case-studies.json',

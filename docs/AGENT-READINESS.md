@@ -133,9 +133,11 @@ description, url, canonical, type, and dates where known.
 
 Known limitation, stated honestly: the hand-authored twins are renditions, not
 scrapes of the rendered HTML. If an `.astro` page's prose changes without the
-twin generator being touched, the twin can lag until updated. Prices, service
-names, contact details and promises are immune (single-sourced from
-`business.ts`). Collection twins cannot lag at all.
+twin generator being touched, the twin can lag until updated. Service names,
+from-prices, contact details and the one-week promise are single-sourced from
+`business.ts` (prices) or pinned by the build (the promise). Field-note prose
+still states from-prices in the article; the build fails when one of those
+amounts is not a published `priceFrom`. Collection twins cannot lag at all.
 
 ### Legal pages — deliberate non-mirroring (hard rule)
 
@@ -173,8 +175,9 @@ Enforced in code by `legalNoMirror` in `src/data/site-content.ts`
 
 1. Contact form needs JavaScript + Turnstile; mitigated with mailto/phone
    everywhere an agent looks, and stated in `agent.json`.
-2. Hand-authored page twins are curated renditions (see limitation above);
-   collection twins and all facts are single-sourced.
+2. Hand-authored page twins are curated renditions (see limitation above).
+   Collection twins cannot drift. From-prices and contact details are
+   single-sourced; other prose in a twin can still lag the HTML.
 3. Legal page bodies are intentionally available only as canonical HTML.
 4. Legacy `.html` URLs resolve via Astro's meta-refresh pages rather than raw
    server redirects after the first hop — correct and verified live in

@@ -2,6 +2,9 @@
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { getCollection, render } from 'astro:content';
 import { fitDescription, fitTitle } from '../../lib/meta';
+import { formatGBP, serviceById } from '../../data/business';
+
+const auditFrom = formatGBP(serviceById('automation-opportunity-audit').priceFrom);
 
 export async function getStaticPaths() {
   const isProd = import.meta.env.PROD;
@@ -92,7 +95,7 @@ const d = entry.data;
           real numbers and a plain plan. We promise a meeting within one week of first contact.
         </p>
         <div class="cta__ctas">
-          <a href="/contact" class="btn"><span>Book an Audit — from £450</span></a>
+          <a href="/contact" class="btn"><span>Book an Audit — from {auditFrom}</span></a>
           <a href="/work" class="btn btn--ghost"><span>See more work</span><span class="btn__arrow">→</span></a>
         </div>
       </div>

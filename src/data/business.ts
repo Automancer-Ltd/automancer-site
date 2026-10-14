@@ -74,14 +74,14 @@ export const services: ServiceOffering[] = [
   },
   {
     id: 'workflow-implementation-sprint',
-    name: 'Workflow Implementation Sprint',
+    name: 'Workflow Sprint',
     description: 'Build and deploy automation for 1–3 selected workflows.',
     priceFrom: 1950,
     priceUnit: 'project',
   },
   {
     id: 'system-agent-build',
-    name: 'System/Agent Build',
+    name: 'System / Agent Build',
     description:
       'From task-specific assistants to full AI employees that draw on your organisational knowledge.',
     priceFrom: 4500,
@@ -96,3 +96,10 @@ export const services: ServiceOffering[] = [
     priceUnit: 'month',
   },
 ];
+
+/** The published offering with this stable id. An unknown id is a build error, not a blank price. */
+export function serviceById(id: string): ServiceOffering {
+  const found = services.find((service) => service.id === id);
+  if (!found) throw new Error(`No published service with id "${id}"`);
+  return found;
+}

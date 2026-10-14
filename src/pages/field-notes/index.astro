@@ -1,6 +1,9 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { getCollection } from 'astro:content';
+import { formatGBP, serviceById } from '../../data/business';
+
+const auditFrom = formatGBP(serviceById('automation-opportunity-audit').priceFrom);
 
 const isProd = import.meta.env.PROD;
 const posts = (await getCollection('field-notes'))
@@ -69,7 +72,7 @@ const fmt = (d: Date) =>
         If a note here sounds like your Tuesday, tell us about it. Waseem reads every enquiry himself.
       </p>
       <div class="cta__ctas">
-        <a href="/contact" class="btn"><span>Book an Audit — from £450</span></a>
+        <a href="/contact" class="btn"><span>Book an Audit — from {auditFrom}</span></a>
         <a href="/contact" class="btn btn--ghost"><span>Tell us what's eating your week</span><span class="btn__arrow">→</span></a>
       </div>
     </div>

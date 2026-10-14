@@ -16,10 +16,11 @@
  */
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { parse } from 'node-html-parser';
 import { describe, expect, it } from 'vitest';
 import { DIST, ROOT, SITE_URL, contentPages, readDistFile, resolveInDist } from './support/dist';
 import { contentEntries } from './support/content';
-import { business, services } from '../src/data/business';
+import { business, formatGBP, services } from '../src/data/business';
 import { fitDescription, fitTitle } from '../src/lib/meta';
 
 /** Every file emitted into dist/, as dist-relative POSIX paths. */
@@ -769,5 +770,113 @@ describe('one-week meeting promise — people and machines, same words', () => {
       readDistFile('llms.txt'),
       'dist/llms.txt drifted from the human one-week meeting promise'
     ).toContain(MEETING_PROMISE);
+  });
+});
+
+/**
+ * VISION.md: what a machine is told never differs from what a person is shown.
+ *
+ * The harm is a visitor reading one from-price while /api/services.json quotes
+ * another. Templates render priceFrom; field-note prose cannot, so this scan
+ * is what fails the build when an article still quotes a retired amount.
+ * £300–400 and £10–80 are case-study economics, not from-prices, and the
+ * pattern below does not treat them as one.
+ */
+describe('published from-prices — the same numbers for people and machines', () => {
+  const allowed = new Set(services.map((service) => formatGBP(service.priceFrom)));
+  const audit = services.find((service) => service.id === 'automation-opportunity-audit');
+  // A thousands comma is part of the amount. The comma that follows "£450," in a sentence is not.
+  const amount = '£\\d{1,3}(?:,\\d{3})*';
+  const hasAmount = new RegExp(amount);
+
+  /** Lines that name the service and state a price. A mention with no price is not a quote. */
+  function pricedLines(text: string, name: string): string[] {
+    return text.split('\n').filter((line) => line.includes(name) && hasAmount.test(line));
+  }
+
+  it('the home ladder and the services page show each services.json price beside that name', () => {
+    expect(audit, 'automation-opportunity-audit missing from business.ts').toBeTruthy();
+    const home = contentPages().find((page) => page.route === '/');
+    const servicesPage = contentPages().find((page) => page.route === '/services/');
+    expect(home, 'home page was not built').toBeTruthy();
+    expect(servicesPage, 'services page was not built').toBeTruthy();
+
+    for (const service of services) {
+      const label = formatGBP(service.priceFrom);
+      const rung = [...home!.doc.querySelectorAll('.rung')].find(
+        (el) => el.querySelector('.rung__name')?.text.trim() === service.name
+      );
+      expect(rung, `home ladder has no rung named ${service.name}`).toBeTruthy();
+      expect(rung!.querySelector('.amt')?.text.trim(), `${service.name} on the home ladder`).toBe(label);
+
+      const row = [...servicesPage!.doc.querySelectorAll('.overview-row')].find(
+        (el) => el.querySelector('.overview-row__name')?.text.trim() === service.name
+      );
+      expect(row, `services overview has no row named ${service.name}`).toBeTruthy();
+      expect(
+        row!.querySelector('.overview-row__price')?.text,
+        `${service.name} on the services overview`
+      ).toContain(label);
+
+      const offer = [...servicesPage!.doc.querySelectorAll('.offer')].find(
+        (el) => el.querySelector('.offer__name')?.text.trim() === service.name
+      );
+      expect(offer, `services page has no offer named ${service.name}`).toBeTruthy();
+      expect(offer!.querySelector('.offer__amt')?.text.trim(), `${service.name} offer price`).toBe(label);
+    }
+  });
+
+  it('an Audit link quotes the audit from-price, and every from-price link quotes a published amount', () => {
+    const auditLabel = formatGBP(audit!.priceFrom);
+    const offenders: string[] = [];
+    let hits = 0;
+    for (const page of contentPages()) {
+      for (const link of page.doc.querySelectorAll('a')) {
+        const text = link.text.replace(/\s+/g, ' ').trim();
+        const match = new RegExp(`from (${amount})`).exec(text);
+        if (!match) continue;
+        hits += 1;
+        if (!allowed.has(match[1]) || (/audit/i.test(text) && match[1] !== auditLabel)) {
+          offenders.push(`${page.route}: ${text}`);
+        }
+      }
+    }
+    expect(hits, 'no from-price link was built, so a stale footer price would slip through').toBeGreaterThan(0);
+    expect(offenders).toEqual([]);
+  });
+
+  it('every from-price phrase in the built HTML, Markdown and text is a published amount', () => {
+    const offenders: string[] = [];
+    let hits = 0;
+    for (const file of allDistFiles()) {
+      if (!/\.(html|md|txt)$/.test(file)) continue;
+      const raw = readDistFile(file);
+      expect(raw, `${file} missing`).toBeTruthy();
+      const text = file.endsWith('.html') ? parse(raw!).text : raw!;
+      const fromPrice = new RegExp(
+        `(?:from|starts at|starts from|plan for)\\s+(?:roughly\\s+)?(${amount})`,
+        'gi'
+      );
+      for (const match of text.matchAll(fromPrice)) {
+        hits += 1;
+        if (!allowed.has(match[1])) offenders.push(`${file}: ${match[0]}`);
+      }
+    }
+    expect(hits, 'the from-price scan matched nothing, so it cannot catch a stale price').toBeGreaterThan(10);
+    expect(offenders).toEqual([]);
+  });
+
+  it('a service name in the machine twins is never followed by another service’s price', () => {
+    for (const file of ['index.md', 'services.md', 'llms.txt']) {
+      const text = readDistFile(file);
+      expect(text, file).toBeTruthy();
+      for (const service of services) {
+        const label = formatGBP(service.priceFrom);
+        const lines = pricedLines(text!, service.name);
+        expect(lines.length, `${file} never states a price on the same line as ${service.name}`).toBeGreaterThan(0);
+        const wrong = lines.filter((line) => !line.includes(label));
+        expect(wrong, `${file} quotes ${service.name} without ${label}`).toEqual([]);
+      }
+    }
   });
 });
