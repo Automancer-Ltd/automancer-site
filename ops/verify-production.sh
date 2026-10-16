@@ -11,7 +11,7 @@
 # check stayed green), the legal footer anchor is on the homepage, and the
 # TLS certificate is valid and not about to expire. Both
 # .github/workflows/deploy.yml (post-deploy verify job) and
-# .github/workflows/uptime.yml and the auto-vps production-verifier timer call
+# the auto-vps production-verifier timer call
 # THIS script — the checks exist once so the callers can never drift apart.
 #
 # Every check retries transiently: Pages can lag a few seconds behind a fresh
@@ -722,7 +722,7 @@ preflight() {
 #
 # `--self-test` proves the checker itself can still fail AND can still pass.
 # A check that can no longer fail is worse than no check: deploy.yml and
-# uptime.yml both call THIS script, so a silently-green check mutes the deploy
+# the production timer both call THIS script, so a silently-green check mutes the deploy
 # gate and the uptime monitor at once (measured defect, 2026-08-30). A check
 # that can never succeed is as broken, and a dead-address self-test cannot see
 # it — a red check against a dead address looks identical to a correct one.
@@ -736,7 +736,7 @@ preflight() {
 # cannot have both directions faked locally: a self-signed fixture is,
 # correctly, untrusted. Date parsing and the strict TLS_MIN_DAYS boundary are
 # driven locally; trust-chain verification remains live-only and is exercised
-# by deploy.yml, uptime.yml and every ordinary production run.
+# by deploy.yml, the production timer and every ordinary production run.
 
 find_free_port() {
   python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1]); s.close()'
