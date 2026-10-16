@@ -12,6 +12,9 @@ import { fileURLToPath } from 'node:url';
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 
 export default function globalSetup(): void {
+  if (process.env.SKIP_BUILD === '1') {
+    return;
+  }
   const result = spawnSync('pnpm', ['run', 'build'], {
     cwd: ROOT,
     stdio: 'inherit',

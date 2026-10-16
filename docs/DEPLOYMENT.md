@@ -91,15 +91,15 @@ repo's own pipeline calls the writer.
    left number is not 0 you are behind, and anything you verified locally was
    verified against the wrong tree.
 2. `pnpm install` — if the lockfile moved, a green run on the old dependencies
-   proves nothing.
+   proves nothing (`prepare` also runs `astro sync` so `.astro/` types exist).
 3. `pnpm run verify` — one command, identical to what CI runs and in CI's
-   order: the typecheck (`astro check`) first, then the suite. The suite
-   builds the site and asserts against `dist/`, so it catches what a visitor
-   or a crawler would actually get — but it does NOT validate types, so do
-   not stop at `pnpm run test`.
+   order: `pnpm run check` (`oxlint --type-aware`, `tsgo --noEmit`, and fast
+   tests) first, then `pnpm run test` (fresh `astro build` + full `dist/` suite).
 
-CI (`ci.yml`) runs `check` and `test` on every push and PR independently —
-i.e. exactly what `pnpm run verify` composes locally.
+CI (`ci.yml`) runs `checks` (`pnpm run check` and `pnpm run test`) on every PR
+and push to `main`. `main` branch protection requires `checks` (`strict: false`),
+and `deploy.yml` waits for `checks` to succeed on `$GITHUB_SHA` before building
+and publishing to GitHub Pages.
 
 ## Rollback
 

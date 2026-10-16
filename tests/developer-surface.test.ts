@@ -150,10 +150,10 @@ describe('/openapi.json — OpenAPI 3.1 of the public JSON API', () => {
   });
 
   it('carries usable metadata: info title/version/description, server on our origin', () => {
-    const info = spec.info as Spec | undefined;
+    const info = spec.info as { title?: string; version?: string; description?: string } | undefined;
     expect(info?.title, 'info.title missing').toBeTruthy();
     expect(info?.version, 'info.version missing').toBeTruthy();
-    expect(String(info?.description ?? '').length, 'info.description too thin to be useful').toBeGreaterThan(
+    expect((info?.description ?? '').length, 'info.description too thin to be useful').toBeGreaterThan(
       50
     );
     const servers = (spec.servers ?? []) as Array<{ url?: string }>;
@@ -180,12 +180,20 @@ describe('/openapi.json — OpenAPI 3.1 of the public JSON API', () => {
   it('every operation has a UNIQUE operationId plus summary, description, parameters and a real 200 schema', () => {
     const ids: string[] = [];
     for (const [path, item] of Object.entries((spec.paths ?? {}) as Spec)) {
-      const get = (item as Spec).get as Spec | undefined;
+      const get = (item as Spec).get as
+        | {
+            operationId?: string;
+            summary?: string;
+            description?: string;
+            parameters?: unknown;
+            responses?: Spec;
+          }
+        | undefined;
       expect(get, `${path}: no GET operation`).toBeTruthy();
       ids.push(get!.operationId as string);
       expect(get!.operationId, `${path}: operationId missing`).toBeTruthy();
-      expect(String(get!.summary ?? '').length, `${path}: summary missing`).toBeGreaterThan(0);
-      expect(String(get!.description ?? '').length, `${path}: description missing`).toBeGreaterThan(20);
+      expect((get!.summary ?? '').length, `${path}: summary missing`).toBeGreaterThan(0);
+      expect((get!.description ?? '').length, `${path}: description missing`).toBeGreaterThan(20);
       expect(Array.isArray(get!.parameters), `${path}: parameters must be an explicit array`).toBe(true);
       const responses = (get!.responses ?? {}) as Spec;
       const ok = responses['200'] as Spec | undefined;
@@ -437,7 +445,7 @@ describe('JSON-LD — Person and ProfessionalService nodes are complete', () => 
       for (const block of blocks) {
         const graph = (JSON.parse(block.text) as { '@graph'?: Spec[] })['@graph'] ?? [];
         for (const node of graph) {
-          if (node['@type'] !== 'Person' || !String(node.name ?? '').includes('Waseem')) continue;
+          if (node['@type'] !== 'Person' || typeof node.name !== 'string' || !node.name.includes('Waseem')) continue;
           personChecked++;
           expect(node.jobTitle, `${page.route}: Person node lacks jobTitle`).toBeTruthy();
           const url = node.url as string | undefined;

@@ -24,7 +24,7 @@ function rgb(value: string): [number, number, number] {
 
   const hex = value.match(/^#([\da-f]{3}|[\da-f]{6})$/i)?.[1];
   expect(hex, `unsupported colour: ${value}`).toBeTruthy();
-  const full = hex!.length === 3 ? [...hex!].map((digit) => digit + digit).join('') : hex!;
+  const full = hex!.length === 3 ? hex!.split('').map((digit) => digit + digit).join('') : hex!;
   return [0, 2, 4].map((offset) => parseInt(full.slice(offset, offset + 2), 16)) as [number, number, number];
 }
 

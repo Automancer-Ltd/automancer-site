@@ -1,6 +1,9 @@
 name: CI
 on:
+  push:
+    branches: [main]
   pull_request:
+    branches: [main]
   workflow_dispatch:
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
@@ -27,7 +30,7 @@ jobs:
         cache: pnpm
     - name: Install dependencies
       run: pnpm install --frozen-lockfile
-    - name: Typecheck
+    - name: Run check (lint and typecheck)
       run: pnpm run check
     - name: Test production build
       run: pnpm run test

@@ -35,5 +35,9 @@ export default defineConfig({
     // Vitest 4 removed `poolOptions` and `minWorkers`; `maxWorkers` is the
     // supported knob and caps the pool on its own.
     maxWorkers,
+    // Share workers and module state across the read-only dist/ audit files so
+    // tests/support/dist.ts parses dist/ once per worker instead of 14 times.
+    isolate: false,
+    fsModuleCache: true,
   },
 });

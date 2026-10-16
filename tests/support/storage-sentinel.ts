@@ -189,7 +189,7 @@ export function runPage(html: string): PageRunResult {
     errors.push(`DOMContentLoaded dispatch: ${error instanceof Error ? error.message : String(error)}`);
   }
 
-  window.happyDOM.close();
+  void window.happyDOM.close();
 
   return { touches, errors };
 }
