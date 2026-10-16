@@ -118,10 +118,10 @@ export function serviceCatalogNode() {
           description: s.description,
           provider: { '@id': ORG_ID },
         },
-        priceSpecification: {
-          // "From" prices as published on /services; monthly offering priced
-          // per month, project work priced per engagement.
-          ...(s.priceUnit === 'month'
+        // "From" prices as published on /services; monthly offering priced
+        // per month, project work priced per engagement.
+        priceSpecification:
+          s.priceUnit === 'month'
             ? {
                 '@type': 'UnitPriceSpecification',
                 price: s.priceFrom,
@@ -133,8 +133,7 @@ export function serviceCatalogNode() {
                 '@type': 'PriceSpecification',
                 price: s.priceFrom,
                 priceCurrency: 'GBP',
-              }),
-        },
+              },
       })),
     },
   };

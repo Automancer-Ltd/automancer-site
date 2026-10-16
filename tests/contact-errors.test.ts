@@ -113,6 +113,7 @@ async function driveFormState(
       return this._text;
     },
     set textContent(value: unknown) {
+      // oxlint-disable-next-line typescript/no-base-to-string -- intentionally mirrors DOM textContent coercion on unknown payloads
       this._text = value === null ? '' : String(value);
     },
   };
@@ -194,6 +195,7 @@ async function driveFormState(
   // Named parameters shadow Node globals, so the served bytes see exactly
   // what a browser hands a page: no Turnstile yet, no stored utm state, and
   // a fetch that answers with the stubbed response.
+  // oxlint-disable-next-line typescript/no-implied-eval -- executes built inline script from dist/contact/index.html against stubbed globals
   new Function(
     'document',
     'window',

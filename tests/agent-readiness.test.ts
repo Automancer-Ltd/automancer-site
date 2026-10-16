@@ -128,7 +128,13 @@ function twinPathFor(route: string): string {
   return route === '/' ? 'index.md' : route.replace(/^\//, '').replace(/\/$/, '') + '.md';
 }
 
-const STATIC_TWIN_ROUTES = ['/', '/services/', '/work/', '/field-notes/', '/about/', '/contact/'];
+const STATIC_TWIN_ROUTES = readdirSync(join(ROOT, 'src', 'pages'))
+  .filter((f) => f.endsWith('.md.ts'))
+  .map((f) => {
+    const stem = f.slice(0, -'.md.ts'.length);
+    return stem === 'index' ? '/' : `/${stem}/`;
+  })
+  .sort();
 const expectedTwins = new Map<string, string>();
 for (const route of STATIC_TWIN_ROUTES) expectedTwins.set(twinPathFor(route), route);
 for (const entry of nonDraftEntries) {
@@ -388,6 +394,30 @@ describe('/api/*.json endpoints', () => {
       fieldNotes.length
     );
   });
+
+  it('pages.json lists every built content page (aside from the /developers/ API guide) — none missing, none extra', () => {
+    const payload = parsed.get('api/pages.json');
+    assertJsonObject(payload, 'api/pages.json');
+    assertJsonArray<{ url: string; markdownTwin?: string | null }>(
+      payload['pages'],
+      'api/pages.json',
+      '"pages" (a list of {url} entries)'
+    );
+    const listedRoutes = payload['pages'].map((p) => new URL(p.url).pathname).sort();
+    // /developers/ is the human reference guide documenting the machine-readable
+    // surfaces themselves; every other built content page must be in pages.json.
+    const builtRoutes = contentPages()
+      .map((p) => p.route)
+      .filter((r) => r !== '/developers/')
+      .sort();
+    expect(
+      listedRoutes,
+      'api/pages.json disagrees with the built content pages in dist/ — register new pages in src/data/site-content.ts'
+    ).toEqual(builtRoutes);
+    expect(payload['count'], 'pages.json count field disagrees with its own array').toBe(
+      payload['pages'].length
+    );
+  });
 });
 
 describe('security.txt — RFC 9116, served from one builder at two routes', () => {
@@ -485,7 +515,7 @@ describe('/agent.json — capability manifest, served from one builder at two ro
     const collect = (node: unknown): void => {
       if (typeof node === 'string') {
         if (/^https?:\/\//i.test(node)) urls.push(node);
-        else if (/^\//.test(node)) paths.push(node);
+        else if (node.startsWith('/')) paths.push(node);
         return;
       }
       if (Array.isArray(node)) node.forEach(collect);

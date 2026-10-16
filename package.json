@@ -8,11 +8,14 @@
     "node": ">=22.12.0"
   },
   "scripts": {
+    "prepare": "astro sync",
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
     "astro": "astro",
-    "check": "astro check",
+    "lint": "oxlint --type-aware --deny-warnings src tests public/assets/js",
+    "typecheck": "test -f .astro/content.d.ts || astro sync; tsgo --noEmit",
+    "check": "pnpm run lint && pnpm run typecheck && (test -f dist/index.html && SKIP_BUILD=1 vitest run || SKIP_BUILD=1 vitest run tests/git-config-guard.test.ts tests/storage-sentinel.test.ts)",
     "test": "vitest run",
     "test:watch": "vitest",
     "verify": "pnpm run check && pnpm run test"
@@ -24,8 +27,11 @@
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.10",
+    "@typescript/native-preview": "7.0.0-dev.20260707.2",
     "happy-dom": "^20.14.5",
     "node-html-parser": "^9.0.4",
+    "oxlint": "^1.88.0",
+    "oxlint-tsgolint": "^7.0.2004",
     "typescript": "^6.0.3",
     "vitest": "^5.0.3"
   }
