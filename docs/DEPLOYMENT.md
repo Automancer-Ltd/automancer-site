@@ -162,7 +162,7 @@ responds, but it does not validate the deployed revision, declared assets,
 legal footer anchor, Sentry destination, real 404 behaviour, or the TLS
 certificate's 21-day expiry floor.
 
-Three things call `ops/verify-production.sh` against production:
+Two things call `ops/verify-production.sh` against production:
 
 - **`deploy.yml` → `verify` job** — runs after every deploy and fails the
   release run if production does not serve what was shipped.
@@ -175,9 +175,6 @@ Three things call `ops/verify-production.sh` against production:
   A failure follows `OnFailure=alert-email@%n.service` into the estate's
   alert-email path; `automancer-site-production-verify.service failed` matches
   no page rule, so it lands in the daily digest and files a Paperclip issue.
-- **`uptime.yml`** — on-demand only (`workflow_dispatch`). It has no schedule:
-  the cron was retired by AUT-9926 once the timer had fired twice on its real
-  interval and the failure route was proved without sending mail.
 
 Merging to `main` does **not** move the pin. To ship a change to the verifier
 or its units, deploy the reviewed merge commit:
