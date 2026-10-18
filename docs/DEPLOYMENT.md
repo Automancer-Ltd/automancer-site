@@ -138,6 +138,9 @@ publishes anything, stamps the release with its ref and revision, flips
 `current`, and then **reads the served revision back off the target** instead of
 assuming the deploy worked. It prints the one-line undo (`ln -sfn <previous
 release> current && systemctl --user restart automancer-site-preview.service`).
+`ops/test-preview-target.sh` drives the deploy machinery's ref resolution and
+install preflight in CI, and `tests/preview-target.test.ts` drives the server and
+marker; both run on every pull request.
 
 ### Why it cannot be mistaken for the public site
 
@@ -246,12 +249,26 @@ after each step) is `/opt/automancer/var/scratch/s1621/rehearsal.log`.
 
 ### What the rehearsal itself caught
 
-The first two attempts failed, which is the point of having somewhere safe to
-fail. Both defects were in the new target, not in the site: the deploy ran its
-frozen install in the caller's directory instead of the candidate worktree (so
-nothing was ever published), and the running server read the release stamp once
-at startup, so a release published after the service started was never served.
-Both are fixed in the commit that added the target, with a test for the second.
+Four attempts failed before it ran clean, which is the point of having somewhere
+safe to fail. Every defect was in the target, never in the site: the deploy ran
+its frozen install in the caller's directory instead of the candidate worktree
+(so nothing was ever published); the running server read the release stamp once
+at startup, so a release published after the service started was never served;
+and then, on the re-run after the merge, the deploy resolved the plain ref name
+against the target clone's own stale local `main` and moved the checkout onto a
+revision from before the target existed. The first two are fixed in the PR that
+added the target, the last two in the follow-up that added
+`ops/preview/resolve-ref.sh` and the install preflight. `tests/preview-target.test.ts`
+covers the stamp behaviour and `ops/test-preview-target.sh` — run by CI's
+`checks` job — covers ref resolution and the preflight, both against local
+fixtures with no network and no systemd.
+
+The rehearsal was then run a second time on merged `main`, with the target
+re-installed from it (`install-target.sh main`, target code `e146e31`), on a
+temporary branch cut from that merge: candidate `a8fb038` served (its only file
+answering 200), reverted to `addf598` with the same tree as `main`, served, all
+checks passing, and the candidate file answering 404 again. `automancer.uk`
+served `e146e31` throughout. Both runs are in the same transcript.
 
 ## Verify from production, never from the green tick
 
