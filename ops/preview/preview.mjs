@@ -253,8 +253,13 @@ async function loadStamp(root) {
 /**
  * Start the preview target. Resolves (with the http.Server) once listening.
  * Exported so tests can drive the real server on an ephemeral port.
+ *
+ * @param {{ root: string, host?: string, port?: number, silent?: boolean }} options
  */
-export async function startServer({ root, host = '127.0.0.1', port = 4174, silent = false } = {}) {
+export async function startServer(options) {
+  const root = options.root;
+  const host = options.host ?? '127.0.0.1';
+  const silent = options.silent ?? false;
   const rootDir = resolve(root);
   const log = silent ? () => {} : (...args) => console.log(...args);
   const startup = await loadStamp(rootDir);
@@ -318,7 +323,7 @@ export async function startServer({ root, host = '127.0.0.1', port = 4174, silen
 
   await new Promise((ok, fail) => {
     server.once('error', fail);
-    server.listen(readPort(String(port), 4174), host, ok);
+    server.listen(readPort(String(options.port ?? 4174), 4174), host, ok);
   });
   return server;
 }

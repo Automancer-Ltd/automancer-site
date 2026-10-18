@@ -16,6 +16,8 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import type { Server } from 'node:http';
+import type { AddressInfo } from 'node:net';
 
 import {
   BANNER_ID,
@@ -27,10 +29,10 @@ import {
 } from '../ops/preview/preview.mjs';
 
 const SHA = 'a'.repeat(40);
-const servers = [];
-const dirs = [];
+const servers: Server[] = [];
+const dirs: string[] = [];
 
-async function fixture({ marked }) {
+async function fixture({ marked }: { marked: boolean }) {
   const dir = await mkdtemp(join(tmpdir(), 'site-preview-test-'));
   dirs.push(dir);
   await mkdir(join(dir, 'services'), { recursive: true });
@@ -45,13 +47,13 @@ async function fixture({ marked }) {
   }
   const server = await startServer({ root: dir, host: '127.0.0.1', port: 0, silent: true });
   servers.push(server);
-  const { port } = server.address();
+  const { port } = server.address() as AddressInfo;
   return { dir, url: `http://127.0.0.1:${port}` };
 }
 
 afterEach(async () => {
   await Promise.all(
-    servers.splice(0).map((s) => new Promise((done) => s.close(() => done()))),
+    servers.splice(0).map((s) => new Promise<void>((done) => s.close(() => done()))),
   );
   await Promise.all(dirs.splice(0).map((d) => rm(d, { recursive: true, force: true })));
 });
@@ -155,7 +157,7 @@ describe('serving an unmarked root', () => {
     );
     const server = await startServer({ root: dir, host: '127.0.0.1', port: 0, silent: true });
     servers.push(server);
-    const url = `http://127.0.0.1:${server.address().port}`;
+    const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
     expect(await (await fetch(`${url}/`)).text()).toContain('preview target');
 
     await markRelease(dir, { ref: 'preview/late', sha: SHA });
