@@ -38,3 +38,5 @@ jobs:
       run: |
         ops/verify-production.sh --self-test
         ops/test-production-monitor.sh
+    - name: Self-test the preview target's deploy logic
+      run: ops/test-preview-target.sh

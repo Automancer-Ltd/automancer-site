@@ -101,17 +101,174 @@ and push to `main`. `main` branch protection requires `checks` (`strict: false`)
 and `deploy.yml` waits for `checks` to succeed on `$GITHUB_SHA` before building
 and publishing to GitHub Pages.
 
+## The preview target — the only safe place to rehearse a rollback
+
+`main` deploys straight to the public site, so there is nowhere on the normal
+deploy path to rehearse anything: a rehearsal against `main` is an incident. This
+is why the rollback runbook stayed unexercised for so long. The preview target
+is the non-production origin that fixes that. It was added 2026-10-18 and is
+**not** on GitHub Pages, cannot publish `automancer.uk`, and never serves `main`.
+
+| | |
+|---|---|
+| URL (tailnet only) | `https://automancer-vps.taild6c90e.ts.net:4174/` |
+| Loopback on auto-vps | `http://127.0.0.1:4174/` |
+| Service | `automancer-site-preview.service` (user unit, enabled) |
+| Serves | `/opt/automancer/srv/automancer-site-preview/current` (a symlink to the release in use) |
+| Releases | `/opt/automancer/srv/automancer-site-preview/releases/<full-sha>/` |
+| Deploy log | `/opt/automancer/srv/automancer-site-preview/state/deployments.jsonl` |
+| Target code | `/opt/automancer/srv/automancer-site-preview/target` (a clone, checked out at the revision named by `install-target.sh`) |
+
+No hosting resource was created for this: it is a user unit on auto-vps serving
+a directory, exposed over the tailnet mapping that already existed for other
+previews. It holds no credentials and files no alerts — a preview that is down is
+not an estate incident, and `deploy-preview.sh` fails loudly if the target does
+not answer with the revision it just published.
+
+### Publishing a ref to it
+
+```bash
+ops/preview/install-target.sh [<ref>]        # install/refresh the target itself (default main)
+ops/preview/deploy-preview.sh <ref> --verify # build + publish a ref, then run the production checker
+```
+
+`deploy-preview.sh` refuses `main` by name and by revision, runs the repository
+gate (`pnpm run verify`, the same sequence CI's `checks` job runs) before it
+publishes anything, stamps the release with its ref and revision, flips
+`current`, and then **reads the served revision back off the target** instead of
+assuming the deploy worked. It prints the one-line undo (`ln -sfn <previous
+release> current && systemctl --user restart automancer-site-preview.service`).
+`ops/test-preview-target.sh` drives the deploy machinery's ref resolution and
+install preflight in CI, and `tests/preview-target.test.ts` drives the server and
+marker; both run on every pull request.
+
+### Why it cannot be mistaken for the public site
+
+1. It is a separate origin. Nothing here writes to GitHub Pages, and no workflow
+   in this repository can deploy a preview: `deploy.yml` still deploys only on a
+   push to `main` or a manual dispatch.
+2. `deploy-preview.sh` refuses `main` (and its tip) outright.
+3. The server (`ops/preview/preview.mjs serve`) only serves a root that
+   `ops/preview/preview.mjs mark` has stamped with `.preview-target`. Pointed at
+   any other directory — a production `dist/`, a stale release — it serves a
+   placeholder instead of a site.
+4. Everything it serves carries `X-Robots-Tag: noindex, nofollow, noarchive`,
+   `<meta name="robots" content="noindex, nofollow">`, and a visible
+   `PREVIEW TARGET — non-production. Not automancer.uk` banner naming the ref and
+   revision it was built from. The server also refuses to bind port 80 or 443.
+
+### What it is not
+
+It is not a mirror of `main` and not a second production. It keeps the newest 5
+release directories and serves the last one anyone published — after a rehearsal
+that is the rehearsed revision, not `main`. No release notes, no Sentry (a
+preview build has no `PUBLIC_AUT_SENTRY_WEB_DSN`, deliberately: a rehearsal must
+not consume the production error budget), and no PR previews. Undo the whole
+target with:
+
+```bash
+systemctl --user disable --now automancer-site-preview.service
+rm -f ~/.config/systemd/user/automancer-site-preview.service
+sudo tailscale serve --https=4174 off
+```
+
 ## Rollback
 
 Redeploy is automatic on push, so a revert reaches production the same way the
-change did.
+change did. **The single-commit revert path was exercised end to end on
+2026-10-18, on the preview target**; the commands and their observed output are
+below, and the untouched transcript (including the revision the target served
+after each step) is `/opt/automancer/var/scratch/s1621/rehearsal.log`.
 
 - **A bad user-facing change** — revert that one commit and push. This is almost
   always the right rollback, because typically only one commit changes what a
-  visitor sees.
+  visitor sees. Exercised with a temporary branch (`preview/rollback-rehearsal`)
+  carrying one harmless candidate commit (`3cd90d8`) on top of `main`'s
+  `1135f5e`:
+
+  ```console
+  $ git revert --no-edit 3cd90d8
+  [preview/rollback-rehearsal d2de53e] Revert "rehearsal: harmless candidate for the rollback rehearsal (temporary, will be reverted)"
+   1 file changed, 5 deletions(-)
+   delete mode 100644 public/rehearsal-candidate.txt
+
+  $ git push origin preview/rollback-rehearsal
+  ✓ pre-push checks passed
+  To https://github.com/Automancer-Ltd/automancer-site.git
+     3cd90d8..d2de53e  preview/rollback-rehearsal -> preview/rollback-rehearsal
+  ```
+
+  The revert restores the starting tree exactly: the revert commit and `main`
+  have the same tree object, `git diff --stat main d2de53e` is empty.
+
+- **Then deploy and verify it**, exactly as production does (`deploy-preview.sh`
+  for the preview target; a push to `main` for production, where `deploy.yml`
+  builds and its `verify` job runs the same checker):
+
+  ```console
+  $ ops/preview/deploy-preview.sh preview/rollback-rehearsal --verify
+  deploy-preview: publishing preview/rollback-rehearsal -> d2de53e0b294e3ea3214aa0004622d1ea1876e4a
+  deploy-preview: installing dependencies (frozen lockfile)
+  deploy-preview: running the repository gate (pnpm run verify: lint, typecheck, build, dist audit)
+  … 156 tests passed
+  marked 34 html file(s) (34 rewritten) … as preview/rollback-rehearsal@d2de53e
+
+  served revision : d2de53e  (/opt/automancer/srv/automancer-site-preview/releases/d2de53e0b294e3ea3214aa0004622d1ea1876e4a)
+  previous release: 3cd90d8d1278ed68aa8dc2c4b334eef759beaedd
+
+  deploy-preview: verifying the target with the production checker (preview mode)
+  Verifying https://automancer-vps.taild6c90e.ts.net:4174 (each check retries for up to 90s before failing)
+  Mode: preview target (non-production) — the Sentry assertion is inverted: this target must serve NO Sentry ingest DSN
+  PASS  page / answers 200
+  PASS  page /services answers 200   (via 1 redirect(s) to …/services/)
+  PASS  unknown path answers a REAL 404 (not a soft 404)
+  PASS  /llms.txt answers 200 with a non-empty body
+  PASS  /sitemap-index.xml answers 200 and parses as XML
+  PASS  /agent.json answers 200 and parses as JSON
+  PASS  /security.txt answers 200 and satisfies RFC 9116
+  PASS  homepage contains structural anchor "Company No. 17060907"
+  PASS  homepage serves expected build revision d2de53e
+  PASS  error monitoring is deliberately INERT on this non-production target (bundle carries no Sentry DSN)
+  PASS  TLS certificate valid and expires >21 days out
+
+  RESULT: all checks passed against https://automancer-vps.taild6c90e.ts.net:4174
+  ```
+
+  The two served homepages — the candidate's and the reverted one — are
+  byte-identical once the revision and build time are normalised, and the
+  candidate-only file answers `200` while the candidate release is on `current`
+  and `404` after the revert.
+
 - **Full restore to the pre-campaign tree** —
   `git reset --hard ox-campaign-truebaseline-2026-08-21 && git push --force-with-lease`.
-  Last resort; discards work, so it needs a human decision.
+  Last resort; discards work, so it needs a human decision. **Still unexercised,
+  deliberately:** docs/PLAN.md §2 keeps the force-push/full-restore path out of
+  the rehearsal, so this is the one path in this runbook with no rehearsal
+  behind it. Rehearsing it means force-pushing a throwaway branch on the preview
+  target, and it is worth doing before anyone needs it in an incident.
+
+### What the rehearsal itself caught
+
+Four attempts failed before it ran clean, which is the point of having somewhere
+safe to fail. Every defect was in the target, never in the site: the deploy ran
+its frozen install in the caller's directory instead of the candidate worktree
+(so nothing was ever published); the running server read the release stamp once
+at startup, so a release published after the service started was never served;
+and then, on the re-run after the merge, the deploy resolved the plain ref name
+against the target clone's own stale local `main` and moved the checkout onto a
+revision from before the target existed. The first two are fixed in the PR that
+added the target, the last two in the follow-up that added
+`ops/preview/resolve-ref.sh` and the install preflight. `tests/preview-target.test.ts`
+covers the stamp behaviour and `ops/test-preview-target.sh` — run by CI's
+`checks` job — covers ref resolution and the preflight, both against local
+fixtures with no network and no systemd.
+
+The rehearsal was then run a second time on merged `main`, with the target
+re-installed from it (`install-target.sh main`, target code `e146e31`), on a
+temporary branch cut from that merge: candidate `a8fb038` served (its only file
+answering 200), reverted to `addf598` with the same tree as `main`, served, all
+checks passing, and the candidate file answering 404 again. `automancer.uk`
+served `e146e31` throughout. Both runs are in the same transcript.
 
 ## Verify from production, never from the green tick
 
@@ -132,10 +289,13 @@ out (`TLS_MIN_DAYS=21` in the script — corrected from "14" on 2026-09-22; the
 threshold must sit below Let's Encrypt's ~29-day renewal point) — each
 retried for up to 90 seconds so a lagging Pages deploy is ridden
 out but a real failure still fails. It takes the base URL as its argument,
-so it can be pointed at a preview:
+so it can be pointed at the preview target — with `--preview`, which keeps every
+assertion but inverts the Sentry one (a preview must carry *no* ingest DSN):
 
 ```bash
-ops/verify-production.sh https://automancer.uk
+ops/verify-production.sh https://automancer.uk                      # production
+ops/verify-production.sh --preview --expected-revision <sha> \
+  https://automancer-vps.taild6c90e.ts.net:4174                     # the preview target
 ```
 
 ## Things that look wrong and are not

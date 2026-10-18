@@ -55,6 +55,16 @@ the candidate on the branch, and verify the preview serves the starting revision
 path out of the rehearsal. Do not create a new hosting resource in this task. Until a non-production target is
 available, the runbook rehearsal remains unproven; a local `git revert` alone is not an end-to-end rehearsal.
 
+**Resolved 2026-10-18.** The target exists and the single-commit revert path has been rehearsed on it end to
+end. `ops/preview/` adds the target (a marked release directory served by the user unit
+`automancer-site-preview.service` over the tailnet, no new hosting resource) and `docs/DEPLOYMENT.md` now
+carries the commands exercised, with their observed output, and the two defects the rehearsal caught in the
+target itself. Sequence observed: candidate `3cd90d8` on a temporary branch served by the target → `git revert`
++ push → `d2de53e` served, byte-identical to the starting revision once the build stamp is normalised, with the
+candidate-only file answering 404 again. `automancer.uk` was never involved (it served `1135f5e` throughout).
+Transcript: `/opt/automancer/var/scratch/s1621/rehearsal.log`. The force-push/full-restore path stays out of
+scope on purpose and is now named in the runbook as the one unexercised path.
+
 ## 3. The is-agentic score was never re-measured
 
 Scored 63/100 before the agent-readiness work shipped and never re-run, so nobody knows what the
