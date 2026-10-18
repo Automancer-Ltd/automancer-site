@@ -101,7 +101,7 @@ gate() {
 }
 
 note "deploy-preview: installing dependencies (frozen lockfile)"
-gate pnpm install --frozen-lockfile >/dev/null
+( cd "$BUILD" && gate pnpm install --frozen-lockfile >/dev/null )
 
 if (( run_gate == 1 )); then
   note "deploy-preview: running the repository gate (pnpm run verify: lint, typecheck, build, dist audit)"
