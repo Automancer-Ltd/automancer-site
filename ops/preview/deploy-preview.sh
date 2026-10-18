@@ -32,6 +32,7 @@ RELEASES="$ROOT/releases"
 CURRENT="$ROOT/current"
 STATE="$ROOT/state"
 UNIT=automancer-site-preview.service
+HERE=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 PREVIEW_HOST_PORT="${AUTOMANCER_SITE_PREVIEW_LOCAL:-http://127.0.0.1:4174}"
 PREVIEW_URL="${AUTOMANCER_SITE_PREVIEW_URL:-https://automancer-vps.taild6c90e.ts.net:4174}"
 DEFAULT_KEEP=5
@@ -63,14 +64,12 @@ done
 note "deploy-preview: fetching origin in $TARGET"
 git -C "$TARGET" fetch --quiet --prune origin '+refs/heads/*:refs/remotes/origin/*'
 
-sha=''
-for candidate in "$ref" "origin/$ref" "refs/remotes/origin/$ref"; do
-  if sha=$(git -C "$TARGET" rev-parse --verify --quiet "${candidate}^{commit}"); then break; fi
-  sha=''
-done
-[[ -n $sha ]] || die "'$ref' does not exist on origin (fetched just now) — push it first"
+# resolve-ref.sh prefers origin/<ref> over the clone's own branch of the same
+# name; see its header for why that matters here.
+sha=$("$HERE/resolve-ref.sh" "$TARGET" "$ref") ||
+  die "'$ref' does not exist on origin (fetched just now) — push it first"
 
-main_sha=$(git -C "$TARGET" rev-parse --verify origin/main^{commit})
+main_sha=$(git -C "$TARGET" rev-parse --verify refs/remotes/origin/main^{commit})
 case "$ref" in
   main|refs/heads/main|origin/main|refs/remotes/origin/main) die "the preview target never serves main" ;;
 esac

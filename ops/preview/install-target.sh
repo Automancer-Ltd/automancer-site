@@ -9,33 +9,51 @@
 # The unit is symlinked, not copied, into the user unit directory: the file
 # systemd runs is the file in the checkout, so the reviewed revision and the
 # running revision cannot drift. ExecStart pins the default release root, so
-# this script refuses a custom AUTOMANCER_SITE_PREVIEW_ROOT.
+# this script refuses a custom AUTOMANCER_SITE_PREVIEW_ROOT unless --clone-only
+# is given (which touches no unit at all).
 #
-# usage: install-target.sh [<ref|40-hex-sha>] [--no-start] [--no-expose]
+# usage: install-target.sh [<ref|40-hex-sha>] [--clone-only] [--no-start] [--no-expose]
 #
-#   <ref>       default main; any ref that exists on origin (the rehearsal
-#               installs the branch under test). Never run this from an
-#               unreviewed ref outside a rehearsal.
-#   --no-start  install the unit but do not start or enable it.
-#   --no-expose skip the tailnet HTTPS mapping (loopback-only target).
+#   <ref>         default main; any ref that exists on origin (the rehearsal
+#                 installs the branch under test). Never run this from an
+#                 unreviewed ref outside a rehearsal.
+#   --clone-only  prepare the target clone at <ref> and stop. No unit, no
+#                 tailnet, no service. This is the mode the tests drive.
+#   --no-start    install the unit but do not start or enable it.
+#   --no-expose   skip the tailnet HTTPS mapping (loopback-only target).
 set -euo pipefail
 
-ROOT=/opt/automancer/srv/automancer-site-preview
+HERE=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+RESOLVE_REF="$HERE/resolve-ref.sh"
+DEFAULT_ROOT=/opt/automancer/srv/automancer-site-preview
+ROOT="${AUTOMANCER_SITE_PREVIEW_ROOT:-$DEFAULT_ROOT}"
 TARGET="$ROOT/target"
 UNIT=automancer-site-preview.service
 REPO_URL="${AUTOMANCER_SITE_REPO_URL:-https://github.com/Automancer-Ltd/automancer-site.git}"
 USER_UNIT_DIR="${AUTOMANCER_USER_UNIT_DIR:-$HOME/.config/systemd/user}"
 SYSTEMCTL_BIN="${SYSTEMCTL_BIN:-/usr/bin/systemctl}"
 SERVE_PORT="${AUTOMANCER_SITE_PREVIEW_PORT:-4174}"
+REQUIRED_FILES=(ops/preview/preview.mjs ops/systemd/user/automancer-site-preview.service ops/verify-production.sh)
 RELEASE_NOTE_NAMES=(automancer-site wick gdp-chorus gdp-ic1)
-
-[[ ${AUTOMANCER_SITE_PREVIEW_ROOT:-$ROOT} == "$ROOT" ]] || {
-  printf 'REFUSED: a custom preview root needs a matching unit; ExecStart pins %s\n' "$ROOT" >&2
-  exit 1
-}
 
 die() { printf 'REFUSED: %s\n' "$*" >&2; exit 1; }
 note() { printf '%s\n' "$*"; }
+
+ref=main; do_start=1; do_expose=1; clone_only=0
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --clone-only) clone_only=1 ;;
+    --no-start) do_start=0 ;;
+    --no-expose) do_expose=0 ;;
+    -*) die "unknown option $1" ;;
+    *) ref=$1 ;;
+  esac
+  shift
+done
+
+if (( clone_only == 0 )) && [[ $ROOT != "$DEFAULT_ROOT" ]]; then
+  die "a custom preview root needs a matching unit; ExecStart pins $DEFAULT_ROOT (use --clone-only to prepare a clone elsewhere)"
+fi
 
 # AUT-9801: four release-note units survive only in systemd's in-memory copy.
 # `daemon-reload` would drop them, so refuse before touching systemd.
@@ -53,21 +71,12 @@ refuse_broken_release_note_units() {
   (( broken == 0 ))
 }
 
-ref=main; do_start=1; do_expose=1
-while [[ $# -gt 0 ]]; do
-  case "$1" in
-    --no-start) do_start=0 ;;
-    --no-expose) do_expose=0 ;;
-    -*) die "unknown option $1" ;;
-    *) ref=$1 ;;
-  esac
-  shift
-done
+if (( clone_only == 0 )); then
+  refuse_broken_release_note_units
 
-refuse_broken_release_note_units
-
-if [[ -z ${XDG_RUNTIME_DIR:-} ]]; then
-  export XDG_RUNTIME_DIR="/run/user/$(id -u)"
+  if [[ -z ${XDG_RUNTIME_DIR:-} ]]; then
+    export XDG_RUNTIME_DIR="/run/user/$(id -u)"
+  fi
 fi
 
 if [[ ! -d $TARGET/.git ]]; then
@@ -79,24 +88,27 @@ fi
 git -C "$TARGET" fetch --quiet --prune origin '+refs/heads/*:refs/remotes/origin/*'
 [[ -z $(git -C "$TARGET" status --porcelain) ]] || die "target clone is dirty: $TARGET"
 
-sha=''
-for candidate in "$ref" "origin/$ref" "refs/remotes/origin/$ref"; do
-  if sha=$(git -C "$TARGET" rev-parse --verify --quiet "${candidate}^{commit}"); then break; fi
-  sha=''
-done
-[[ -n $sha ]] || die "'$ref' does not exist on origin (fetched just now)"
+sha=$("$RESOLVE_REF" "$TARGET" "$ref") || die "'$ref' does not exist on origin (fetched just now)"
 
 if [[ $ref == main || $ref == refs/heads/main || $ref == origin/main ]]; then
-  git -C "$TARGET" merge-base --is-ancestor "$sha" origin/main ||
+  git -C "$TARGET" merge-base --is-ancestor "$sha" refs/remotes/origin/main ||
     die "'$ref' is not an ancestor of origin/main"
 fi
+
+# Check the revision carries the target BEFORE moving the checkout: the first
+# rehearsal left the clone on a revision without the target and could not start.
+for required in "${REQUIRED_FILES[@]}"; do
+  git -C "$TARGET" cat-file -e "$sha:$required" 2>/dev/null ||
+    die "$required is missing at ${sha:0:7} — that revision predates the preview target"
+done
 
 git -C "$TARGET" checkout --quiet --detach "$sha"
 [[ $(git -C "$TARGET" rev-parse HEAD) == "$sha" ]] || die "checkout did not land on $sha"
 
-for required in ops/preview/preview.mjs ops/systemd/user/$UNIT ops/verify-production.sh; do
-  [[ -f "$TARGET/$required" ]] || die "$required is missing at ${sha:0:7} — that revision predates the preview target"
-done
+if (( clone_only == 1 )); then
+  note "install-target: --clone-only, target clone is at ${ref} = ${sha:0:7} ($TARGET)"
+  exit 0
+fi
 
 mkdir -p "$USER_UNIT_DIR"
 ln -sfn "$TARGET/ops/systemd/user/$UNIT" "$USER_UNIT_DIR/$UNIT"
@@ -127,7 +139,7 @@ if (( do_start == 1 )); then
   done
   (( ok == 1 )) || die "the unit did not answer on 127.0.0.1:${SERVE_PORT}; see journalctl --user -u $UNIT"
   robots=$(curl -fsS -D - -o /dev/null --max-time 5 "http://127.0.0.1:${SERVE_PORT}/" | tr -d '\r' |
-    awk 'tolower($1) == "x-robots-tag:" {print $2, $3}')
+    awk 'tolower($1) == "x-robots-tag:" {print $2, $3, $4}')
   [[ $robots == noindex,* ]] || die "the target did not answer with X-Robots-Tag: noindex (got '${robots:-none}')"
   note "install-target: target answers with X-Robots-Tag: $robots"
 fi
