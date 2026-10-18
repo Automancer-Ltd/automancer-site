@@ -74,7 +74,7 @@ main_sha=$(git -C "$TARGET" rev-parse --verify origin/main^{commit})
 case "$ref" in
   main|refs/heads/main|origin/main|refs/remotes/origin/main) die "the preview target never serves main" ;;
 esac
-(( sha != main_sha )) || die "that revision is main's tip (${sha:0:7}) — the preview target never serves main"
+[[ $sha != "$main_sha" ]] || die "that revision is main's tip (${sha:0:7}) — the preview target never serves main"
 
 short=${sha:0:7}
 note "deploy-preview: publishing ${ref} -> ${sha}"

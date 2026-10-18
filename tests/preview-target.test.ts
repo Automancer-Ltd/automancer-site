@@ -143,4 +143,28 @@ describe('serving an unmarked root', () => {
     expect(page.status).toBe(404);
     expect(await page.text()).not.toContain('services');
   });
+
+  // `current` is a symlink that deploy-preview.sh flips after a release is
+  // published, so a release must take effect without restarting the service.
+  it('picks up a release published after the server started', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'site-preview-late-'));
+    dirs.push(dir);
+    await writeFile(
+      join(dir, 'index.html'),
+      '<html><body><span>build:</span><b>abcdef0</b></body></html>',
+    );
+    const server = await startServer({ root: dir, host: '127.0.0.1', port: 0, silent: true });
+    servers.push(server);
+    const url = `http://127.0.0.1:${server.address().port}`;
+    expect(await (await fetch(`${url}/`)).text()).toContain('preview target');
+
+    await markRelease(dir, { ref: 'preview/late', sha: SHA });
+
+    const res = await fetch(`${url}/`);
+    const body = await res.text();
+    expect(res.status).toBe(200);
+    expect(res.headers.get('x-preview-target')).toBe('preview/late@aaaaaaa');
+    expect(body).toContain(BANNER_ID);
+    expect(body).toContain('abcdef0');
+  });
 });

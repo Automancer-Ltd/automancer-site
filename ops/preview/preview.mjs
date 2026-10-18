@@ -256,17 +256,20 @@ async function loadStamp(root) {
  */
 export async function startServer({ root, host = '127.0.0.1', port = 4174, silent = false } = {}) {
   const rootDir = resolve(root);
-  const stamp = await loadStamp(rootDir);
   const log = silent ? () => {} : (...args) => console.log(...args);
-  if (!stamp) {
-    log(
-      `preview target: ${rootDir} has no ${STAMP_FILE} marker — serving the placeholder, not a site`,
-    );
-  } else {
-    log(`preview target: serving ${stamp.ref}@${stamp.short} from ${rootDir}`);
-  }
+  const startup = await loadStamp(rootDir);
+  log(
+    startup
+      ? `preview target: serving ${startup.ref}@${startup.short} from ${rootDir}`
+      : `preview target: ${rootDir} has no ${STAMP_FILE} marker — serving the placeholder until a release is stamped`,
+  );
 
   const server = createServer(async (req, res) => {
+    // Re-read the stamp per request: `current` is a symlink flipped atomicly by
+    // deploy-preview.sh, so a release published after this process started must
+    // take effect without a restart. Cheap (one small file) and it is what makes
+    // "flip the symlink" a complete deploy.
+    const stamp = await loadStamp(rootDir);
     if (req.method !== 'GET' && req.method !== 'HEAD') {
       res.writeHead(405, headers(stamp, { Allow: 'GET, HEAD' }));
       res.end();
