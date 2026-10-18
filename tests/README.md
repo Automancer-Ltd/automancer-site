@@ -65,6 +65,12 @@ tests/contact-errors.test.ts  lead-API error-copy guard: lifts the built contact
                             no machine code from the intake endpoint may reach
                             #form-error, on any branch, known code or not.
                             Negative control: 9ac5d96^ (the shipped defect)
+tests/preview-target.test.ts  the preview target itself (ops/preview/preview.mjs):
+                            drives the real server and marker on a fixture — a
+                            release is only servable once stamped, an unstamped
+                            root serves a placeholder instead of a site, noindex
+                            is set, a release published after startup is picked up,
+                            and a public web port is refused.
 ```
 
 Page categories (see `tests/support/dist.ts`):
