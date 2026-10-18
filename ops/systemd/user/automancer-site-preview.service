@@ -1,0 +1,28 @@
+[Unit]
+# The non-production target for this repository, described in
+# docs/DEPLOYMENT.md ("The preview target"). It cannot serve automancer.uk:
+# it is a user unit serving a marked release directory on the tailnet, and the
+# server it runs refuses any root that `ops/preview/preview.mjs mark` has not
+# stamped, refuses to bind a public web port, and stamps noindex on everything
+# it does serve.
+#
+# No OnFailure alert on purpose: a preview target that is down is not an estate
+# incident. `ops/preview/deploy-preview.sh` fails loudly if the target does not
+# answer with the revision it published, and `install-target.sh` reports state.
+Description=automancer-site preview target (non-production, never automancer.uk)
+Documentation=file:/opt/automancer/srv/automancer-site-preview/target/docs/DEPLOYMENT.md
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+Environment=PREVIEW_ROOT=/opt/automancer/srv/automancer-site-preview/current
+Environment=PREVIEW_HOST=127.0.0.1
+Environment=PREVIEW_PORT=4174
+ExecStart=/usr/bin/node /opt/automancer/srv/automancer-site-preview/target/ops/preview/preview.mjs serve
+Restart=always
+RestartSec=3
+Nice=10
+
+[Install]
+WantedBy=default.target

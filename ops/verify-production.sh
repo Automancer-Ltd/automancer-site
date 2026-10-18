@@ -71,6 +71,7 @@ BASE_URL=''
 HOST=''       # hostname only (for TLS SNI)
 HOST_PORT=''  # hostname[:port]
 EXPECTED_REVISION='' # seven-character revision served in the homepage proof strip
+PREVIEW_MODE=0         # --preview: invert the Sentry assertion for a non-production target
 
 FAILED_CHECKS=()
 
@@ -116,6 +117,7 @@ usage() {
   cat >&2 <<'EOF'
 Usage: ops/verify-production.sh <base-url>
        ops/verify-production.sh --expected-revision <7-or-40-char-sha> <base-url>
+       ops/verify-production.sh --preview [--expected-revision <sha>] <base-url>
        ops/verify-production.sh --self-test
        ops/verify-production.sh --assert-sentry-bundle <js-file>
 
@@ -128,6 +130,13 @@ the expected project (not merely "a" Sentry project).
 homepage proof strip to serve the first seven characters of the supplied
 Git SHA. The assertion uses the same bounded 90-second retry window as the
 other checks so a normal Pages rollout can finish without paging forever.
+
+--preview is for the non-production preview target (docs/DEPLOYMENT.md).
+It runs every check above except the Sentry one, which it inverts: a
+preview build is deliberately built WITHOUT PUBLIC_AUT_SENTRY_WEB_DSN, so
+the assertion is that the served bundle carries NO Sentry ingest DSN. A
+preview that reports into the production Sentry project is a failure here,
+because a rehearsal must not consume the production error budget.
 
 --self-test proves the checker itself can still fail AND pass: it drives
 each independently-failable assertion against an isolated local fixture on
@@ -149,6 +158,7 @@ Examples:
   ops/verify-production.sh https://automancer.uk         # production
   ops/verify-production.sh --expected-revision "$GITHUB_SHA" https://automancer.uk
   ops/verify-production.sh https://preview.example.org   # a preview deploy
+  ops/verify-production.sh --preview --expected-revision "$SHA" https://a-preview-host
   ops/verify-production.sh --self-test                   # the checker checks itself
   ops/verify-production.sh --assert-sentry-bundle ./bundle.js  # local bundle only
 EOF
@@ -600,8 +610,59 @@ sentry_bundle_verdict() {
 }
 
 check_sentry_live() {
-  local url="${BASE_URL}/" rc=0 script combined
+  local rc=0 combined
+  combined=$(need_tmp)
+  if ! collect_homepage_bundles "$combined"; then rm -f "$combined"; return 1; fi
+  sentry_bundle_verdict "$combined" "$SENTRY_LABEL" || rc=$?
+  rm -f "$combined"
+  return "$rc"
+}
+
+# preview mode: the assertion inverted.
+#
+# The preview target (docs/DEPLOYMENT.md) is built WITHOUT
+# PUBLIC_AUT_SENTRY_WEB_DSN on purpose — a rehearsal must not consume the
+# production error budget and must not look like production in Sentry. So on a
+# preview the passing state is the one that fails in production: no ingest DSN
+# at all. Running the same checker with --preview keeps one implementation of
+# "what a preview must serve" instead of a second, weaker spot-check.
+#
+# sentry_inert_verdict <js-file> <label> — one diagnosis line, 0 only when the
+# bundle carries no ingest DSN. Never prints a DSN.
+sentry_inert_verdict() {
+  local bundle_file=$1 label=$2
+  local ids_raw found_list
+  if ! ids_raw=$(extract_sentry_project_ids "$bundle_file"); then
+    printf 'could not parse %s for a Sentry project id\n' "$label"
+    return 1
+  fi
+  if [[ -n $ids_raw ]]; then
+    found_list=$(printf '%s' "$ids_raw" | paste -sd, -)
+    printf 'bundle %s carries a Sentry ingest DSN for project %s — this is the NON-PRODUCTION preview target and must not report into a real error budget. Build the preview without PUBLIC_AUT_SENTRY_WEB_DSN (docs/DEPLOYMENT.md, "The preview target").\n' \
+      "$label" "$found_list"
+    return 1
+  fi
+  printf 'bundle %s carries no Sentry ingest DSN — error monitoring is deliberately inert on this non-production target\n' "$label"
+}
+
+check_sentry_inert() {
+  local rc=0 combined
+  combined=$(need_tmp)
+  if ! collect_homepage_bundles "$combined"; then rm -f "$combined"; return 1; fi
+  sentry_inert_verdict "$combined" "$SENTRY_LABEL" || rc=$?
+  rm -f "$combined"
+  return "$rc"
+}
+
+# collect_homepage_bundles <outfile> — concatenate the same-origin JS the
+# homepage loads, exactly as check_sentry_live and check_sentry_inert need it,
+# and set SENTRY_LABEL to the script list for their diagnosis lines. Returns
+# non-zero when the page or one of its bundles cannot be fetched.
+SENTRY_LABEL=''
+collect_homepage_bundles() {
+  local outfile=$1 url="${BASE_URL}/" script
   local -a scripts=()
+  SENTRY_LABEL=''
   fetch_body "$url" || return 1
   # Same-origin JS the homepage actually loads. Sentry, when the DSN is
   # present, is an /_astro/ chunk. When PUBLIC_AUT_SENTRY_WEB_DSN is unset
@@ -618,19 +679,16 @@ check_sentry_live() {
     printf 'could not find a /_astro/*.js or /assets/*.js bundle on %s — the page did not render as expected\n' "$url"
     return 1
   fi
-  combined=$(need_tmp)
-  : >"$combined"
+  : >"$outfile"
   for script in "${scripts[@]}"; do
     if ! fetch_body "${BASE_URL}${script}"; then
-      rm -f "$combined"
       return 1
     fi
-    cat "$BODY_FILE" >>"$combined"
+    cat "$BODY_FILE" >>"$outfile"
     rm -f "$BODY_FILE"
   done
-  sentry_bundle_verdict "$combined" "${scripts[*]}" || rc=$?
-  rm -f "$combined"
-  return "$rc"
+  SENTRY_LABEL="${scripts[*]}"
+  return 0
 }
 
 # --assert-sentry-bundle <js-file> — run sentry_bundle_verdict against a local
@@ -845,7 +903,7 @@ self_test() {
   HOST='127.0.0.1'
   HOST_PORT="127.0.0.1:${port}"
 
-  log "Self-test: driving 26 independently-failable assertions across 10 checks on ${BASE_URL}"
+  log "Self-test: driving 28 independently-failable assertions across 11 checks on ${BASE_URL}"
   log "(fixtures use 127.0.0.1 only; the TLS trust-chain assertion remains live-only)"
   log ""
 
@@ -1029,6 +1087,14 @@ Canonical: https://example.com/security.txt
   self_test_scenario '{"routes":{"/":{"status":200,"body":"<script src=/_astro/app.js></script>"},"/_astro/app.js":{"status":200,"body":"const dsn=o4511673494732800.ingest.de.sentry.io/4511769898647632"}},"default":{"status":404,"body":""}}'
   self_test_expect pass "renamed PUBLIC_AUT_SENTRY_WEB_DSN leaves no ingest DSN" check_sentry_live
 
+  # Preview mode inverts the Sentry assertion. A preview that ships a real DSN
+  # would report into the production error budget; a preview built without the
+  # variable (the intended state) ships only /assets/js/main.js.
+  self_test_scenario '{"routes":{"/":{"status":200,"body":"<script src=/_astro/app.js></script>"},"/_astro/app.js":{"status":200,"body":"const dsn=o4511673494732800.ingest.de.sentry.io/4511769898647632"}},"default":{"status":404,"body":""}}'
+  self_test_expect fail "preview target serves no Sentry ingest DSN" check_sentry_inert
+  self_test_scenario '{"routes":{"/":{"status":200,"body":"<script src=/assets/js/main.js></script>"},"/assets/js/main.js":{"status":200,"body":"console.log(1)"}},"default":{"status":404,"body":""}}'
+  self_test_expect pass "preview target serves no Sentry ingest DSN" check_sentry_inert
+
   self_test_expect fail "TLS certificate expiry date is parseable" parse_tls_expiry "notAfter=not-a-date"
   self_test_expect pass "TLS certificate expiry date is parseable" parse_tls_expiry "notAfter=Jan 1 00:00:00 2099 GMT"
 
@@ -1058,7 +1124,7 @@ Canonical: https://example.com/security.txt
     for i in "${SELF_TEST_FAILURES[@]}"; do log "  - $i"; done
     exit 1
   fi
-  log "SELF-TEST RESULT: all 26 locally isolatable assertions across 10 checks can fail AND can pass."
+  log "SELF-TEST RESULT: all 28 locally isolatable assertions across 11 checks can fail AND can pass."
 }
 main() {
   if [[ ${1:-} == '--self-test' ]]; then
@@ -1073,6 +1139,10 @@ main() {
     assert_sentry_bundle_file "$2"
     return
   fi
+  if [[ ${1:-} == '--preview' ]]; then
+    PREVIEW_MODE=1
+    shift
+  fi
   if [[ ${1:-} == '--expected-revision' ]]; then
     [[ $# -ge 2 ]] || arg_error "--expected-revision requires a Git SHA"
     validate_expected_revision "$2"
@@ -1081,6 +1151,9 @@ main() {
   validate_base_url "$@"
   preflight
   log "Verifying ${BASE_URL} (each check retries for up to ${DEADLINE_SECS}s before failing)"
+  if (( PREVIEW_MODE )); then
+    log "Mode: preview target (non-production) — the Sentry assertion is inverted: this target must serve NO Sentry ingest DSN"
+  fi
   log ""
 
   # A failed check must not abort the run under `set -e`: one red run should
@@ -1103,7 +1176,11 @@ main() {
   if [[ -n $EXPECTED_REVISION ]]; then
     if ! poll_check "homepage serves expected build revision ${EXPECTED_REVISION}" check_revision; then :; fi
   fi
-  if ! poll_check "error monitoring is live on Sentry project ${EXPECTED_SENTRY_PROJECT_SLUG} (${EXPECTED_SENTRY_PROJECT_ID})" check_sentry_live; then :; fi
+  if (( PREVIEW_MODE )); then
+    if ! poll_check "error monitoring is deliberately INERT on this non-production target (bundle carries no Sentry DSN)" check_sentry_inert; then :; fi
+  else
+    if ! poll_check "error monitoring is live on Sentry project ${EXPECTED_SENTRY_PROJECT_SLUG} (${EXPECTED_SENTRY_PROJECT_ID})" check_sentry_live; then :; fi
+  fi
   if ! poll_check "TLS certificate valid and expires >${TLS_MIN_DAYS} days out" check_tls; then :; fi
 
   log ""
