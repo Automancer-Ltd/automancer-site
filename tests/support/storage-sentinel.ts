@@ -118,10 +118,14 @@ function instrument(window: Window, touches: string[], instrumentedWindows: Weak
     configurable: true,
   });
 
-  // A same-origin about:blank iframe has a fresh Window and Storage prototype.
-  // Instrument it lazily when page code first obtains `contentWindow`, which
-  // catches `iframe.contentWindow.localStorage` without changing iframe
-  // creation or application behaviour.
+  // A same-origin child frame has its own Window and Storage. Instrument it
+  // lazily when page code first obtains `contentWindow`, which catches
+  // `iframe.contentWindow.localStorage` without changing iframe creation or
+  // application behaviour. happy-dom 21 only materialises `contentWindow` for a
+  // frame that carries a document (`srcdoc`); an empty about:blank frame is left
+  // null (a browser gives one), and page code that reaches for storage through
+  // it raises an execution error the caller's `errors` assertion already fails
+  // on, so the gap fails closed rather than silently passing.
   const iframePrototype = Object.getPrototypeOf(window.document.createElement('iframe'));
   const contentWindow = Object.getOwnPropertyDescriptor(iframePrototype, 'contentWindow');
   if (contentWindow?.get) {
