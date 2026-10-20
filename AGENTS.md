@@ -11,7 +11,7 @@ Run all build, test, typecheck, and lint commands through `checkq`:
 
 ```bash
 checkq -- pnpm install --frozen-lockfile   # installs deps + runs `prepare` (`astro sync`)
-checkq -- pnpm run check                   # fast gate (~5s): oxlint --type-aware + tsgo --noEmit + cached Vitest
+checkq -- pnpm run check                   # fast gate (~5s): oxlint --type-aware + tsrs --noEmit + cached Vitest
 checkq -- pnpm run test                    # full gate: fresh `astro build` -> 14 Vitest files against dist/
 checkq -- pnpm run verify                  # check + test (same sequence as CI `checks`)
 ```
