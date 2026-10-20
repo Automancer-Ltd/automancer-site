@@ -1,7 +1,7 @@
 # Automancer Site — Living Specification
 
 > Internal living spec. Update the relevant module section in the SAME branch
-> as any behaviour change. Last verified against the code: 2026-10-14.
+> as any behaviour change. Last verified against the code: 2026-10-20.
 
 ## North star
 
@@ -40,9 +40,15 @@ Provide a truthful public front door for Automancer. Give people and machines th
 
 ### Machine-readable surface
 
-- What it does: Publishes Markdown twins, JSON endpoints, OpenAPI, JSON-LD, feeds, `llms.txt`, an agent manifest, a sitemap, and security contact data. Legal page bodies remain canonical in HTML and are not copied into machine-readable mirrors.
+- What it does: Publishes Markdown twins, JSON endpoints, OpenAPI, JSON-LD, feeds, `llms.txt`, an agent manifest, a sitemap, security contact data, and the stability policy below. Legal page bodies remain canonical in HTML and are not copied into machine-readable mirrors.
 - State: built
 - Shaped by: `src/data/api.ts`, `src/data/openapi.ts`, `src/data/feeds.ts`, `src/data/static-markdown.ts`, and the generated routes in `src/pages/`.
+
+### Published stability & deprecation policy
+
+- What it does: Publishes, as data, what a machine may rely on between deploys: the endpoint paths, operation ids, service ids and field names promised stable, the changes that may land without notice, the path-versioning scheme, the 90-day minimum notice a removal gets, the deprecation list itself (pollable, empty today), and an honest list of what the site does not promise (no `Deprecation`/`Sunset` response headers on a static host, no rate limit, no uptime SLA). The covered paths and service ids are read from the modules that serve them, so the policy cannot promise something the site does not publish. The production verifier checks the shape of the served document, not merely that some JSON answered 200.
+- State: built
+- Shaped by: `src/data/stability.ts`, `src/pages/api/stability.json.ts`, `src/data/api.ts`, `src/data/openapi.ts`, `tests/developer-surface.test.ts`, and `ops/verify-production.sh`.
 
 ### Contact path
 

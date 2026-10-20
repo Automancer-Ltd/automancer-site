@@ -57,6 +57,7 @@ const agentManifestBody = {
       api('/api/case-studies.json', 'Every case study: metadata plus full body text.'),
       api('/api/field-notes.json', 'Every field note article: metadata plus full body text.'),
       api('/api/pages.json', 'Every page on the site: URL, title, description, Markdown twin, type, last-modified.'),
+      api('/api/stability.json', 'What may be relied on between deploys — stable paths, operation ids, service ids and field names — plus what may change without notice and the minimum notice a removal gets.'),
     ],
     markdownTwins: {
       convention:
@@ -87,7 +88,10 @@ const agentManifestBody = {
     rateLimits: 'No formal rate limit. This is a static site on GitHub Pages; keep requests modest and cache responses — payloads change only at deploy time.',
     authentication: 'None. Every endpoint listed here is public, static and key-free.',
     cost: 'Free to read. No paid API tier exists.',
-    stability: 'Endpoints are generated at build time from the same sources as the HTML pages; additive changes only within a schemaVersion.',
+    stability:
+      'Endpoints are generated at build time from the same sources as the HTML pages; within a schemaVersion at a given path, changes are additive only. The full promise — stable paths, operation ids, service ids and field names, what may change without notice, and the minimum notice a removal gets — is published as data at ' +
+      business.url +
+      '/api/stability.json.',
   },
   permissions: {
     statement:

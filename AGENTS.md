@@ -2,7 +2,7 @@
 
 Public website for **Automancer Ltd** (`https://automancer.uk`), built as a static Astro 7 site (`output: 'static'`) and deployed to GitHub Pages on push to `main`.
 
-- **Read first:** [`GLOSSARY.md`](GLOSSARY.md) (canonical domain terms), [`SPEC.md`](SPEC.md) (built capabilities), [`VISION.md`](VISION.md) (**read-only — never edit**).
+- **Read first:** [`GLOSSARY.md`](GLOSSARY.md) (canonical domain terms), [`SPEC.md`](SPEC.md) (built capabilities), [`HANDOVER.md`](HANDOVER.md) (the roadmap: what the last slice shipped, the next three, the open questions), [`VISION.md`](VISION.md) (**read-only — never edit**).
 - **Hard rule:** Never change visible wording, layout, or design unless explicitly instructed; human HTML and machine-readable surfaces must always state the same facts, from-prices, and commitments.
 
 ## Commands

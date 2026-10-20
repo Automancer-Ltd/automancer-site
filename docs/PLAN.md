@@ -81,6 +81,10 @@ work bought. **Done looks like:** re-run and record both numbers together.
   - Bonus: +2.1 (10 positive signals)
   - Net gain: **+16 points**.
   - Remaining 6 failures: JSON error responses (Essential, static host limitation), Markdown content negotiation (Essential, acceptmarkdown.com / GitHub Pages limitation), REST typed error model (Recommended), REST versioning / deprecation policy (Recommended), CLI tool available (Recommended), Rate limit response headers (Recommended).
+  - **One of those six was answered on 2026-10-20:** the versioning / deprecation policy is now
+    published as data at `/api/stability.json` (see `SPEC.md` and `HANDOVER.md`). The score itself
+    has still not been re-run — when it is, that finding should move from failed to passed, and the
+    remaining list above is what decides whether anything else is worth doing.
   - Remaining 3 partials: Agent-friendly 404s (Essential), Developer resource discoverability (Recommended), Brand name discoverability (Recommended).
 
 ## 4. Two worktrees share this repo's git settings

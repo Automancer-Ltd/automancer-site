@@ -64,4 +64,11 @@ export const API_ENDPOINTS: ApiEndpoint[] = [
     description:
       'Every page emitted by this site: canonical URL, title, description, type, last-modified date and its Markdown twin URL where one exists.',
   },
+  {
+    path: '/api/stability.json',
+    operationId: 'getStabilityPolicy',
+    summary: 'What machines may rely on, and how a breaking change is published',
+    description:
+      'The stability and deprecation policy as data: the endpoint paths and service ids promised stable, the changes that may land without notice, the versioning scheme, the minimum notice a removal gets, and the deprecation list itself (empty today).',
+  },
 ];

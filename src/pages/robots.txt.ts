@@ -59,6 +59,7 @@ export const GET: APIRoute = () => {
     `#     (canonical copy; also emitted at /.well-known/agent.json for hosts that serve dot-paths)`,
     `#   API discovery document ....... ${business.url}/api/index.json`,
     `#   OpenAPI 3.1 spec ............. ${business.url}/openapi.json`,
+    `#   Stability & deprecation ...... ${business.url}/api/stability.json`,
     `#   Markdown twins ............... any page + ".md" (e.g. ${business.url}/about.md)`,
     `#   Feeds ........................ /field-notes/rss.xml · /field-notes/feed.json · /work/rss.xml · /work/feed.json`,
     ''
