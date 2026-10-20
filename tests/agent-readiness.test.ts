@@ -304,6 +304,7 @@ describe('/api/*.json endpoints', () => {
     'api/case-studies.json',
     'api/field-notes.json',
     'api/pages.json',
+    'api/stability.json',
   ];
 
   const parsed = new Map<string, unknown>();

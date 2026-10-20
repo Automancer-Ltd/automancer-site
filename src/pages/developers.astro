@@ -44,7 +44,7 @@ const url = (path: string) => `${business.url}${path}`;
           <li><strong>No authentication.</strong> No keys, no accounts, no sign-up. Every URL on this page answers <code>200</code> to anyone.</li>
           <li><strong>Read-only.</strong> Only <code>GET</code> exists — there are no write operations anywhere in this API.</li>
           <li><strong>Static files.</strong> Responses are generated at build time and change only at deploy, so cache them freely; there is no rate limit beyond common sense on a shared host.</li>
-          <li><strong>Additive stability.</strong> Payload shapes carry a <code>schemaVersion</code>; changes within a version are additive only.</li>
+          <li><strong>Additive stability.</strong> Payload shapes carry a <code>schemaVersion</code>; changes within a version are additive only. What you may actually rely on — the stable paths, operation ids and service ids, what can change without notice, and how a breaking change is announced — is itself published as data at <a class="tlink" href="/api/stability.json">/api/stability.json</a>.</li>
         </ul>
       </div>
     </div>
@@ -57,11 +57,11 @@ const url = (path: string) => `${business.url}${path}`;
           <p class="eyebrow">The JSON API</p>
           <span class="section-head__log">// {API_ENDPOINTS.length} endpoints · GET · no auth</span>
         </div>
-        <h2>Six endpoints, one discovery document.</h2>
+        <h2>{API_ENDPOINTS.length} endpoints, one discovery document.</h2>
         <p>
           Start at <a class="tlink" href="/api/index.json">/api/index.json</a> — it lists everything
           below and never goes stale. A formal,
-          <a class="tlink" href="/openapi.json">OpenAPI 3.1 specification</a> of all six operations
+          <a class="tlink" href="/openapi.json">OpenAPI 3.1 specification</a> of all {API_ENDPOINTS.length} operations
           (unique <code>operationId</code>s, typed response schemas — suitable for LLM function
           calling) is served at <a class="tlink" href="/openapi.json">/openapi.json</a>.
         </p>

@@ -33,6 +33,10 @@ readonly SITEMAP_PATH="/sitemap-index.xml"
 # shipped: green CI, green deploy, dead URLs that llms.txt advertised.
 readonly AGENT_MANIFEST_PATH="/agent.json"
 readonly SECURITY_TXT_PATH="/security.txt"
+# The stability & deprecation policy. Checked for SHAPE, not just for a 200:
+# a promise an agent cannot trust is worse than no promise, and any old JSON
+# would pass a parse-only check.
+readonly STABILITY_POLICY_PATH="/api/stability.json"
 # Structural, not marketing copy: the company registration line from the
 # site footer (src/components/Footer.astro ← src/data/business.ts). Marketing
 # wording changes; the registered company number does not.
@@ -123,8 +127,9 @@ Usage: ops/verify-production.sh <base-url>
 
 Verify that a deployed Automancer site serves correctly: page statuses,
 real 404s, llms.txt, sitemap XML, agent.json + security.txt at their
-non-dot paths, homepage footer anchor, TLS certificate, Sentry DSN for
-the expected project (not merely "a" Sentry project).
+non-dot paths, the published stability & deprecation policy
+(/api/stability.json), homepage footer anchor, TLS certificate, Sentry DSN
+for the expected project (not merely "a" Sentry project).
 
 --expected-revision is for the post-deploy gate. It also requires the
 homepage proof strip to serve the first seven characters of the supplied
@@ -461,6 +466,66 @@ check_agent_manifest() {
     return 1
   fi
   printf 'GET %s -> 200 and parses as JSON\n' "$url"
+  rm -f "$BODY_FILE"
+}
+
+# policy_shape_ok <file> — exit 0 only if <file> really is the stability
+# policy we publish. "Is JSON" is not enough: the document is a promise, so the
+# fields an agent relies on must be there, and it must cover itself.
+policy_shape_ok() {
+  python3 - "$1" "$STABILITY_POLICY_PATH" <<'PY'
+import sys, json
+
+try:
+    with open(sys.argv[1], encoding="utf-8") as fh:
+        doc = json.load(fh)
+except Exception as exc:
+    print(f"JSON parse error: {exc}", file=sys.stderr)
+    sys.exit(1)
+
+
+def fail(message):
+    print(message, file=sys.stderr)
+    sys.exit(1)
+
+
+if not isinstance(doc, dict):
+    fail("payload is not a JSON object")
+if not isinstance(doc.get("schemaVersion"), str) or not doc["schemaVersion"]:
+    fail("schemaVersion missing")
+if not isinstance(doc.get("effectiveFrom"), str) or not doc["effectiveFrom"]:
+    fail("effectiveFrom missing — the policy does not say when it took effect")
+
+stable = doc.get("stable")
+if not isinstance(stable, list) or not stable:
+    fail("stable[] missing or empty — this is not the policy document")
+for rule in stable:
+    if not isinstance(rule, dict) or not rule.get("what") or not rule.get("detail"):
+        fail("a stable[] rule is missing what/detail")
+
+paths = doc.get("endpointPaths")
+if not isinstance(paths, list) or sys.argv[2] not in paths:
+    fail(f"endpointPaths does not cover {sys.argv[2]} — the policy does not govern itself")
+
+if not isinstance(doc.get("deprecations"), list):
+    fail("deprecations[] missing — an agent cannot tell what is going away")
+
+deprecation = doc.get("deprecation")
+if not isinstance(deprecation, dict) or not isinstance(deprecation.get("minimumNoticeDays"), int):
+    fail("deprecation.minimumNoticeDays missing — no notice period is promised")
+PY
+}
+
+check_stability_policy() {
+  local url="${BASE_URL}${STABILITY_POLICY_PATH}" verdict
+  fetch_body "$url" || return 1
+  if ! verdict=$(policy_shape_ok "$BODY_FILE" 2>&1); then
+    printf 'GET %s returned HTTP 200 but is NOT the published stability policy: %s (first bytes: %s)\n' \
+      "$url" "$(printf '%s' "$verdict" | tr -d '\n')" "$(head -c 120 "$BODY_FILE" | tr -d '\n')"
+    rm -f "$BODY_FILE"
+    return 1
+  fi
+  printf 'GET %s -> 200 and serves the published stability & deprecation policy\n' "$url"
   rm -f "$BODY_FILE"
 }
 
@@ -954,6 +1019,18 @@ self_test() {
   self_test_route_scenario "/agent.json" 200 "{}"
   self_test_expect pass "agent manifest is valid JSON" check_agent_manifest
 
+  self_test_route_scenario "${STABILITY_POLICY_PATH}" 200 "{ not json"
+  self_test_expect fail "stability policy is the published document" check_stability_policy
+  # Structurally valid JSON that is NOT the policy — the case a parse-only
+  # check would wave through.
+  self_test_route_scenario "${STABILITY_POLICY_PATH}" 200 '{"schemaVersion":"1.0","effectiveFrom":"2026-10-20","endpointPaths":["/api/stability.json"],"deprecations":[]}'
+  self_test_expect fail "stability policy is the published document" check_stability_policy
+  # Same payload minus the promise period — also refused.
+  self_test_route_scenario "${STABILITY_POLICY_PATH}" 200 '{"schemaVersion":"1.0","effectiveFrom":"2026-10-20","stable":[{"what":"Endpoint paths","detail":"they keep answering"}],"endpointPaths":["/api/stability.json"],"deprecations":[]}'
+  self_test_expect fail "stability policy is the published document" check_stability_policy
+  self_test_route_scenario "${STABILITY_POLICY_PATH}" 200 '{"schemaVersion":"1.0","effectiveFrom":"2026-10-20","stable":[{"what":"Endpoint paths","detail":"they keep answering"}],"endpointPaths":["/api/stability.json"],"deprecation":{"minimumNoticeDays":90},"deprecations":[]}'
+  self_test_expect pass "stability policy is the published document" check_stability_policy
+
   canonical_url="${BASE_URL}${SECURITY_TXT_PATH}"
   security_valid="Contact: mailto:security@automancer.uk
 Expires: 2099-01-01T00:00:00Z
@@ -1171,6 +1248,7 @@ main() {
   if ! poll_check "${LLMS_PATH} answers 200 with a non-empty body" check_llms_txt; then :; fi
   if ! poll_check "${SITEMAP_PATH} answers 200 and parses as XML" check_sitemap; then :; fi
   if ! poll_check "${AGENT_MANIFEST_PATH} answers 200 and parses as JSON" check_agent_manifest; then :; fi
+  if ! poll_check "${STABILITY_POLICY_PATH} answers 200 and serves the published policy" check_stability_policy; then :; fi
   if ! poll_check "${SECURITY_TXT_PATH} answers 200 and satisfies RFC 9116" check_security_txt; then :; fi
   if ! poll_check "homepage contains structural anchor \"${HOMEPAGE_ANCHOR}\"" check_homepage_anchor; then :; fi
   if [[ -n $EXPECTED_REVISION ]]; then

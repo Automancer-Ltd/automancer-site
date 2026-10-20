@@ -1,5 +1,19 @@
 # Release notes
 
+## v2026.10.20.1 — 20 October 2026
+
+The site now publishes, as data, what a machine may rely on — and, just as plainly, what it may not.
+
+### For agents and developers
+
+- New **`/api/stability.json`**: the endpoint paths, operation ids, service ids and field names that are promised to stay stable, what may change without notice, how a breaking change is published, and how much notice a removal gets.
+- It also says what the site does **not** promise: no `Deprecation` or `Sunset` response headers on a static host, no rate limit, no uptime SLA.
+
+### Documentation
+
+- `/developers` links the new policy, and its endpoint count now comes from the API registry instead of being typed by hand.
+- `llms.txt`, `robots.txt`, `/api/index.json`, `/openapi.json` and `/agent.json` all advertise it, and the production checker verifies the served document every deploy and every 30 minutes.
+
 ## v2026.10.14.1 — 14 October 2026
 
 A clearer, more consistent picture of Automancer’s services and pricing across the website and its published information.

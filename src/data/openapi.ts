@@ -284,6 +284,83 @@ const schemas: Record<string, JsonSchema> = {
       description: 'The /api/pages.json payload.',
     }
   ),
+
+  // The stability and deprecation policy, as data. Declared here so the
+  // promise an agent reads in /openapi.json is the same promise the payload
+  // publishes — and so a field cannot be added to the policy without being
+  // described to the machines that rely on it.
+  StabilityPolicy: obj(
+    {
+      schemaVersion: str('Semver-ish version of this payload shape.'),
+      generatedAt: dateTime('Build time — payloads change only at deploy.'),
+      effectiveFrom: str('ISO date this policy took effect. A change here is a change of promise.'),
+      url: uri('Where this document is served.'),
+      summary: str(),
+      versioning: obj(
+        {
+          scheme: oneOf('path-versioned'),
+          currentVersion: { type: 'integer' },
+          detail: str(),
+        },
+        { required: ['scheme', 'currentVersion', 'detail'] }
+      ),
+      stable: {
+        type: 'array',
+        description: 'What a machine may rely on between deploys. Changing one of these is breaking.',
+        items: obj({ what: str(), detail: str() }, { required: ['what', 'detail'] }),
+      },
+      endpointPaths: strArray('Every endpoint path the promise covers.'),
+      stableServiceIds: strArray('Published service ids that never change.'),
+      additiveChanges: strArray('What may land at any deploy without notice.'),
+      deprecation: obj(
+        {
+          minimumNoticeDays: { type: 'integer' },
+          announcedIn: str(),
+          procedure: strArray(),
+          httpHeaders: str(),
+        },
+        { required: ['minimumNoticeDays', 'announcedIn', 'procedure', 'httpHeaders'] }
+      ),
+      deprecations: {
+        type: 'array',
+        description: 'Nothing published here is deprecated today; this is the list an agent polls.',
+        items: obj(
+          {
+            path: str('The path going away.'),
+            field: str('The narrower field, when the deprecation is smaller than a path.'),
+            replacement: str('What to use instead.'),
+            deprecatedOn: str('ISO date this entry was first published.'),
+            sunset: str('ISO date the old path or field stops being served.'),
+          },
+          { required: ['path', 'replacement', 'deprecatedOn', 'sunset'] }
+        ),
+      },
+      notPromised: strArray('What this site does not promise, stated rather than implied.'),
+      contact: obj(
+        { email: emailSchema(), url: uri(), note: str() },
+        { required: ['email', 'url', 'note'] }
+      ),
+    },
+    {
+      required: [
+        'schemaVersion',
+        'generatedAt',
+        'effectiveFrom',
+        'url',
+        'summary',
+        'versioning',
+        'stable',
+        'endpointPaths',
+        'stableServiceIds',
+        'additiveChanges',
+        'deprecation',
+        'deprecations',
+        'notPromised',
+        'contact',
+      ],
+      description: 'The /api/stability.json payload.',
+    }
+  ),
 };
 
 /** operationId -> component schema name for its 200 response. */
@@ -294,6 +371,7 @@ const RESPONSE_SCHEMA_BY_OPERATION: Record<string, string> = {
   getCaseStudies: 'CaseStudiesResponse',
   getFieldNotes: 'FieldNotesResponse',
   getPageInventory: 'PageInventoryResponse',
+  getStabilityPolicy: 'StabilityPolicy',
 };
 
 /**
@@ -373,6 +451,14 @@ export function openApiSpec() {
     externalDocs: {
       description: 'Developer & agent documentation — every surface this site offers, with examples.',
       url: abs_('/developers'),
+    },
+    // The versioning and deprecation policy, one fetch away from the spec
+    // itself. This host cannot send Deprecation/Sunset response headers, so a
+    // published document is the announcement channel (and it says so).
+    'x-stability-policy': {
+      description:
+        'What machines may rely on: the paths and service ids promised stable, what may change without notice, the versioning scheme and the deprecation list.',
+      url: abs_('/api/stability.json'),
     },
   };
 }

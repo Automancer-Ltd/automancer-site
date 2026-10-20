@@ -531,3 +531,197 @@ describe('JSON-LD — Person and ProfessionalService nodes are complete', () => 
     expect(checked, 'no BlogPosting node found on any field-note page').toBe(bodyBySlug.size);
   });
 });
+
+// ─── /api/stability.json — the published promise ─────────────────────────────
+//
+// VISION.md: "Published identifiers are promises." This payload is where the
+// promise becomes checkable, so the tests pin the properties that make it
+// trustworthy: it covers every endpoint that is actually served (no more, no
+// fewer), the service ids it calls stable are the ids the API publishes, and a
+// deprecation cannot exist without notice, a sunset date and a replacement.
+// A policy that could quietly disagree with the site would be worse than none.
+
+describe('/api/stability.json — the published stability & deprecation policy', () => {
+  interface Policy {
+    schemaVersion?: unknown;
+    generatedAt?: unknown;
+    effectiveFrom?: unknown;
+    url?: unknown;
+    summary?: string;
+    versioning?: { scheme?: string; currentVersion?: unknown; detail?: string };
+    stable?: Array<{ what?: string; detail?: string }>;
+    endpointPaths?: string[];
+    stableServiceIds?: string[];
+    additiveChanges?: string[];
+    deprecation?: {
+      minimumNoticeDays?: number;
+      announcedIn?: string;
+      procedure?: string[];
+      httpHeaders?: string;
+    };
+    deprecations?: Array<{
+      path?: string;
+      field?: string;
+      replacement?: string;
+      deprecatedOn?: string;
+      sunset?: string;
+    }>;
+    notPromised?: string[];
+    contact?: { email?: string; url?: string; note?: string };
+  }
+
+  const raw = readDistFile('api/stability.json');
+  let policy: Policy = {};
+  const parseError: string[] = [];
+  try {
+    policy = JSON.parse(raw ?? 'null') as Policy;
+  } catch (error) {
+    parseError.push(String(error));
+  }
+
+  const isIsoDate = (value: unknown): boolean =>
+    typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(value));
+
+  it('is emitted and parses as JSON', () => {
+    expect(raw, 'dist/api/stability.json missing').toBeTruthy();
+    expect(parseError, 'dist/api/stability.json is not valid JSON').toEqual([]);
+  });
+
+  it('carries provenance: schemaVersion, generatedAt, effectiveFrom, its own url', () => {
+    expect(typeof policy.schemaVersion, 'schemaVersion missing').toBe('string');
+    expect(policy.generatedAt, 'generatedAt must be an ISO timestamp').toBeTruthy();
+    expect(isIsoDate(policy.effectiveFrom), 'effectiveFrom must be an ISO date').toBe(true);
+    expect(policy.url, 'url must be the servable path').toBe(`${SITE_URL}/api/stability.json`);
+    expect(String(policy.summary ?? '').length, 'summary too thin to be a policy').toBeGreaterThan(60);
+  });
+
+  it('declares how a version is published, and what the current one is', () => {
+    expect(policy.versioning?.scheme, 'versioning.scheme missing').toBe('path-versioned');
+    expect(policy.versioning?.currentVersion, 'versioning.currentVersion missing').toBe(1);
+    expect(
+      (policy.versioning?.detail ?? '').length,
+      'versioning.detail must explain what a breaking change does'
+    ).toBeGreaterThan(60);
+  });
+
+  it('enumerates the promises it covers, each with a what and a detail', () => {
+    const stable = policy.stable ?? [];
+    expect(stable.length, 'stable[] is too thin to be a promise').toBeGreaterThanOrEqual(5);
+    for (const rule of stable) {
+      expect(rule.what, 'a stable[] rule has no `what`').toBeTruthy();
+      expect((rule.detail ?? '').length, `rule "${rule.what}" has no usable detail`).toBeGreaterThan(40);
+    }
+    expect(
+      stable.map((r) => r.what),
+      'the policy no longer promises stable endpoint paths'
+    ).toContain('Endpoint paths');
+  });
+
+  it('covers EXACTLY the endpoints the site serves — no more, no fewer', () => {
+    const promised = [...(policy.endpointPaths ?? [])].sort();
+    const served = API_ENDPOINTS.map((e) => e.path).sort();
+    expect(promised, 'endpointPaths disagrees with the API registry').toEqual(served);
+    // "No more": a promised path that is not served would be a claim about a
+    // document that does not exist.
+    for (const path of promised) {
+      expect(resolveInDist('api/stability.json', `${SITE_URL}${path}`), `promised path ${path} is not emitted`).toBeTruthy();
+    }
+    const spec = JSON.parse(readDistFile('openapi.json') ?? '{}') as { paths?: Record<string, unknown> };
+    expect(promised, 'endpointPaths disagrees with /openapi.json').toEqual(
+      Object.keys(spec.paths ?? {}).sort()
+    );
+  });
+
+  it('calls stable exactly the service ids /api/services.json publishes', () => {
+    const services = JSON.parse(readDistFile('api/services.json') ?? '{}') as {
+      services?: Array<{ id?: string }>;
+    };
+    const published = (services.services ?? []).map((s) => s.id ?? '');
+    expect(published.length, 'services.json emitted no services').toBeGreaterThan(0);
+    expect([...(policy.stableServiceIds ?? [])].sort(), 'stableServiceIds drifted from the published ids').toEqual(
+      [...published].sort()
+    );
+  });
+
+  it('states what may change without notice', () => {
+    const additive = policy.additiveChanges ?? [];
+    expect(additive.length, 'additiveChanges[] is empty — the policy only says what may not change').toBeGreaterThanOrEqual(3);
+    for (const change of additive) expect(change.length, 'an additiveChanges entry is empty').toBeGreaterThan(20);
+  });
+
+  it('promises a notice period, a published procedure and an honest header limitation', () => {
+    const deprecation = policy.deprecation;
+    expect(Number.isInteger(deprecation?.minimumNoticeDays), 'minimumNoticeDays must be an integer').toBe(true);
+    expect(deprecation!.minimumNoticeDays!, 'a removal needs at least a month of notice').toBeGreaterThanOrEqual(30);
+    expect((deprecation?.procedure ?? []).length, 'procedure needs the steps, not a summary').toBeGreaterThanOrEqual(3);
+    expect(
+      deprecation?.announcedIn ?? '',
+      'the policy must name where a deprecation is announced'
+    ).toContain('/api/stability.json');
+    // The site is static files: claiming Deprecation/Sunset headers would be
+    // the "fake a capability" VISION.md forbids. It has to say so.
+    expect(deprecation?.httpHeaders ?? '', 'the host cannot send Deprecation/Sunset headers — say so').toContain(
+      'GitHub Pages'
+    );
+  });
+
+  it('lists no deprecation without notice, a sunset date and a replacement — and agrees with the spec', () => {
+    const deprecations = policy.deprecations ?? [];
+    const noticeDays = policy.deprecation?.minimumNoticeDays ?? 0;
+    const promised = policy.endpointPaths ?? [];
+    for (const entry of deprecations) {
+      expect(entry.path, 'a deprecation has no path').toBeTruthy();
+      expect(promised, `deprecation ${entry.path} names a path the policy never promised`).toContain(entry.path);
+      expect(entry.replacement, `deprecation ${entry.path} has no replacement to move to`).toBeTruthy();
+      expect(isIsoDate(entry.deprecatedOn), `deprecation ${entry.path} has no ISO deprecatedOn`).toBe(true);
+      expect(isIsoDate(entry.sunset), `deprecation ${entry.path} has no ISO sunset`).toBe(true);
+      const notice = (Date.parse(entry.sunset!) - Date.parse(entry.deprecatedOn!)) / 86_400_000;
+      expect(notice, `deprecation ${entry.path} gives less notice than the policy promises`).toBeGreaterThanOrEqual(
+        noticeDays
+      );
+    }
+    // The two places a deprecation can be visible must agree: the payload and
+    // the OpenAPI operations flagged deprecated.
+    const spec = JSON.parse(readDistFile('openapi.json') ?? '{}') as {
+      paths?: Record<string, { get?: { deprecated?: boolean } }>;
+    };
+    const flagged = Object.entries(spec.paths ?? {})
+      .filter(([, item]) => item?.get?.deprecated === true)
+      .map(([path]) => path)
+      .sort();
+    expect(deprecations.map((d) => d.path!).sort(), 'deprecations[] disagrees with openapi deprecated flags').toEqual(
+      flagged
+    );
+  });
+
+  it('says plainly what it does NOT promise, rather than leaving it implied', () => {
+    const notPromised = policy.notPromised ?? [];
+    expect(notPromised.length, 'notPromised[] is empty — an all-promises policy is not credible').toBeGreaterThanOrEqual(3);
+    const joined = notPromised.join(' ');
+    expect(joined, 'the dot-path host limitation must stay stated').toContain('.well-known');
+    expect(joined, 'the response-header limitation must stay stated').toContain('Deprecation');
+    expect(joined, 'the absence of a rate limit must stay stated').toMatch(/rate limit/i);
+  });
+
+  it('gives a human route for reporting a broken promise', () => {
+    const agent = JSON.parse(readDistFile('agent.json') ?? '{}') as { contact?: { email?: string } };
+    expect(policy.contact?.email, 'contact.email missing').toBe(agent.contact?.email);
+    expect(resolveInDist('api/stability.json', policy.contact?.url ?? ''), 'contact.url is not a served page').toBeTruthy();
+  });
+
+  it('is advertised everywhere an agent might look', () => {
+    const url = `${SITE_URL}/api/stability.json`;
+    expect(readDistFile('llms.txt') ?? '', 'llms.txt does not mention the stability policy').toContain(url);
+    expect(readDistFile('robots.txt') ?? '', 'robots.txt does not mention the stability policy').toContain(url);
+    const agent = JSON.parse(readDistFile('agent.json') ?? '{}') as {
+      machineReadable?: { endpoints?: Array<{ url?: string }> };
+    };
+    const urls = (agent.machineReadable?.endpoints ?? []).map((e) => e.url ?? '');
+    expect(urls, 'agent.json does not list /api/stability.json').toContain(url);
+    const spec = JSON.parse(readDistFile('openapi.json') ?? '{}') as Record<string, { url?: string }>;
+    expect(
+      spec['x-stability-policy']?.url,
+      '/openapi.json must point at the policy it cannot express as response headers'
+    ).toBe(url);
+  });
+});
