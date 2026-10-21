@@ -51,6 +51,12 @@ export const API_ENDPOINTS: ApiEndpoint[] = [
       'Every published case study: title, summary, sector, tags, publication date, headline stats and the full body text as raw Markdown.',
   },
   {
+    path: '/api/claims.json',
+    operationId: 'getClaims',
+    summary: 'Published numeric claims and their evidence records',
+    description: 'Every numeric headline case-study statistic with its stable truth-layer claim id, registry location, evidence record and source quote.',
+  },
+  {
     path: '/api/field-notes.json',
     operationId: 'getFieldNotes',
     summary: 'All field notes with full text',
