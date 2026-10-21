@@ -16,7 +16,7 @@ checkq -- pnpm run test                    # full gate: fresh `astro build` -> 1
 checkq -- pnpm run verify                  # check + test (same sequence as CI `checks`)
 ```
 
-- **`check` audits whatever `dist/` already exists.** After a source change, a stale `dist/` fails it with errors your change did not cause, and `verify` stops there. Delete `dist/` first, or run `pnpm run test`, which rebuilds.
+- **`check` audits whatever `dist/` already exists.** After a source change, a stale `dist/` fails it with errors your change did not cause, and `verify` stops there. Delete `dist/` first, or run `pnpm run test`, which rebuilds. Under `heavy` the remote copy keeps its own gitignored `dist/` between runs, so delete it inside the job: `heavy -- bash -c 'rm -rf dist && pnpm run verify'`.
 - **LSP prerequisite:** `typescript-language-server` requires `.astro/types.d.ts` and `.astro/content.d.ts`. `pnpm install` runs `astro sync` automatically via `prepare`, and `pnpm run typecheck` runs `astro sync` if `.astro/content.d.ts` is missing.
 - **Visual & end-to-end verification:** Follow [`.agents/skills/verify-site/SKILL.md`](.agents/skills/verify-site/SKILL.md) (or run `.agents/skills/verify-site/scripts/verify-local.sh`) to build, preview, and drive every journey in `agent-browser` at desktop and mobile widths.
 - **Rollback rehearsals and any deploy rehearsal:** use the non-production preview target, never `main` — `ops/preview/deploy-preview.sh <ref> --verify`, described in [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) ("The preview target"). `ops/preview/` owns the target's server, marker and install script; the target cannot serve `main` or `automancer.uk`.
