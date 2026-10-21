@@ -8,6 +8,7 @@
 //   - Errors under /api/ are RFC 9457 application/problem+json.
 //   - /.well-known/api-catalog gets its RFC 9727 media type.
 //   - Plain HTTP is redirected to HTTPS, as GitHub Pages did before the proxy.
+//   - A legacy *.html URL gets one real 301 to its page.
 // Everything else passes through untouched. Deploy and undo: docs/DEPLOYMENT.md.
 
 const ORIGIN = 'https://automancer.uk';
@@ -20,6 +21,23 @@ const PAGE_LINKS = [
   '</openapi.json>; rel="service-desc"; type="application/vnd.oai.openapi+json"',
   '</.well-known/api-catalog>; rel="api-catalog"',
 ].join(', ');
+
+// The `redirects` in astro.config.mjs. Pages can only serve them as a 301 to
+// /x.html/ and then a meta-refresh stub, which a crawler or agent that follows
+// HTTP redirects reads as the page itself. tests/edge-worker.test.ts fails if
+// a built stub is missing here or points somewhere else.
+const LEGACY_REDIRECTS = new Map([
+  ['/services.html', '/services/'],
+  ['/about.html', '/about/'],
+  ['/book.html', '/contact/'],
+  ['/privacy.html', '/privacy/'],
+  ['/terms.html', '/terms/'],
+]);
+
+/** The page a legacy URL moved to, with or without its stub's trailing slash, or null. */
+export function legacyRedirect(pathname) {
+  return LEGACY_REDIRECTS.get(pathname.replace(/\/$/, '')) ?? null;
+}
 
 /** q-value Accept gives a media type: the most specific matching range wins (RFC 9110 §12.5.1). */
 function quality(accept, type) {
@@ -81,6 +99,8 @@ export default {
       url.protocol = 'https:';
       return Response.redirect(url.toString(), 301);
     }
+    const moved = legacyRedirect(url.pathname);
+    if (moved) return Response.redirect(new URL(moved + url.search, ORIGIN).toString(), 301);
     const accept = request.headers.get('Accept') ?? '';
     const isApi = url.pathname.startsWith('/api/');
     const readOnly = request.method === 'GET' || request.method === 'HEAD';

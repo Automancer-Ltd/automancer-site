@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import worker from '../ops/edge/worker.js';
+import worker, { legacyRedirect } from '../ops/edge/worker.js';
+import { allHtmlFiles } from './support/dist';
 
 // A stand-in for GitHub Pages: two pages, one twin, everything else 404.
 const origin: Record<string, [number, string, string]> = {
@@ -79,5 +80,26 @@ describe('edge Worker in front of GitHub Pages', () => {
     expect(res.status).toBe(301);
     expect(res.headers.get('Location')).toBe('https://automancer.uk/about/');
     expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('sends each legacy .html URL straight to its page with one 301, matching the built stub', async () => {
+    const fetchSpy = vi.fn(serve);
+    vi.stubGlobal('fetch', fetchSpy);
+    const stubs = allHtmlFiles().filter((p) => p.isRedirectStub);
+    expect(stubs.length, 'astro.config.mjs redirects build stubs').toBeGreaterThan(0);
+    for (const stub of stubs) {
+      const target = /url=([^"]+)"/.exec(stub.html)?.[1];
+      expect(target, `${stub.file} has a meta refresh`).toBeTruthy();
+      const legacy = `/${stub.file.replace(/\/index\.html$/, '')}`;
+      expect(legacyRedirect(legacy), `${legacy} is in LEGACY_REDIRECTS`).toBe(target);
+      for (const path of [legacy, `${legacy}/`, `${legacy}?ref=old`]) {
+        const res = await get(path);
+        expect(res.status, path).toBe(301);
+        expect(res.headers.get('Location'), path).toBe(`https://automancer.uk${target}${path.includes('?') ? '?ref=old' : ''}`);
+      }
+    }
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(legacyRedirect('/contact.html')).toBeNull();
+    expect(legacyRedirect('/services/')).toBeNull();
   });
 });

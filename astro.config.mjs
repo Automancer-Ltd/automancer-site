@@ -70,8 +70,10 @@ export default defineConfig({
   // Legacy URLs from the pre-2026 hand-written site; emitted as meta-refresh
   // pages so old inbound links and search entries keep resolving.
   redirects: {
-    // Targets carry the trailing slash GitHub Pages serves, so an old link
-    // takes one hop, not two.
+    // Targets carry the trailing slash GitHub Pages serves. Pages itself
+    // answers /x.html with a 301 to /x.html/ and then this stub; the edge
+    // Worker (ops/edge/worker.js LEGACY_REDIRECTS) answers one real 301
+    // instead. tests/edge-worker.test.ts keeps the two lists in step.
     '/services.html': '/services/',
     '/about.html': '/about/',
     '/book.html': '/contact/',
