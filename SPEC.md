@@ -76,7 +76,7 @@ Provide a truthful public front door for Automancer. Give people and machines th
 
 ### Runtime health signals
 
-- What it does: Reports production browser errors to the configured Sentry project. The Sentry SDK is fetched only when the first error happens, so a visit with no error never downloads it. UptimeRobot independently checks public URL availability. The production verifier checks deployed content and TLS every 30 minutes from a reviewed auto-vps user timer, whose failures reach the daily digest.
+- What it does: Reports production browser errors to the configured Sentry project, tagged with the deployed commit as the release. The Sentry SDK is fetched only when the first error happens, so a visit with no error never downloads it. UptimeRobot independently checks public URL availability. The production verifier checks deployed content and TLS every 30 minutes from a reviewed auto-vps user timer, whose failures reach the daily digest.
 - State: built
 - Shaped by: `src/scripts/sentry.ts`, `ops/verify-production.sh`, and `ops/systemd/user/`.
 

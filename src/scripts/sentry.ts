@@ -32,6 +32,8 @@ if (import.meta.env.PROD && dsn) {
         Sentry.init({
           dsn,
           environment: 'production',
+          // The commit deploy.yml built, so an issue names the deploy that shipped it.
+          release: import.meta.env.PUBLIC_SENTRY_RELEASE,
           // Sentry 11 removed sendDefaultPii and its dataCollection defaults collect
           // everything, so omitting this block would widen collection. These are the
           // values Sentry 10 derived from sendDefaultPii: false, so visitors get the

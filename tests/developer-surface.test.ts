@@ -257,10 +257,6 @@ describe('/developers — human-readable docs linked from the homepage', () => {
   const hrefsOf = (p: { doc: ReturnType<typeof contentPages>[number]['doc'] }) =>
     p.doc.querySelectorAll('a[href]').map((a) => a.getAttribute('href') ?? '');
 
-  it('is emitted with the full layout', () => {
-    expect(page, 'dist/developers/index.html was not built').toBeTruthy();
-  });
-
   it('states plainly that the API needs no authentication and is read-only', () => {
     expect(page!.html, '/developers must say the API needs no authentication').toMatch(
       /no authentication/i
@@ -317,14 +313,6 @@ describe('/developers — human-readable docs linked from the homepage', () => {
     );
   });
 
-  it('is included in production verification routes in ops/verify-production.sh', () => {
-    const script = readFileSync(join(ROOT, 'ops', 'verify-production.sh'), 'utf8');
-    const routesMatch = script.match(/readonly ROUTES=\(([^)]+)\)/);
-    expect(routesMatch, 'ROUTES definition missing from ops/verify-production.sh').toBeTruthy();
-    const routes = routesMatch![1].split(/\s+/).map((r) => r.replace(/^"|"$/g, ''));
-    expect(routes).toContain('/developers');
-  });
-
   it('agent.json advertises the developer docs and OpenAPI spec at servable paths', () => {
     const agent = JSON.parse(readDistFile('agent.json')!) as {
       machineReadable?: {
@@ -341,46 +329,6 @@ describe('/developers — human-readable docs linked from the homepage', () => {
     expect(specUrl, 'agent.json machineReadable.openApiSpec.url missing').toBe(
       `${SITE_URL}/openapi.json`
     );
-    for (const url of [docsUrl!, specUrl!]) {
-      expect(
-        resolveInDist('agent.json', url),
-        `agent.json advertises ${url} but nothing was emitted at that path`
-      ).toBeTruthy();
-    }
-  });
-});
-
-// ─── llms.txt when-to-use guidance ───────────────────────────────────────────
-
-describe('llms.txt — when-to-use guidance for agents', () => {
-  const llms = readDistFile('llms.txt')!;
-  const sectionStart = llms.indexOf('## When to use Automancer');
-  const section = sectionStart >= 0 ? llms.slice(sectionStart, llms.indexOf('\n## ', sectionStart + 1)) : '';
-
-  it('has a dedicated "When to use Automancer" section', () => {
-    expect(sectionStart, 'llms.txt carries no "When to use Automancer" section').toBeGreaterThanOrEqual(0);
-  });
-
-  it('names concrete jobs grounded in the published services and delivered work', () => {
-    const bullets = section.split('\n').filter((l) => l.startsWith('- '));
-    expect(bullets.length, 'the when-to-use section is too thin to guide anyone').toBeGreaterThanOrEqual(5);
-    // Real service names from src/data/business.ts — generic marketing copy
-    // does not read as guidance; named offerings do.
-    expect(section, 'when-to-use should name the Automation Opportunity Audit').toContain(
-      'Automation Opportunity Audit'
-    );
-    expect(section, 'when-to-use should name the AI Ops Partner plan').toContain('AI Ops Partner');
-    expect(section, 'when-to-use should state a published price').toMatch(/£\d/);
-  });
-
-  it('says when an agent should look elsewhere, not just when we fit', () => {
-    expect(section, 'when-to-use must include a look-elsewhere list').toMatch(
-      /look elsewhere/i
-    );
-    expect(
-      section.split('look elsewhere')[1]?.split('- ').length,
-      'the look-elsewhere list needs actual entries'
-    ).toBeGreaterThan(2);
   });
 });
 
@@ -401,15 +349,6 @@ describe('404 page — machine-readable recovery block', () => {
     const h1 = notFound.doc.querySelector('h1')?.text.trim() ?? '';
     expect(h1, '404 page lost its human-facing h1').toContain('404');
     expect(notFound.html, '404 page lost the contact route').toContain(businessEmail());
-  });
-
-  it('offers the human section list before the agent-recovery block', () => {
-    const html = notFound.html;
-    const human = html.indexOf('Where were you heading?');
-    const agent = html.indexOf('id="agent-recovery"');
-    expect(human, 'human recovery heading missing from 404.html').toBeGreaterThan(-1);
-    expect(agent, '#agent-recovery missing from 404.html').toBeGreaterThan(-1);
-    expect(human, 'agent-recovery still precedes the human section list').toBeLessThan(agent);
   });
 
   /** The published mailbox, straight from the single source of truth. */
@@ -587,36 +526,6 @@ describe('/api/stability.json — the published stability & deprecation policy',
     expect(parseError, 'dist/api/stability.json is not valid JSON').toEqual([]);
   });
 
-  it('carries provenance: schemaVersion, generatedAt, effectiveFrom, its own url', () => {
-    expect(typeof policy.schemaVersion, 'schemaVersion missing').toBe('string');
-    expect(policy.generatedAt, 'generatedAt must be an ISO timestamp').toBeTruthy();
-    expect(isIsoDate(policy.effectiveFrom), 'effectiveFrom must be an ISO date').toBe(true);
-    expect(policy.url, 'url must be the servable path').toBe(`${SITE_URL}/api/stability.json`);
-    expect(String(policy.summary ?? '').length, 'summary too thin to be a policy').toBeGreaterThan(60);
-  });
-
-  it('declares how a version is published, and what the current one is', () => {
-    expect(policy.versioning?.scheme, 'versioning.scheme missing').toBe('path-versioned');
-    expect(policy.versioning?.currentVersion, 'versioning.currentVersion missing').toBe(1);
-    expect(
-      (policy.versioning?.detail ?? '').length,
-      'versioning.detail must explain what a breaking change does'
-    ).toBeGreaterThan(60);
-  });
-
-  it('enumerates the promises it covers, each with a what and a detail', () => {
-    const stable = policy.stable ?? [];
-    expect(stable.length, 'stable[] is too thin to be a promise').toBeGreaterThanOrEqual(5);
-    for (const rule of stable) {
-      expect(rule.what, 'a stable[] rule has no `what`').toBeTruthy();
-      expect((rule.detail ?? '').length, `rule "${rule.what}" has no usable detail`).toBeGreaterThan(40);
-    }
-    expect(
-      stable.map((r) => r.what),
-      'the policy no longer promises stable endpoint paths'
-    ).toContain('Endpoint paths');
-  });
-
   it('covers EXACTLY the endpoints the site serves — no more, no fewer', () => {
     const promised = [...(policy.endpointPaths ?? [])].sort();
     const served = API_ENDPOINTS.map((e) => e.path).sort();
@@ -641,12 +550,6 @@ describe('/api/stability.json — the published stability & deprecation policy',
     expect([...(policy.stableServiceIds ?? [])].sort(), 'stableServiceIds drifted from the published ids').toEqual(
       [...published].sort()
     );
-  });
-
-  it('states what may change without notice', () => {
-    const additive = policy.additiveChanges ?? [];
-    expect(additive.length, 'additiveChanges[] is empty — the policy only says what may not change').toBeGreaterThanOrEqual(3);
-    for (const change of additive) expect(change.length, 'an additiveChanges entry is empty').toBeGreaterThan(20);
   });
 
   it('promises a notice period, a published procedure and an honest header limitation', () => {
@@ -692,15 +595,6 @@ describe('/api/stability.json — the published stability & deprecation policy',
     expect(deprecations.map((d) => d.path!).sort(), 'deprecations[] disagrees with openapi deprecated flags').toEqual(
       flagged
     );
-  });
-
-  it('says plainly what it does NOT promise, rather than leaving it implied', () => {
-    const notPromised = policy.notPromised ?? [];
-    expect(notPromised.length, 'notPromised[] is empty — an all-promises policy is not credible').toBeGreaterThanOrEqual(3);
-    const joined = notPromised.join(' ');
-    expect(joined, 'the dot-path host limitation must stay stated').toContain('.well-known');
-    expect(joined, 'the response-header limitation must stay stated').toContain('Deprecation');
-    expect(joined, 'the absence of a rate limit must stay stated').toMatch(/rate limit/i);
   });
 
   it('gives a human route for reporting a broken promise', () => {

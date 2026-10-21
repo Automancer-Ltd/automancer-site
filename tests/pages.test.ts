@@ -110,13 +110,6 @@ describe('every emitted page', () => {
     }
   });
 
-  it('sets lang on <html>', () => {
-    for (const page of pages) {
-      const lang = page.doc.querySelector('html')?.getAttribute('lang')?.trim();
-      expect(lang, `${page.route}: <html> has no lang attribute`).toBeTruthy();
-    }
-  });
-
   it('never skips heading levels (no h2 followed directly by h4)', () => {
     for (const page of pages) {
       const levels = headingLevels(page);

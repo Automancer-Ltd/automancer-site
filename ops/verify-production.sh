@@ -10,7 +10,7 @@
 # measured 2026-08-22, when /.well-known/* 404'd live while every dist/-only
 # check stayed green), the legal footer anchor is on the homepage, and the
 # TLS certificate is valid and not about to expire. Both
-# .github/workflows/deploy.yml (post-deploy verify job) and
+# .github/workflows/deploy.yml (the deploy job's last step) and
 # the auto-vps production-verifier timer call
 # THIS script — the checks exist once so the callers can never drift apart.
 #

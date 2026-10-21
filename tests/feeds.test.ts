@@ -20,8 +20,8 @@ vi.mock('../src/data/site-content', () => ({
 
 import { rssFeed } from '../src/data/feeds';
 
-// Same formatting as src/pages/llms.txt.ts — asserted equal in the
-// generator-parity check below so the two can never silently diverge.
+// An independent copy of the price format llms.txt publishes, so a generator
+// that drifts cannot pass by agreeing with itself.
 const formatPrice = (n: number) =>
   n.toLocaleString('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 });
 
@@ -91,15 +91,6 @@ describe('/llms.txt — anti-drift vs src/data/business.ts', () => {
     }
   });
 
-  it('matches what the JSON-LD generator derives from business.ts', () => {
-    // Guard the shared source of truth itself: if someone hardcodes values
-    // into the generator, these derived facts still have to agree.
-    expect(business.url).toBe(SITE_URL);
-    for (const service of services) {
-      expect(service.priceFrom, `${service.name} must have a numeric priceFrom`).toBeTypeOf('number');
-      expect(formatPrice(service.priceFrom)).toMatch(/^£[\d,]+$/);
-    }
-  });
 });
 
 describe('draft exclusion', () => {

@@ -1,15 +1,20 @@
+# Monthly and grouped, so a month of updates costs at most three pull requests (each pays a CI
+# run). Security updates are not affected by the schedule and open as soon as an alert does.
 version: 2
 updates:
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
     open-pull-requests-limit: 5
     groups:
       minor-and-patch:
         update-types:
           - "minor"
           - "patch"
+      major:
+        update-types:
+          - "major"
 
   - package-ecosystem: "github-actions"
     directory: "/"

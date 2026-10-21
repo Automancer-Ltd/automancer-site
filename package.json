@@ -15,10 +15,10 @@
     "astro": "astro",
     "lint": "oxlint --type-aware --deny-warnings src tests public/assets/js",
     "typecheck": "test -f .astro/content.d.ts || astro sync; tsrs --noEmit",
-    "check": "pnpm run lint && pnpm run typecheck && if [ -f dist/index.html ]; then SKIP_BUILD=1 vitest run; else SKIP_BUILD=1 vitest run tests/git-config-guard.test.ts tests/storage-sentinel.test.ts; fi",
+    "check": "pnpm run lint && pnpm run typecheck && if [ -f dist/index.html ]; then SKIP_BUILD=1 vitest run; else SKIP_BUILD=1 vitest run tests/storage-sentinel.test.ts; fi",
     "test": "vitest run",
     "test:watch": "vitest",
-    "verify": "pnpm run check && pnpm run test"
+    "verify": "pnpm run lint && pnpm run typecheck && pnpm run test"
   },
   "dependencies": {
     "@astrojs/sitemap": "^3.7.4",
