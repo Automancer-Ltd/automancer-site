@@ -73,7 +73,7 @@ const url = (path: string) => `${business.url}${path}`;
             <a class="tlink" href={endpoint.path}>{endpoint.path}</a>
           </h3>
           <p style="color:var(--muted); margin-bottom:var(--sp-3);">{endpoint.description}</p>
-          <pre style="background:var(--near, #111); padding:var(--sp-4); overflow-x:auto;"><code style="font-family:'JetBrains Mono', monospace; font-size:0.9em;">curl -s {url(endpoint.path)}</code></pre>
+          <pre tabindex="0" style="background:var(--near, #111); padding:var(--sp-4); overflow-x:auto;"><code style="font-family:'JetBrains Mono', monospace; font-size:0.9em;">curl -s {url(endpoint.path)}</code></pre>
         </div>
       ))}
     </div>
