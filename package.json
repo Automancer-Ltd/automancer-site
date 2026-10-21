@@ -27,6 +27,7 @@
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.10",
+    "axe-core": "^4.14.0",
     "happy-dom": "^21.0.1",
     "node-html-parser": "^9.0.4",
     "oxlint": "^1.88.0",

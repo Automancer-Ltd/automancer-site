@@ -40,6 +40,9 @@ tests/links.test.ts         every internal href/src/srcset must resolve to a rea
                             no TODO/FIXME/lorem ipsum in the build
 tests/a11y.test.ts          structural accessibility: landmarks, skip link,
                             labelled form controls, named buttons/links
+tests/axe.test.ts           axe-core's WCAG 2.2 A/AA rules on every content
+                            page, in happy-dom (layout rules off; contrast is
+                            contrast.test.ts)
 tests/feeds.test.ts         sitemap exactness vs emitted pages,
                             llms.txt byte-parity with src/data/business.ts
                             (the anti-drift test), draft exclusion end to end
