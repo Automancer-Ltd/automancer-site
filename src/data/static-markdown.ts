@@ -16,6 +16,7 @@
  */
 import { business, services, formatGBP, serviceById } from './business';
 import { abs } from './urls';
+import { getReleases } from './releases';
 import { frontMatter, mdResponse, getStudies, getNotes, staticPages, type PageMeta } from './site-content';
 import type { APIRoute } from 'astro';
 
@@ -242,6 +243,17 @@ Each note is also available as clean Markdown at its URL plus \`.md\`.
 `;
 }
 
+async function releasesBody(): Promise<string> {
+  const releases = await getReleases();
+  return [
+    '# Release notes',
+    '',
+    `Every release, newest first. The same notes as data: ${abs('/api/releases.json')}`,
+    '',
+    ...releases.map((r) => `## ${r.version} — ${r.displayDate}\n\n${r.notes}\n`),
+  ].join('\n');
+}
+
 /* ── Registry ────────────────────────────────────────────────────────── */
 
 type BodyFn = () => Promise<string> | string;
@@ -254,6 +266,7 @@ export const staticBodies: Record<string, BodyFn> = {
   '/contact/': contactBody,
   '/work/': workIndexBody,
   '/field-notes/': fieldNotesIndexBody,
+  '/releases/': releasesBody,
 };
 
 function metaFor(path: string): PageMeta {

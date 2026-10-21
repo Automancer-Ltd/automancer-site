@@ -24,7 +24,7 @@
 set -euo pipefail
 
 # --- the contract under test -------------------------------------------
-readonly ROUTES=("/" "/services" "/work" "/field-notes" "/about" "/contact" "/privacy" "/terms" "/developers")
+readonly ROUTES=("/" "/services" "/work" "/field-notes" "/about" "/contact" "/privacy" "/terms" "/developers" "/releases")
 readonly LLMS_PATH="/llms.txt"
 readonly SITEMAP_PATH="/sitemap-index.xml"
 # The agent manifest and RFC 9116 security.txt are served at NON-DOT paths:

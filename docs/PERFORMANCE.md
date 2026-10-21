@@ -221,7 +221,10 @@ fails when it exceeds:
 - wired fonts: 120,620 B measured → 123,033 B budget.
 
 A page that genuinely needs more gets an entry in `LAYOUT_EXCEPTIONS` with its
-own measured value and a reason. An exception that names no built page, or
+own measured value and a reason. A page whose own HTML grows with the record it
+publishes (`/releases/`: all of `CHANGELOG.md`, about 1 KB per release) is listed
+in `GROWS_WITH_CONTENT` instead: a fixed total would fail every few releases, so
+it skips only the total-weight check and keeps the JS and font checks. An exception that names no built page, or
 whose page now fits the default, fails the suite until it is deleted.
 
 Three structural gates sit alongside: no reference to a missing asset (catches

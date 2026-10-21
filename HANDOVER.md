@@ -74,9 +74,9 @@ entry and verifier check live in the same commit.
 
 ## Next three slices, in order
 
-1. **A public releases surface — drafted, waiting for Waseem.** `/releases/`, `/releases.md` and
+1. **A public releases surface — approved by Waseem (d476), publishing.** `/releases/`, `/releases.md` and
    `/api/releases.json`, all built from `CHANGELOG.md`, are in draft PR #84 (a new public page, so
-   it waits for his review). Its preview and board are linked from the PR.
+   it was reviewed by him). Its preview and board are linked from the PR.
 2. **Claim provenance for every case-study number — done.** `/api/claims.json` now covers every
    numeric headline stat on every published case study: `automancer-bd` registered
    `claims.iq_mouldings_pricing_units` ("5 units", from the dossier's multi-unit pricing matrix),
