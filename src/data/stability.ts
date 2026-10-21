@@ -130,7 +130,7 @@ export const DEPRECATION_POLICY = {
     'The old path is removed only after its `sunset` date has passed, and never sooner than `minimumNoticeDays` after it appeared in this list.',
   ],
   httpHeaders:
-    'No Deprecation or Sunset HTTP headers are sent: GitHub Pages serves static files and cannot set per-route response headers. This document is the announcement channel instead.',
+    'No Deprecation or Sunset HTTP headers are sent. This document is the announcement channel instead.',
 } as const;
 
 /**

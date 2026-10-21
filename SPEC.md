@@ -40,7 +40,7 @@ Provide a truthful public front door for Automancer. Give people and machines th
 
 ### Machine-readable surface
 
-- What it does: Publishes Markdown twins, JSON endpoints, OpenAPI, JSON-LD, feeds, `llms.txt`, an agent manifest, a sitemap, security contact data, and the stability policy below. Legal page bodies remain canonical in HTML and are not copied into machine-readable mirrors.
+- What it does: Publishes Markdown twins, JSON endpoints, OpenAPI, JSON-LD, feeds, `llms.txt`, an agent manifest, a sitemap, security contact data, and the stability policy below. An edge Worker serves a page's Markdown twin to `Accept: text/markdown`, a Markdown 404 to agents that ask for one, RFC 9457 errors under `/api/`, and RFC 8288 `Link` headers; `/.well-known/` carries an ARD manifest and an RFC 9727 API catalog. Legal page bodies remain canonical in HTML and are not copied into machine-readable mirrors.
 - State: built
 - Shaped by: `src/data/api.ts`, `src/data/openapi.ts`, `src/data/feeds.ts`, `src/data/static-markdown.ts`, and the generated routes in `src/pages/`.
 
@@ -64,7 +64,7 @@ Provide a truthful public front door for Automancer. Give people and machines th
 
 ### Build, test, and deployment
 
-- What it does: Builds an Astro static site, checks types and content, audits generated output, and deploys `main` to GitHub Pages. It verifies the deployed revision and key production routes after each deploy.
+- What it does: Builds an Astro static site, checks types and content, audits generated output, and deploys `main` to GitHub Pages, which sits behind Cloudflare and the edge Worker in `ops/edge/` (deployed separately; `docs/DEPLOYMENT.md`). It verifies the deployed revision and key production routes after each deploy.
 - State: built
 - Shaped by: `package.json`, `vitest.config.ts`, `tests/`, `.github/workflows/ci.yml`, `.github/workflows/deploy.yml`, and `ops/verify-production.sh`.
 
