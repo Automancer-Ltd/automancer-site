@@ -74,7 +74,7 @@ entry and verifier check live in the same commit.
 
 ## Next three slices, in order
 
-1. **A public releases surface.** `CHANGELOG.md` is the estate's one honest record of what changed,
+1. **Built, awaiting Waseem's review of the new public page — a public releases surface.** `CHANGELOG.md` is the estate's one honest record of what changed,
    and no visitor or agent can read it. Publish `/releases/` (HTML) and `/api/releases.json` from
    that file as the single source, linked from `/developers` and `llms.txt`. It makes "a change is
    announced" a real place, which is what the deprecation policy currently has to point at itself
