@@ -395,6 +395,21 @@ const RESPONSE_SCHEMA_BY_OPERATION: Record<string, string> = {
   getStabilityPolicy: 'StabilityPolicy',
 };
 
+/** RFC 9457 problem details, as ops/edge/worker.js returns them. */
+const problemSchema = {
+  type: 'object',
+  description: 'RFC 9457 problem details.',
+  properties: {
+    type: { type: 'string', description: 'Always about:blank: the status code says what happened.' },
+    title: { type: 'string', description: 'Short summary of the error.' },
+    status: { type: 'integer', description: 'The HTTP status code.' },
+    detail: { type: 'string', description: 'What went wrong and what to do next.' },
+    instance: { type: 'string', description: 'The path that was requested.' },
+    docs: { type: 'string', format: 'uri', description: 'The developer documentation.' },
+  },
+  required: ['type', 'title', 'status', 'detail'],
+};
+
 /**
  * The full OpenAPI 3.1 document. Built fresh on every call so callers can
  * never share a mutated copy.
@@ -416,7 +431,7 @@ export function openApiSpec() {
         responses: {
           '200': {
             description:
-              'The current payload as static JSON, generated at build time. This site is read-only: no other method or status exists.',
+              'The current payload as static JSON, generated at build time. This site is read-only: only GET and HEAD exist; any other method answers 405 with the same problem body.',
             content: {
               'application/json': {
                 schema: {
@@ -425,6 +440,8 @@ export function openApiSpec() {
               },
             },
           },
+          '404': { $ref: '#/components/responses/NotFound' },
+          '5XX': { $ref: '#/components/responses/UpstreamError' },
         },
       },
     };
@@ -463,7 +480,20 @@ export function openApiSpec() {
       },
     ],
     paths,
-    components: { schemas },
+    components: {
+      schemas: { ...schemas, Problem: problemSchema },
+      responses: {
+        NotFound: {
+          description:
+            'No endpoint at this path: mistyped, or withdrawn after its sunset date (see /api/stability.json). Every live endpoint is listed at /api/index.json.',
+          content: { 'application/problem+json': { schema: { $ref: '#/components/schemas/Problem' } } },
+        },
+        UpstreamError: {
+          description: 'The static host failed to answer. Retry after a short wait.',
+          content: { 'application/problem+json': { schema: { $ref: '#/components/schemas/Problem' } } },
+        },
+      },
+    },
     'x-deprecation-policy': {
       url: `${business.url}/api/stability.json`,
       minimumNoticeDays: DEPRECATION_POLICY.minimumNoticeDays,

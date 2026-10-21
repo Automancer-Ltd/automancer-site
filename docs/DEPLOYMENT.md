@@ -186,6 +186,33 @@ refused because it resets its own build clone. Run it as
 `GIT_GUARD_ALLOW=1 GIT_GUARD_REASON='<why>' ops/preview/deploy-preview.sh <ref> --verify`.
 The reset touches only its build clone (`$ROOT/build`), never a worktree.
 
+## The edge Worker in front of GitHub Pages (since 2026-10-22)
+
+`automancer.uk` is proxied through Cloudflare (zone `automancer.uk`, account "Hello@waseemilyas.uk's
+Account"), and the Worker `automancer-site-edge` (`ops/edge/worker.js`) runs on the route
+`automancer.uk/*`. GitHub Pages is still the origin and every deploy still goes through Pages; the
+Worker only answers what a static host cannot: `Accept: text/markdown` gets a page's Markdown twin,
+a 404 asked for as Markdown gets a Markdown body, errors under `/api/` are `application/problem+json`,
+`/.well-known/api-catalog` gets its RFC 9727 media type, and plain HTTP is redirected to HTTPS.
+Everything else passes through byte for byte.
+
+- **Deploy the Worker:** `ops/edge/deploy.sh` (uploads through Executor's `cloudflare-full-access`
+  connection "Cloudflare waseemIlyas"; the BWS `AUT_CLOUDFLARE_*` tokens belong to another account).
+  A pull request that changes `ops/edge/worker.js` is not live until this runs. Try it first on
+  `ops/edge/deploy.sh automancer-site-edge-probe`, which answers on workers.dev with the real origin.
+- **Zone settings this relies on:** `email_obfuscation` off (it rewrites the contact page's mailto
+  links), `browser_check` off (it challenges agents), `browser_cache_ttl` 0 (respect GitHub's
+  `max-age=600`; the 4-hour default kept the unhashed `main.js` stale after a deploy). The route is
+  set to fail open, so if the free plan's daily Worker limit is ever reached, requests go straight
+  to GitHub Pages. The Executor gateway cannot create Configuration or Page Rules (its ruleset
+  schema is wrong), which is why these are zone-wide.
+- **Origin TLS:** the zone is in SSL "Full (strict)", so Cloudflare validates GitHub's Let's Encrypt
+  certificate for automancer.uk (expires 2026-11-25). If GitHub cannot renew it behind the proxy,
+  every page answers Cloudflare error 526 and `ops/verify-production.sh` fails on its 30-minute timer.
+- **Undo, fastest first:** set the four apex `A` records back to DNS-only (proxied off) — the site is
+  then served by GitHub Pages directly within about five minutes (TTL auto). Deleting the Worker
+  route alone also restores pass-through.
+
 ## Rollback
 
 Redeploy is automatic on push, so a revert reaches production the same way the
