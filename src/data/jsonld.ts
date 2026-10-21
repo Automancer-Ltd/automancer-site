@@ -58,8 +58,10 @@ export function organizationNode() {
       telephone: business.phoneTel,
       availableLanguage: ['en-GB'],
     },
-    // VAT number, social profiles etc. are not published anywhere verified,
-    // so no sameAs / taxID here. Add only when a real profile exists.
+    // The Companies House record is the one verified profile. VAT number and
+    // social profiles are not published anywhere verified, so no taxID and no
+    // other sameAs. Add only when a real profile exists.
+    sameAs: [business.companiesHouseUrl],
     founder: { '@id': founderNode()['@id'] },
   };
 }

@@ -267,7 +267,7 @@ describe('/llms.txt and /llms-full.txt', () => {
     const siteMapSection = llms!.split('## Site map')[1]?.split(/^##\s/m)[0] ?? '';
     expect(siteMapSection, 'Site map section missing from llms.txt').toBeTruthy();
 
-    const urls = [...siteMapSection.matchAll(/-\s+(https?:\/\/\S+)/g)].map((m) => m[1]);
+    const urls = [...siteMapSection.matchAll(/^-\s+\[[^\]]+\]\((https?:\/\/[^)\s]+)\)/gm)].map((m) => m[1]);
     expect(urls.length, 'expected sitemap URLs in llms.txt').toBeGreaterThan(0);
 
     for (const url of urls) {

@@ -37,6 +37,8 @@ export const business = {
   legalName: 'Automancer Ltd',
   tradingName: 'Automancer',
   companyNumber: '17060907',
+  /** The company's public Companies House record (checked 21 October 2026). */
+  companiesHouseUrl: 'https://find-and-update.company-information.service.gov.uk/company/17060907',
   /** Part of the UK where the company is registered — a Companies Act trading disclosure. */
   placeOfRegistration: 'England and Wales',
   /** ICO (Information Commissioner's Office) data-protection registration. */
