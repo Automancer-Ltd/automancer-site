@@ -17,9 +17,9 @@ page-weight tables that `docs/PERFORMANCE.md` derives its budgets from.
 
 Page categories (`tests/support/dist.ts`):
 
-- **content pages** (`contentPages()`): full layout, every page check applies;
-- **404** (`dist/404.html`): full layout, but outside `contentPages()`, so only the
-  checks that read `allHtmlFiles()` see it;
+- **content pages** (`contentPages()`): emitted content routes, excluding 404 and redirects;
+- **page-check pages** (`pageCheckPages()`): full-layout content pages plus `dist/404.html`;
+  SEO, structural accessibility and axe checks apply to all of them;
 - **redirect stubs** (`services.html` etc., from `astro.config.mjs`): bare
   meta-refresh pages, exempt from SEO/a11y checks; links.test.ts still resolves them.
 

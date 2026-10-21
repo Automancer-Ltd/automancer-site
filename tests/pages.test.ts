@@ -8,9 +8,9 @@
  * bare by design (see tests/support/dist.ts).
  */
 import { describe, expect, it } from 'vitest';
-import { SITE_URL, contentPages, type BuiltPage } from './support/dist';
+import { SITE_URL, pageCheckPages, type BuiltPage } from './support/dist';
 
-const pages = contentPages();
+const pages = pageCheckPages();
 
 /** All headings in document order, as their numeric level (h2 -> 2). */
 function headingLevels(page: BuiltPage): number[] {
@@ -25,6 +25,10 @@ function metaContent(page: BuiltPage, selector: string): string {
 }
 
 describe('every emitted page', () => {
+  it("includes the full-layout 404 page in SEO checks", () => {
+    expect(pages.some((page) => page.is404), "404.html skipped page-level SEO checks").toBe(true);
+  });
+
   it('exists — the suite has pages to audit', () => {
     expect(
       pages.length,

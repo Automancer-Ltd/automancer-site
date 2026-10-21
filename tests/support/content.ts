@@ -35,6 +35,9 @@ export function contentEntries(): ContentEntry[] {
           draft: /^draft:\s*true\s*$/m.test(frontmatterOf(join(dir, f))),
         }))
     );
+    // A deliberately unpublished fixture makes draft-exclusion checks exercise
+    // their loop even when the real editorial collections contain no drafts.
+    entries.push({ collection: "case-studies", slug: "draft-leak-fixture", draft: true });
     cachedEntries = entries;
   }
   return cachedEntries;

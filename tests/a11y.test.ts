@@ -5,9 +5,9 @@
  * rules are axe's. Image alt policy lives in pages.test.ts.
  */
 import { describe, expect, it } from 'vitest';
-import { contentPages } from './support/dist';
+import { pageCheckPages } from './support/dist';
 
-const pages = contentPages();
+const pages = pageCheckPages();
 
 describe('landmarks', () => {
   it('has exactly one <main> per page, carrying id="main"', () => {
