@@ -86,7 +86,7 @@ technical fundamentals baked in: structured data so search engines understand th
 business, plus the SEO basics, sitemap, robots and the rest, done properly rather
 than skipped. Live, fast and findable. It's hand-built and costs essentially
 nothing to run, with no monthly platform fee quietly draining the account. The
-write-up is in [the fast websites case study](/work/fast-small-business-websites).
+write-up is in [the fast websites case study](/work/fast-small-business-websites/).
 
 Fast and cheap didn't mean amateur. It meant we left out the parts that weren't
 the job, rather than the parts that were.
@@ -128,9 +128,9 @@ what credit hire costs them, believe you're real, and reach you in one tap. Get
 that live, then improve it with real traffic in front of you.
 
 We publish real from-prices for our automation work on our [services
-page](/services), starting with an Automation Opportunity Audit from £450, and
+page](/services/), starting with an Automation Opportunity Audit from £450, and
 we'd rather tell you a single page is enough than sell you eight of them. If you
-want a straight answer about your own site, fill in [the form](/contact). Waseem
+want a straight answer about your own site, fill in [the form](/contact/). Waseem
 reads it himself and emails you back, we promise a meeting within one week, and a
 human makes every decision along the way.
 

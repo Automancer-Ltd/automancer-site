@@ -74,7 +74,7 @@ when the numbers disagree, instead of hoping they won't.
 ## What this looked like on a live build
 
 On the core platform we built for [a ~600-person supported-living care
-provider](/work/care-provider-transformation), the new system's report
+provider](/work/care-provider-transformation/), the new system's report
 mirrors were reconciled against the client's real exports before anyone was
 asked to trust a number coming out of it. That check covered 500 visits,
 175 medication alerts and 416 names routed to review.
@@ -92,7 +92,7 @@ source you already trust, you are taking them on faith.
 If your problem is less "two numbers disagree" and more "the same person
 exists twice under two spellings", that is a close cousin: identity
 matching. We have written up [what identity matching actually
-fixes](/field-notes/duplicate-data-what-identity-matching-fixes) separately.
+fixes](/field-notes/duplicate-data-what-identity-matching-fixes/) separately.
 
 ## What to do yourself, and when to pay someone
 
@@ -130,7 +130,7 @@ If your team spends time every month working out which system is telling
 the truth, that time is the cost, and it is usually bigger than anyone has
 written down.
 
-An [Automation Opportunity Audit](/services), from £450, is where we would
+An [Automation Opportunity Audit](/services/), from £450, is where we would
 start: map which systems hold what, find where they disagree, and give you
 a costed plan for what to fix first. The fee is credited against any project
 you go on to do. A real person, Waseem, reads what you send and replies

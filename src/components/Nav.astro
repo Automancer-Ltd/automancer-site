@@ -4,10 +4,10 @@
  * a spectral underline on hover/active. Mobile menu is a full-screen overlay.
  */
 const navLinks = [
-  { href: '/services', label: 'Services' },
-  { href: '/work', label: 'Work' },
-  { href: '/field-notes', label: 'Field Notes' },
-  { href: '/about', label: 'About' },
+  { href: '/services/', label: 'Services' },
+  { href: '/work/', label: 'Work' },
+  { href: '/field-notes/', label: 'Field Notes' },
+  { href: '/about/', label: 'About' },
 ];
 
 const currentPath = Astro.url.pathname;
@@ -31,7 +31,7 @@ const isActive = (href: string) =>
         {link.label}
       </a>
     ))}
-    <a href="/contact" class="btn btn--sm"><span>Contact</span></a>
+    <a href="/contact/" class="btn btn--sm"><span>Contact</span></a>
   </nav>
 
   <button class="hamburger" aria-label="Open menu" aria-expanded="false" aria-controls="mobile-menu">
@@ -47,5 +47,5 @@ const isActive = (href: string) =>
       <span class="sys">{String(i + 1).padStart(2, '0')}</span>{link.label}
     </a>
   ))}
-  <a href="/contact" class="mobile-menu__link"><span class="sys">05</span>Contact</a>
+  <a href="/contact/" class="mobile-menu__link"><span class="sys">05</span>Contact</a>
 </div>

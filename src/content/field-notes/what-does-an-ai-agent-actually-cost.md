@@ -63,7 +63,7 @@ We built a self-service AI product for a diversity & inclusion consultancy
 that replaced a **£300–400 consultant engagement** with a **£10–80
 self-service task, completed in minutes instead of hours**. That's not a
 cost estimate for a generic AI agent. It's the real economics of one
-[shipped product](/work/debiaser-ai-product), included here because it's a
+[shipped product](/work/debiaser-ai-product/), included here because it's a
 useful sanity check: a well-built AI product doesn't just move a task from
 a person to a machine, it can fundamentally change what the task costs the
 customer, because the delivery model changed, not just the labour.
@@ -94,5 +94,5 @@ Ask three questions before you sign anything:
   and keep automating the next thing.
 
 Full detail on what's included at each level is on our [services and
-pricing page](/services). If you're not sure which one fits, start with
+pricing page](/services/). If you're not sure which one fits, start with
 the Audit. That's exactly what it's designed to answer.
