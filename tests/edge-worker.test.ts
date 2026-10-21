@@ -32,6 +32,7 @@ describe('edge Worker in front of GitHub Pages', () => {
       expect(res.headers.get('Content-Type'), `Accept: ${accept}`).toContain('text/html');
       expect(await res.text()).toBe('<html>home</html>');
       expect(varies(res), `Vary: ${res.headers.get('Vary')}`).toBe(true);
+      expect(res.headers.get('Link')).toContain('</index.md>; rel="alternate"; type="text/markdown"');
     }
   });
 

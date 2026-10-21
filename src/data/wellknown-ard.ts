@@ -10,6 +10,8 @@ export const GET: APIRoute = () =>
   new Response(
     JSON.stringify(
       {
+        specVersion: '1.0',
+        host: { displayName: business.legalName, documentationUrl: abs('/developers') },
         entries: [
           {
             identifier: 'urn:air:automancer.uk:api:public-data',

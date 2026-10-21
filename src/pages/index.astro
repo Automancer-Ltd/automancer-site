@@ -3,6 +3,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import { getCollection } from 'astro:content';
 import { formatGBP, serviceById } from '../data/business';
 import { staticPages } from '../data/site-content';
+import { serviceCatalogNode } from '../data/jsonld';
 
 const audit = serviceById('automation-opportunity-audit');
 const sprint = serviceById('workflow-implementation-sprint');
@@ -36,6 +37,7 @@ const caps = [
 <BaseLayout
   title="AI & automation for UK small businesses"
   description={homeDescription}
+  schema={[serviceCatalogNode()]}
 >
   <!-- ─────────────── Hero ─────────────── -->
   <section class="hero hatch">
