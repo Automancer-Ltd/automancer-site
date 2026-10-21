@@ -7,7 +7,7 @@ It does not outrank anything: `VISION.md` is authority 0, `SPEC.md` describes wh
 `docs/PLAN.md` holds the older campaign carry-overs. When this file and `SPEC.md` disagree about
 what exists, `SPEC.md` and the code are right and this file is out of date.
 
-Last updated: 21 October 2026 (next slices brought up to date: claims and the re-measure shipped; releases drafted).
+Last updated: 22 October 2026 (claims cover every case study but one number).
 
 ## Where the site stands against the vision
 
@@ -77,11 +77,11 @@ entry and verifier check live in the same commit.
 1. **A public releases surface — drafted, waiting for Waseem.** `/releases/`, `/releases.md` and
    `/api/releases.json`, all built from `CHANGELOG.md`, are in draft PR #84 (a new public page, so
    it waits for his review). Its preview and board are linked from the PR.
-2. **Claim provenance for every case study.** `/api/claims.json` shipped in PR #90 for the
-   flagship care-provider case study, with a test that its numeric stats each have an entry. The
-   other case studies' headline numbers (for example the document-review prices on the debiaser
-   study) have none yet. Their evidence belongs in the `automancer-bd` truth layer
-   (`data/claims.toml`), which this repo only copies from, so the slice starts there, not here.
+2. **Claim provenance for the last case-study number.** `/api/claims.json` covers every numeric
+   headline stat on every case study except one, and `tests/claims.test.ts` fails if a new one
+   appears without an entry. The exception is the trade portal's "5 units" (its pricing units):
+   the dossier states it, but `automancer-bd` `data/claims.toml` has no entry for it. Add the
+   entry there, copy it into `src/data/claims.ts`, and empty `awaitingRegistry` in the test.
 3. **No third slice is planned.** The agent-readiness re-measure is done (21 October:
    `docs/AGENT-READINESS.md`, "Re-measured 2026-10-21"). Its honest gaps were closed in PRs #85 and
    #86, and the rest are deliberately not pursued. The open decisions below come first.
