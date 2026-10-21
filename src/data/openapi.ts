@@ -210,6 +210,24 @@ const schemas: Record<string, JsonSchema> = {
     }
   ),
 
+  ClaimsResponse: obj(
+    {
+      schemaVersion: str(),
+      source: str(),
+      claims: {
+        type: 'array',
+        items: obj({
+          id: str('Stable claim id in the Automancer BD truth-layer registry.'),
+          value: str(),
+          evidenceRecord: str('Truth-layer evidence record path.'),
+          registry: str('Truth-layer claims registry path.'),
+          sourceQuote: str('Evidence quote recorded by the truth layer.'),
+        }, { required: ['id', 'value', 'evidenceRecord', 'registry', 'sourceQuote'] }),
+      },
+    },
+    { required: ['schemaVersion', 'source', 'claims'], description: 'The /api/claims.json payload.' }
+  ),
+
   FieldNotesResponse: obj(
     {
       schemaVersion: str(),
@@ -397,6 +415,7 @@ const RESPONSE_SCHEMA_BY_OPERATION: Record<string, string> = {
   getBusinessFacts: 'BusinessFacts',
   getServices: 'ServicesResponse',
   getCaseStudies: 'CaseStudiesResponse',
+  getClaims: 'ClaimsResponse',
   getFieldNotes: 'FieldNotesResponse',
   getPageInventory: 'PageInventoryResponse',
   getStabilityPolicy: 'StabilityPolicy',

@@ -172,6 +172,20 @@ rm -f ~/.config/systemd/user/automancer-site-preview.service
 sudo tailscale serve --https=4174 off
 ```
 
+### Reviewing several drafts at once
+
+The target serves one build, so publishing a second draft replaces the first
+draft's preview. To show more than one, merge them into a throwaway review
+branch on top of `main` (for example `spend/site-review`: main plus each draft
+PR's branch), push it, and publish that. Every draft's preview link stays valid,
+and each PR comment should say which revision of the review branch is live.
+Re-merge and republish when any of them, or `main`, changes.
+
+On an estate host whose git guard blocks `git reset --hard`, this script is
+refused because it resets its own build clone. Run it as
+`GIT_GUARD_ALLOW=1 GIT_GUARD_REASON='<why>' ops/preview/deploy-preview.sh <ref> --verify`.
+The reset touches only its build clone (`$ROOT/build`), never a worktree.
+
 ## Rollback
 
 Redeploy is automatic on push, so a revert reaches production the same way the
