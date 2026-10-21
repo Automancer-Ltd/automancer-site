@@ -3,6 +3,7 @@
 // its human documentation and its stability policy.
 import type { APIRoute } from 'astro';
 import { abs } from './urls';
+import { API_ENDPOINTS } from './api';
 
 export const GET: APIRoute = () =>
   new Response(
@@ -14,6 +15,7 @@ export const GET: APIRoute = () =>
             'service-desc': [{ href: abs('/openapi.json'), type: 'application/vnd.oai.openapi+json' }],
             'service-doc': [{ href: abs('/developers'), type: 'text/html' }],
             'service-meta': [{ href: abs('/api/stability.json'), type: 'application/json' }],
+            item: API_ENDPOINTS.map((endpoint) => ({ href: abs(endpoint.path), type: 'application/json' })),
           },
         ],
       },

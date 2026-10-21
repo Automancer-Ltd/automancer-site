@@ -410,6 +410,11 @@ const problemSchema = {
   required: ['type', 'title', 'status', 'detail'],
 };
 
+const problemResponse = (description: string) => ({
+  description,
+  content: { 'application/problem+json': { schema: { $ref: '#/components/schemas/Problem' } } },
+});
+
 /**
  * The full OpenAPI 3.1 document. Built fresh on every call so callers can
  * never share a mutated copy.
@@ -440,8 +445,10 @@ export function openApiSpec() {
               },
             },
           },
-          '404': { $ref: '#/components/responses/NotFound' },
-          '5XX': { $ref: '#/components/responses/UpstreamError' },
+          '404': problemResponse(
+            'No endpoint at this path: mistyped, or withdrawn after its sunset date (see /api/stability.json). Every live endpoint is listed at /api/index.json.'
+          ),
+          '5XX': problemResponse('The static host failed to answer. Retry after a short wait.'),
         },
       },
     };
@@ -480,20 +487,7 @@ export function openApiSpec() {
       },
     ],
     paths,
-    components: {
-      schemas: { ...schemas, Problem: problemSchema },
-      responses: {
-        NotFound: {
-          description:
-            'No endpoint at this path: mistyped, or withdrawn after its sunset date (see /api/stability.json). Every live endpoint is listed at /api/index.json.',
-          content: { 'application/problem+json': { schema: { $ref: '#/components/schemas/Problem' } } },
-        },
-        UpstreamError: {
-          description: 'The static host failed to answer. Retry after a short wait.',
-          content: { 'application/problem+json': { schema: { $ref: '#/components/schemas/Problem' } } },
-        },
-      },
-    },
+    components: { schemas: { ...schemas, Problem: problemSchema } },
     'x-deprecation-policy': {
       url: `${business.url}/api/stability.json`,
       minimumNoticeDays: DEPRECATION_POLICY.minimumNoticeDays,

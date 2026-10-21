@@ -13,6 +13,13 @@
 const ORIGIN = 'https://automancer.uk';
 const MARKDOWN = 'text/markdown; charset=utf-8';
 const PROBLEM = 'application/problem+json';
+// RFC 8288 discovery links on every HTML page; each target is a published file.
+const PAGE_LINKS = [
+  '</sitemap-index.xml>; rel="sitemap"',
+  '</llms.txt>; rel="describedby"; type="text/plain"',
+  '</openapi.json>; rel="service-desc"; type="application/vnd.oai.openapi+json"',
+  '</.well-known/api-catalog>; rel="api-catalog"',
+].join(', ');
 
 /** q-value Accept gives a media type: the most specific matching range wins (RFC 9110 §12.5.1). */
 function quality(accept, type) {
@@ -109,6 +116,10 @@ export default {
     if (res.status === 404 && prefers(accept, 'text/markdown', 'text/html')) return markdownNotFound(url.pathname);
 
     const out = withVary(res);
+    if ((out.headers.get('Content-Type') ?? '').startsWith('text/html') && res.ok) {
+      const twin = url.pathname === '/' ? ', </index.md>; rel="alternate"; type="text/markdown"' : '';
+      out.headers.set('Link', PAGE_LINKS + twin);
+    }
     if (url.pathname === '/.well-known/api-catalog') {
       out.headers.set('Content-Type', 'application/linkset+json; profile="https://www.rfc-editor.org/info/rfc9727"');
     }
