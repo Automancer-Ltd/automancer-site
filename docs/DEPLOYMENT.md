@@ -85,7 +85,8 @@ one review branch on top of `main` and publish that.
 `automancer-site-edge` (`ops/edge/worker.js`, route `automancer.uk/*`, fail-open). GitHub Pages stays
 the origin. The Worker answers what a static host cannot: `Accept: text/markdown` gets the Markdown
 twin, Markdown 404 bodies, `application/problem+json` errors under `/api/`, the RFC 9727 media type
-for `/.well-known/api-catalog`, and HTTP → HTTPS. Everything else passes through.
+for `/.well-known/api-catalog`, HTTP → HTTPS, and one 301 from each legacy `*.html` URL in
+`astro.config.mjs` `redirects` to its page. Everything else passes through.
 
 - **Deploy it:** `ops/edge/deploy.sh` (Executor `cloudflare-full-access`, account "Cloudflare
   waseemIlyas"). A merged change to `worker.js` is not live until this runs. Try it first with
