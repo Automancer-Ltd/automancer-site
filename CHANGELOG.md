@@ -154,7 +154,7 @@ A new field note helps self-storage teams know what to check before choosing sof
 
 Our privacy information now gives a clearer picture of how the website’s security check uses browser storage.
 
-## Privacy
+### Privacy
 
 - The privacy notice now describes what the contact-page security check actually stores. We measured it: it sets no cookie, and instead saves one small value in your browser.
 - It states that this storage sits under the security provider’s domain rather than Automancer’s, and why it needs no consent prompt.

@@ -1,0 +1,35 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { getReleases } from '../data/releases';
+import { staticPages } from '../data/site-content';
+
+const meta = staticPages.find((page) => page.path === '/releases/')!;
+const releases = await getReleases();
+---
+
+<BaseLayout title={meta.title} description={meta.description} pageType={meta.type}>
+  <section class="page-hero hatch">
+    <div class="page-hero__glow" aria-hidden="true" data-px="26"></div>
+    <div class="page-hero__inner">
+      <p class="eyebrow">Release notes</p>
+      <h1 class="page-hero__title">What changed on this site, and when.</h1>
+      <p class="page-hero__sub">
+        Every release, newest first, from the same record we keep for ourselves. Machines can read
+        the same notes at <a class="tlink" href="/api/releases.json">/api/releases.json</a> or as
+        Markdown at <a class="tlink" href="/releases.md">/releases.md</a>.
+      </p>
+    </div>
+  </section>
+
+  <section class="section on-dark">
+    <div class="wrap">
+      {releases.map((r) => (
+        <article id={r.version} class="prose" style="margin-inline:0; margin-bottom: clamp(3rem, 6vw, 4.5rem)">
+          <p class="article-meta"><span>{r.version}</span></p>
+          <h2 style="margin-top: var(--sp-2)"><time datetime={r.date}>{r.displayDate}</time></h2>
+          <Fragment set:html={r.html} />
+        </article>
+      ))}
+    </div>
+  </section>
+</BaseLayout>
