@@ -124,6 +124,18 @@ describe('serving a marked release', () => {
     expect(await direct.text()).toContain('services');
   });
 
+  it('keeps redirects on its own origin and survives a hostile path', async () => {
+    const { url } = await fixture({ marked: true });
+    // Decodes to `//evil.example/../services`: a Location built from the
+    // decoded path sent browsers to evil.example.
+    const hop = await fetch(`${url}/%2Fevil.example%2F..%2Fservices`, { redirect: 'manual' });
+    expect(hop.status).toBe(301);
+    expect(hop.headers.get('location')).toMatch(/^\/[^/]/);
+    // Decodes to a character writeHead cannot put in a header; it crashed the process.
+    await fetch(`${url}/%C4%80%2F..%2Fservices`, { redirect: 'manual' });
+    expect((await fetch(`${url}/`)).status).toBe(200);
+  });
+
   it('never escapes its root', async () => {
     const { url } = await fixture({ marked: true });
     for (const path of ['/../etc/passwd', '/%2e%2e/%2e%2e/etc/passwd', '/..%2fetc%2fpasswd']) {
