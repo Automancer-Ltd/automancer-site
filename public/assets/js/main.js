@@ -50,7 +50,9 @@
         hamburger.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
         document.body.style.overflow = open ? 'hidden' : '';
         // Keyboard users land where they left: in the menu, then back on its button.
-        if (open && closeBtn) closeBtn.focus();
+        // Next frame: the menu's visibility is transitioned, so it is still
+        // hidden (and unfocusable) in the frame the class lands.
+        if (open && closeBtn) requestAnimationFrame(function () { closeBtn.focus(); });
         else if (wasOpen && !open && hamburger.offsetParent) hamburger.focus();
       };
       // The menu only exists below 821px; rotating a tablet past it with the

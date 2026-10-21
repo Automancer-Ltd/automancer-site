@@ -14,7 +14,16 @@ export interface FeedItem {
   date: Date;
   /** Full content — raw Markdown, never an excerpt. */
   body: string;
+  /** The same content as the page renders it, links absolute (RSS readers
+   *  treat content:encoded as HTML; raw Markdown showed as literal ## and **). */
+  html: string;
 }
+
+const esc = (s: string) =>
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+/** Root-relative href/src made absolute: a feed item has no page to resolve against. */
+const absolutise = (html: string) => html.replace(/\b(href|src)="\/(?!\/)/g, `$1="${business.url}/`);
 
 /** Feed items for the case-study collection (/work), index order. */
 export async function studyFeedItems(): Promise<FeedItem[]> {
@@ -24,6 +33,12 @@ export async function studyFeedItems(): Promise<FeedItem[]> {
     if (e.data.subhead) parts.push(e.data.subhead, '');
     if (e.data.stats.length > 0) parts.push(...e.data.stats.map((s) => `- **${s.v}** — ${s.l}`), '');
     parts.push(e.body ?? '');
+    const lead = [
+      e.data.subhead ? `<p>${esc(e.data.subhead)}</p>` : '',
+      e.data.stats.length > 0
+        ? `<ul>${e.data.stats.map((st) => `<li><strong>${esc(st.v)}</strong> — ${esc(st.l)}</li>`).join('')}</ul>`
+        : '',
+    ].join('');
     return {
       slug: e.id,
       path: pagePath(`/work/${e.id}`),
@@ -31,6 +46,7 @@ export async function studyFeedItems(): Promise<FeedItem[]> {
       description: e.data.description,
       date: e.data.date,
       body: parts.join('\n').trim() + '\n',
+      html: absolutise(lead + (e.rendered?.html ?? '')),
     };
   });
 }
@@ -45,11 +61,9 @@ export async function noteFeedItems(): Promise<FeedItem[]> {
     description: e.data.description,
     date: e.data.date,
     body: (e.body ?? '').trim() + '\n',
+    html: absolutise(e.rendered?.html ?? ''),
   }));
 }
-
-const esc = (s: string) =>
-  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 const escCdata = (s: string) => s.replace(/]]>/g, ']]]]><![CDATA[>');
 
@@ -77,7 +91,7 @@ export function rssFeed(opts: {
       `<guid>${esc(abs(item.path))}</guid>`,
       `<pubDate>${item.date.toUTCString()}</pubDate>`,
       `<description>${esc(item.description)}</description>`,
-      `<content:encoded xmlns:content="http://purl.org/rss/1.0/modules/content/"><![CDATA[${escCdata(item.body)}]]></content:encoded>`,
+      `<content:encoded xmlns:content="http://purl.org/rss/1.0/modules/content/"><![CDATA[${escCdata(item.html)}]]></content:encoded>`,
       '</item>'
     );
   }
@@ -103,8 +117,9 @@ export function jsonFeed(opts: {
       url: abs(item.path),
       title: item.title,
       summary: item.description,
-      // Raw Markdown is plain-text-safe; full content, not an excerpt.
+      // Full content, not an excerpt: Markdown as text, the page's HTML as html.
       content_text: item.body,
+      content_html: item.html,
       date_published: item.date.toISOString(),
     })),
   };
