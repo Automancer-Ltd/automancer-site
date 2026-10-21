@@ -189,7 +189,7 @@ describe('markdown twins — every content page also speaks Markdown', () => {
     // An agent follows <link rel="alternate" type="text/markdown">; one
     // pointing at a missing twin, or at another page's, is worse than none.
     const twinByRoute = new Map([...expectedTwins].map(([twin, route]) => [route, `${SITE_URL}/${twin}`]));
-    for (const page of allHtmlFiles()) {
+    for (const page of allHtmlFiles().filter((p) => !p.isRedirectStub)) {
       const hrefs = page.doc
         .querySelectorAll('link[rel="alternate"][type="text/markdown"]')
         .map((l) => l.getAttribute('href'));
