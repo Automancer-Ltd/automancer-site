@@ -13,7 +13,7 @@ pnpm install
 pnpm run dev       # local dev server
 pnpm run build     # production build
 pnpm run preview   # preview the production build
-pnpm run check     # astro check (types/content)
+pnpm run check     # lint + typecheck (tsrs) + cached Vitest
 ```
 
 Deploys via GitHub Actions on push to `main` → GitHub Pages (CNAME preserved,

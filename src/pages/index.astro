@@ -179,7 +179,7 @@ const caps = [
           <a href={`/work/${feature.id}`} class="case-card case-card--feature" data-spot>
             <span class="case-card__tag">{feature.data.sector}{feature.data.status ? ` · ${feature.data.status}` : ''}</span>
             <h3 class="case-card__title">{feature.data.title}</h3>
-            <p class="case-card__blurb" set:html={feature.data.summary ?? feature.data.description} />
+            <p class="case-card__blurb">{feature.data.summary ?? feature.data.description}</p>
             <div class="case-card__foot">
               <span class="arrow-link">Read the case study <span class="btn__arrow">→</span></span>
             </div>

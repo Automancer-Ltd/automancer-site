@@ -50,7 +50,7 @@ const rest = studies.filter((e) => e.id !== feature?.id);
               {feature.data.sector}{feature.data.status ? ` · ${feature.data.status}` : ''}
             </span>
             <h2 class="case-card__title">{feature.data.title}</h2>
-            <p class="case-card__blurb" set:html={feature.data.summary ?? feature.data.description} />
+            <p class="case-card__blurb">{feature.data.summary ?? feature.data.description}</p>
             {feature.data.stats.length > 0 && (
               <div class="statband case-card__stats">
                 {feature.data.stats.map((s) => (

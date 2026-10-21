@@ -44,11 +44,20 @@
     var closeBtn = document.querySelector('.mobile-menu__close');
     if (hamburger && menu) {
       var setOpen = function (open) {
+        var wasOpen = menu.classList.contains('is-open');
         menu.classList.toggle('is-open', open);
         hamburger.setAttribute('aria-expanded', String(open));
         hamburger.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
         document.body.style.overflow = open ? 'hidden' : '';
+        // Keyboard users land where they left: in the menu, then back on its button.
+        if (open && closeBtn) closeBtn.focus();
+        else if (wasOpen && !open && hamburger.offsetParent) hamburger.focus();
       };
+      // The menu only exists below 821px; rotating a tablet past it with the
+      // menu open left the page unscrollable and the menu unclosable.
+      var wide = window.matchMedia('(min-width: 821px)');
+      var onWide = function () { if (wide.matches) setOpen(false); };
+      if (wide.addEventListener) wide.addEventListener('change', onWide);
       hamburger.addEventListener('click', function () {
         setOpen(!menu.classList.contains('is-open'));
       });

@@ -16,4 +16,6 @@ const json = {
 };
 ---
 
-<script type="application/ld+json" is:inline set:html={JSON.stringify(json)} />
+{/* `<` as \u003c: a "</script>" in any content string would otherwise end the
+    block and run what follows. JSON parsers read it back as the same character. */}
+<script type="application/ld+json" is:inline set:html={JSON.stringify(json).replace(/</g, '\\u003c')} />
