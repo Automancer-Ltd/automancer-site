@@ -1,12 +1,10 @@
 ---
 /**
- * The meta-story made literal: a live-feeling system readout proving the
- * site is itself the demo of an AI-run business. Every value here is REAL
- * build-time data (git SHA + build timestamp) — never faked numbers.
+ * Publishes factual build provenance: the site identity, its maintainers,
+ * and the real commit and build timestamp. This is not a live health check.
  *
- * A small inline script converts the real build timestamp into a live
- * "deployed Nh ago" counter client-side (honest, since the timestamp is
- * genuine) and ticks it while the page is open.
+ * A small inline script converts the real build timestamp into a relative
+ * "deployed Nh ago" age and updates it while the page is open.
  */
 import { build, formatBuildStamp } from '../data/build';
 
@@ -21,11 +19,10 @@ const items = [
   { label: 'human in the loop', value: 'waseem' },
   { label: 'last deploy', value: stamp, live: true },
   { label: 'build', value: sha },
-  { label: 'status', value: 'operational' },
 ];
 ---
 
-<aside class="proof-strip" aria-label="Live system status">
+<div class="proof-strip">
   <div class="proof-strip__track" aria-hidden="true">
     {[0, 1].map(() => (
       <div class="proof-strip__item-group" style="display:inline-flex;align-items:center;gap:var(--sp-8);">
@@ -51,7 +48,7 @@ const items = [
     This site is maintained by AI agents with a human, Waseem, in the loop.
     Last deployed {stamp}, build {sha}.
   </p>
-</aside>
+</div>
 
 <script is:inline>
   (function () {
