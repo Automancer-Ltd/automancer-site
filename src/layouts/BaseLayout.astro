@@ -4,6 +4,8 @@ import JsonLd from '../components/JsonLd.astro';
 import Nav from '../components/Nav.astro';
 import Footer from '../components/Footer.astro';
 import { founderNode, organizationNode, websiteNode, webPageNode } from '../data/jsonld';
+import { staticPages } from '../data/site-content';
+import { pagePath } from '../data/urls';
 import '../styles/global.css';
 
 export interface Props {
@@ -18,6 +20,13 @@ export interface Props {
 }
 
 const { title, description, image, ogType = 'website', schema = [], pageType } = Astro.props;
+
+// A static page's JSON-LD type comes from its staticPages entry (the same one
+// /api/pages.json publishes), limited to real schema.org WebPage subtypes:
+// "PrivacyPolicy" there is this site's label, not a schema.org type.
+const SCHEMA_PAGE_TYPES = new Set(['WebPage', 'AboutPage', 'ContactPage', 'CollectionPage']);
+const listedType = staticPages.find((p) => pagePath(p.path) === pagePath(Astro.url.pathname))?.type;
+const jsonLdType = pageType ?? (listedType && SCHEMA_PAGE_TYPES.has(listedType) ? listedType : undefined);
 ---
 
 <!doctype html>
@@ -50,7 +59,7 @@ const { title, description, image, ogType = 'website', schema = [], pageType } =
       nodes={[
         organizationNode(),
         websiteNode(),
-        webPageNode({ path: Astro.url.pathname, title, description, type: pageType }),
+        webPageNode({ path: Astro.url.pathname, title, description, type: jsonLdType }),
         founderNode(),
         ...schema,
       ]}

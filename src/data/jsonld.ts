@@ -8,7 +8,7 @@
  *     support: no aggregateRating, no review, no invented sameAs, no
  *     priceValidUntil. Omit rather than guess.
  */
-import { business, services } from './business';
+import { business } from './business';
 import { pagePath } from './urls';
 
 const ORG_ID = `${business.url}/#organization`;
@@ -93,67 +93,6 @@ export function webPageNode(opts: { path: string; title: string; description: st
   };
 }
 
-/** Service + OfferCatalog with a real Offer per published service. */
-export function serviceCatalogNode() {
-  return {
-    '@type': 'Service',
-    '@id': `${business.url}/services/#service`,
-    name: `${business.tradingName} — AI & workflow automation services`,
-    description:
-      'Automation audits, workflow implementation, custom AI systems and ongoing operations support for UK small businesses.',
-    provider: { '@id': ORG_ID },
-    areaServed: business.areasServed,
-    hasOfferCatalog: {
-      '@type': 'OfferCatalog',
-      '@id': `${business.url}/services/#offer-catalog`,
-      name: 'Services and published from-prices (GBP)',
-      itemListElement: services.map((s) => ({
-        '@type': 'Offer',
-        '@id': `${business.url}/services/#offer-${s.id}`,
-        name: s.name,
-        description: s.description,
-        itemOffered: {
-          '@type': 'Service',
-          name: s.name,
-          description: s.description,
-          provider: { '@id': ORG_ID },
-        },
-        // "From" prices as published on /services; monthly offering priced
-        // per month, project work priced per engagement.
-        priceSpecification:
-          s.priceUnit === 'month'
-            ? {
-                '@type': 'UnitPriceSpecification',
-                price: s.priceFrom,
-                priceCurrency: 'GBP',
-                billingIncrement: 1,
-                unitCode: 'MON',
-              }
-            : {
-                '@type': 'PriceSpecification',
-                price: s.priceFrom,
-                priceCurrency: 'GBP',
-              },
-      })),
-    },
-  };
-}
-
-/** ContactPoint node carried by /contact. */
-export function contactPointNode() {
-  return {
-    '@type': 'ContactPoint',
-    '@id': `${business.url}/contact/#contact-point`,
-    name: 'Contact Automancer',
-    contactType: 'customer support',
-    email: business.email,
-    telephone: business.phoneTel,
-    url: `${business.url}/contact/`,
-    availableLanguage: ['en-GB'],
-    areaServed: business.areasServed,
-  };
-}
-
 const wordCount = (body: string | undefined): number =>
   (body ?? '').split(/\s+/).filter(Boolean).length;
 
@@ -165,16 +104,14 @@ export interface ArticleNodeOpts {
   author: string;
   body?: string;
   articleSection?: string;
-  /** BlogPosting for dated editorial notes; Article for case studies. */
-  kind?: 'BlogPosting' | 'Article';
 }
 
-/** Article/BlogPosting node for field notes and case studies. */
+/** BlogPosting node for field notes. */
 export function articleNode(opts: ArticleNodeOpts) {
   const url = new URL(pagePath(opts.path), business.url).toString();
   const authorName = opts.author || founderNode().name;
   return {
-    '@type': opts.kind ?? 'BlogPosting',
+    '@type': 'BlogPosting',
     '@id': `${url}#article`,
     headline: opts.title,
     description: opts.description,
@@ -190,40 +127,5 @@ export function articleNode(opts: ArticleNodeOpts) {
         : { '@type': 'Person', name: authorName },
     publisher: { '@id': ORG_ID },
     ...(opts.articleSection ? { articleSection: [opts.articleSection] } : {}),
-  };
-}
-
-export interface Crumb {
-  name: string;
-  path: string;
-}
-
-export function breadcrumbNode(crumbs: Crumb[]) {
-  return {
-    '@type': 'BreadcrumbList',
-    '@id': `${new URL(pagePath(crumbs[crumbs.length - 1].path), business.url).toString()}#breadcrumb`,
-    itemListElement: crumbs.map((c, i) => ({
-      '@type': 'ListItem',
-      position: i + 1,
-      name: c.name,
-      item: new URL(pagePath(c.path), business.url).toString(),
-    })),
-  };
-}
-
-export interface Faq {
-  q: string;
-  a: string;
-}
-
-export function faqNode(pagePathArg: string, faqs: Faq[]) {
-  return {
-    '@type': 'FAQPage',
-    '@id': `${new URL(pagePath(pagePathArg), business.url).toString()}#faq`,
-    mainEntity: faqs.map((f) => ({
-      '@type': 'Question',
-      name: f.q,
-      acceptedAnswer: { '@type': 'Answer', text: f.a },
-    })),
   };
 }

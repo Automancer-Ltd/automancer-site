@@ -232,8 +232,11 @@ const steps = [
       // AUTOMANCER-SITE-4, code 600010 from headless browsers) when a widget has
       // no error-callback. Handle it: tell the visitor the email route works, and
       // return true so Turnstile treats the error as handled.
-      window.onTurnstileError = function () {
+      function securityCheckUnavailable() {
         showError('The security check could not load. Please email ' + email + ' directly and we\u2019ll pick it up straight away.');
+      }
+      window.onTurnstileError = function () {
+        securityCheckUnavailable();
         return true;
       };
       function resetTurnstile() { try { if (window.turnstile) window.turnstile.reset(); } catch (e) {} }
@@ -276,7 +279,9 @@ const steps = [
         if (message.length > limits.message) return failField(form.time_sink, 'That’s a lot of detail. Please trim it under ' + limits.message + ' characters.');
 
         var token = turnstileToken();
-        if (!token) return showError('Please complete the security check above.');
+        // No widget at all (a blocker stopped api.js, so the error callback
+        // never fires): asking for the check would be a dead end.
+        if (!token) return window.turnstile ? showError('Please complete the security check above.') : securityCheckUnavailable();
 
         var payload = {
           name: name,
@@ -289,6 +294,7 @@ const steps = [
 
         submitBtn.disabled = true;
         submitBtn.querySelector('span').textContent = 'Sending…';
+        var sent = false;
 
         try {
           var res = await fetch(endpoint, {
@@ -302,6 +308,7 @@ const steps = [
           if (res.status === 200) {
             var ok = await res.json().catch(function () { return {}; });
             if (ok && ok.ok) {
+              sent = true;
               form.style.display = 'none';
               confirmEl.style.display = 'block';
               confirmEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -344,6 +351,9 @@ const steps = [
           // Network / CORS failure (expected off the production origin).
           showError('Couldn’t reach us just now. Please email ' + email + ' directly and we’ll take it from there.');
         } finally {
+          // A Turnstile token is single-use, and any request that reached the
+          // API may have spent it: a resend with the old one gets a 403.
+          if (!sent) resetTurnstile();
           submitBtn.disabled = false;
           submitBtn.querySelector('span').textContent = 'Send it to Waseem';
         }

@@ -93,7 +93,7 @@ repo's own pipeline calls the writer.
 2. `pnpm install` — if the lockfile moved, a green run on the old dependencies
    proves nothing (`prepare` also runs `astro sync` so `.astro/` types exist).
 3. `pnpm run verify` — one command, identical to what CI runs and in CI's
-   order: `pnpm run check` (`oxlint --type-aware`, `tsgo --noEmit`, and fast
+   order: `pnpm run check` (`oxlint --type-aware`, `tsrs --noEmit`, and fast
    tests) first, then `pnpm run test` (fresh `astro build` + full `dist/` suite).
 
 CI (`ci.yml`) runs `checks` (`pnpm run check` and `pnpm run test`) on every PR

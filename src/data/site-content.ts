@@ -27,11 +27,6 @@ export async function getNotes(): Promise<FieldNote[]> {
   return all.filter((e) => !e.data.draft).sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
 }
 
-/** Stable id for a service: lowercased kebab-case of its name. */
-export function serviceId(name: string): string {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-}
-
 const iso = (d: Date) => d.toISOString();
 
 export function frontMatter(fields: Record<string, string | undefined>): string {

@@ -114,7 +114,7 @@ function servicesBody(): string {
     ['What if it breaks?', 'We build properly — audited, monitored, backed up, tested. On an AI Ops Partner retainer, keeping it running is literally our job. And if something goes wrong, a human answers — not a ticket queue.'],
     ['Do I need to understand AI?', 'Not even slightly. You need to understand your business; we handle the AI, the engineering and the jargon, in plain English.'],
     ['Will a human actually answer?', 'Always. Agents do the work, but Waseem makes every decision and takes every call. We promise a meeting within one week of first contact.'],
-    ['Where are you, and do you work remotely?', `Based in ${business.address.addressLocality}, working with businesses in ${business.areasServed.slice(1).join(', ')}. Remote-first.`],
+    ['Where are you, and do you work remotely?', `Based in ${business.areasServed[0]}, working with businesses in ${business.areasServed.slice(1).join(', ')}. Remote-first.`],
     ['What if I just want a website?', 'We do those too — fast, affordable, compliant landing sites with no monthly platform fees.'],
   ];
 
@@ -193,7 +193,7 @@ No calendar gauntlet. No chatbot. No twelve-step sales sequence.
 - **Email:** ${business.email}
 - **Phone:** ${business.phone} — a voicemail line; leave a message and it reaches Waseem, same as the form.
 
-Based in ${business.address.addressLocality} · Leeds · Manchester · UK-wide, remote-first.
+Based in ${business.areasServed[0]} · Leeds · Manchester · UK-wide, remote-first.
 
 ## The one-week promise
 
