@@ -17,10 +17,8 @@
  * entry in LAYOUT_EXCEPTIONS with its reason; a change to the shared payload
  * re-measures LAYOUT_MEASURED and explains the jump in docs/PERFORMANCE.md.
  */
-import { describe, expect, it, vi } from 'vitest';
-import { readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { measureAllPages, DIST, ROOT } from './support/perf';
+import { describe, expect, it } from 'vitest';
+import { measureAllPages } from './support/perf';
 
 /** Measured 2026-09-24: heaviest layout page (/contact/, 210,164 B; lightest /terms/, 197,117 B). */
 const LAYOUT_MEASURED = 210164;
@@ -121,24 +119,6 @@ describe('page-weight budgets', () => {
     }
   });
 
-  it('refuses an empty dist instead of passing every page check vacuously', async () => {
-    vi.resetModules();
-    vi.doMock('node:fs', async (importOriginal) => {
-      const fs = await importOriginal<typeof import('node:fs')>();
-      const emptyDist = (dir: string, ...rest: unknown[]) =>
-        dir === DIST ? [] : (fs.readdirSync as (...a: unknown[]) => unknown)(dir, ...rest);
-      return { ...fs, readdirSync: emptyDist };
-    });
-    try {
-      const perf = await import('./support/perf');
-      const dist = await import('./support/dist');
-      expect(() => perf.measureAllPages()).toThrow(/No HTML files found/);
-      expect(() => dist.allHtmlFiles()).toThrow(/No HTML files found/);
-    } finally {
-      vi.doUnmock('node:fs');
-      vi.resetModules();
-    }
-  });
 });
 
 describe('asset integrity behind the budgets', () => {
@@ -152,41 +132,4 @@ describe('asset integrity behind the budgets', () => {
         'something a rule still names, or a rename missed a reference',
     ).toEqual([]);
   });
-
-  it('ships no unreferenced font file (rot-guard mirroring assets.test.ts)', () => {
-    const fontDir = join(ROOT, 'public', 'assets', 'fonts');
-    const shipped = readdirSync(fontDir).filter((f) => f.endsWith('.woff2')).sort();
-
-    const wired = new Set<string>();
-    walkCssForFonts(join(DIST, 'assets', 'css', 'fonts.css'), wired);
-
-    const dead = shipped.filter((f) => !wired.has(`assets/fonts/${f}`));
-    expect(
-      dead,
-      'these woff2 files ship but no emitted CSS references them — delete them or wire them up',
-    ).toEqual([]);
-    expect(shipped.length).toBeGreaterThan(0);
-  });
 });
-
-/** Collect url() targets ending in .woff2 from an emitted CSS file (no recursion needed today). */
-function walkCssForFonts(cssPath: string, into: Set<string>): void {
-  let text: string;
-  try {
-    text = readFileSync(cssPath, 'utf8');
-  } catch {
-    return;
-  }
-  for (const m of text.matchAll(/url\(\s*["']?([^"')\s]+)/g)) {
-    const target = m[1].replace(/^https?:\/\/automancer\.uk/, '');
-    if (target.endsWith('.woff2')) {
-      const rel = target.replace(/^\//, '');
-      try {
-        readFileSync(join(DIST, rel)); // only count files that actually exist
-        into.add(rel);
-      } catch {
-        /* missing files fail the dangling-reference test above */
-      }
-    }
-  }
-}

@@ -1,28 +1,13 @@
 # Automancer Site
 
-Public marketing site for automancer.uk. Astro static build ("Grimoire Terminal"
-design: black/white with a spectral pink→purple accent), content collections for
-case studies and field notes, self-hosted fonts, and no advertising or analytics
-cookies. Cloudflare Turnstile can set a temporary, strictly necessary anti-abuse
-cookie on protected forms.
+Public site for [automancer.uk](https://automancer.uk): a static Astro build with case studies and
+field notes as content collections, self-hosted fonts, and no advertising or analytics cookies
+(Cloudflare Turnstile may set a strictly necessary anti-abuse cookie on the contact form).
 
-## How to run
-
-```
+```sh
 pnpm install
 pnpm run dev       # local dev server
-pnpm run build     # production build
-pnpm run preview   # preview the production build
-pnpm run check     # lint + typecheck (tsrs) + cached Vitest
+pnpm run verify    # lint, typecheck, build and audit dist/ — what CI runs
 ```
 
-Deploys via GitHub Actions on push to `main` → GitHub Pages (CNAME preserved,
-DNS on Cloudflare).
-
-## Docs
-
-- `src/content/` — case studies and field notes (content collections).
-- `src/data/business.ts` — source data for `llms.txt`/JSON-LD/pricing.
-- `ops/og-image/` — regenerable OG image.
-- The wider system map is maintained in the private `automancer-bd` repository
-  at `docs/BUILD-2026-07-04.md`.
+A merge to `main` deploys to GitHub Pages. Working on it: [`AGENTS.md`](AGENTS.md).

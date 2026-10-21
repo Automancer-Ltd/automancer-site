@@ -1,77 +1,71 @@
 # AGENTS.md — automancer-site (`automancer.uk`)
 
-Public website for **Automancer Ltd** (`https://automancer.uk`), built as a static Astro 7 site (`output: 'static'`) and deployed to GitHub Pages on push to `main`.
+Public website for **Automancer Ltd**: a static Astro site (`output: 'static'`) deployed to GitHub
+Pages on every merge to `main`, behind a Cloudflare edge Worker.
 
-- **Read first:** [`GLOSSARY.md`](GLOSSARY.md) (canonical domain terms), [`SPEC.md`](SPEC.md) (built capabilities), [`HANDOVER.md`](HANDOVER.md) (the roadmap: what the last slice shipped, the next three, the open questions), [`VISION.md`](VISION.md) (**read-only — never edit**).
-- **Hard rule:** Never change visible wording, layout, or design unless explicitly instructed; human HTML and machine-readable surfaces must always state the same facts, from-prices, and commitments.
+- **Read first:** [`GLOSSARY.md`](GLOSSARY.md) (the domain's words, used the same way in code).
+  [`VISION.md`](VISION.md) is what the site is for and is **read-only: never edit it**.
+- **When planning a slice:** [`SPEC.md`](SPEC.md) (what is built) and [`HANDOVER.md`](HANDOVER.md)
+  (last slice, next ones, open questions).
+- **Hard rule:** never change visible wording, layout or design unless explicitly instructed. Human
+  HTML and machine-readable surfaces must state the same facts, from-prices and commitments; the
+  dist-level tests in `tests/` fail when they disagree.
 
 ## Commands
 
-Run all build, test, typecheck, and lint commands through `checkq`:
+Run builds, tests and typechecks through `checkq` on auto-vps (`heavy -- …` for a browser walk).
 
 ```bash
-checkq -- pnpm install --frozen-lockfile   # installs deps + runs `prepare` (`astro sync`)
-checkq -- pnpm run check                   # fast gate (~5s): oxlint --type-aware + tsrs --noEmit + cached Vitest
-checkq -- pnpm run test                    # full gate: fresh `astro build` -> 14 Vitest files against dist/
-checkq -- pnpm run verify                  # check + test (same sequence as CI `checks`)
+checkq -- pnpm install --frozen-lockfile   # also runs `astro sync` (LSP types in .astro/)
+checkq -- pnpm run check                   # fast (~5 s): oxlint, tsrs, vitest on the dist/ that exists
+checkq -- pnpm run verify                  # the full verdict CI and the deploy run: lint, typecheck, build, audit
 ```
 
-- **`check` audits whatever `dist/` already exists.** After a source change, a stale `dist/` fails it with errors your change did not cause, and `verify` stops there. Delete `dist/` first, or run `pnpm run test`, which rebuilds. Under `heavy` the remote copy keeps its own gitignored `dist/` between runs, so delete it inside the job: `heavy -- bash -c 'rm -rf dist && pnpm run verify'`.
-- **LSP prerequisite:** `typescript-language-server` requires `.astro/types.d.ts` and `.astro/content.d.ts`. `pnpm install` runs `astro sync` automatically via `prepare`, and `pnpm run typecheck` runs `astro sync` if `.astro/content.d.ts` is missing.
-- **Visual & end-to-end verification:** Follow [`.agents/skills/verify-site/SKILL.md`](.agents/skills/verify-site/SKILL.md) (or run `.agents/skills/verify-site/scripts/verify-local.sh`) to build, preview, and drive every journey in `agent-browser` at desktop and mobile widths.
-- **Rollback rehearsals and any deploy rehearsal:** use the non-production preview target, never `main` — `ops/preview/deploy-preview.sh <ref> --verify`, described in [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) ("The preview target"). `ops/preview/` owns the target's server, marker and install script; the target cannot serve `main` or `automancer.uk`.
+`check` audits whatever `dist/` already holds, so after a source change a stale `dist/` fails it
+for reasons your change did not cause: run `verify` (it rebuilds) or delete `dist/` first.
 
-## Architecture & Single-Owner Map
+- **See it in the real product:** [`.agents/skills/verify-site/SKILL.md`](.agents/skills/verify-site/SKILL.md)
+  (`scripts/verify-local.sh` builds, previews and drives every journey in `features/` at desktop and
+  mobile widths).
+- **Deploy, verify, roll back, watch production:** [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
+  Merge is the deploy; `deploy.yml` re-verifies the merged commit, deploys, and checks production
+  serves it. Record the estate-watch `deploy.verify` run (product `site`) in the PR.
+- **Rehearse anything risky** on the preview target, never on `main`:
+  `ops/preview/deploy-preview.sh <ref> --verify`.
+- **Read production:** Sentry project `automancer-site`, UptimeRobot monitor `803613943`, the host
+  timer `automancer-site-production-verify` (commands in `docs/DEPLOYMENT.md` › Watching production).
+
+## Where things live
 
 ```text
-src/
-  config/site.ts            # ENDPOINT_URL, FIELD_LIMITS, TURNSTILE_SITE_KEY, LEAD_ERROR_COPY, LEAD_ERROR_FALLBACK
-  content.config.ts         # Zod schemas for `case-studies` and `field-notes` collections
-  content/
-    case-studies/*.md       # Long-form `/work/<slug>/` entries
-    field-notes/*.md        # Long-form `/field-notes/<slug>/` articles
-  data/
-    business.ts             # Company facts (`business`), contact details, `services` (`ServiceOffering[]`) & `serviceById()`
-    site-content.ts         # `staticPages` metadata (`PageMeta`), collection loaders, `markdownTwinPath`
-    static-markdown.ts      # `staticBodies` Markdown prose for static pages + `twinRoute()` builder
-    api.ts                  # `API_ENDPOINTS` registry shared by `/api/index.json`, `/openapi.json`, `/developers/`
-    openapi.ts              # OpenAPI 3.1 builder for `/openapi.json`
-    feeds.ts                # RSS 2.0 + JSON Feed 1.1 builders for `/work/*` and `/field-notes/*`
-    jsonld.ts               # Schema.org `@graph` nodes injected by `BaseLayout.astro`
-    wellknown-agent.ts      # Builder for `/agent.json` and `/.well-known/agent.json`
-    wellknown-security.ts   # Builder for `/security.txt` and `/.well-known/security.txt`
-  layouts/BaseLayout.astro  # Shared HTML shell, fonts, SEO meta, JSON-LD, nav, footer, Sentry init
-  components/               # `SEO.astro`, `Nav.astro`, `Footer.astro`, `JsonLd.astro`
-  pages/                    # `.astro` HTML routes + `.md.ts` / `.json.ts` / `.txt.ts` / `.xml.ts` endpoints
-public/assets/              # Self-hosted variable `.woff2` fonts, `js/main.js`, SVG/PNG icons & OG image
-tests/                      # 14 Vitest files auditing emitted `dist/` bytes (see `tests/README.md`)
-ops/verify-production.sh    # Live/preview HTTP, revision SHA, Sentry project ID, legal & TLS verifier
-ops/edge/                   # Cloudflare Worker in front of Pages: Markdown negotiation, API problem+json (docs/DEPLOYMENT.md)
+src/data/business.ts        company facts, contact details, services and prices: the one source
+src/data/site-content.ts    staticPages metadata (PageMeta) and collection loaders
+src/data/static-markdown.ts Markdown twin prose for static pages, twinRoute()
+src/data/api.ts             API_ENDPOINTS registry behind /api/index.json, /openapi.json, /developers/
+src/config/site.ts          ENDPOINT_URL, FIELD_LIMITS, TURNSTILE_SITE_KEY, LEAD_ERROR_COPY
+src/content/                case-studies/*.md and field-notes/*.md (schema: src/content.config.ts)
+src/pages/                  .astro HTML routes; .md.ts / .json.ts / .txt.ts / .xml.ts endpoints
+src/layouts/BaseLayout.astro shared shell, SEO, JSON-LD, nav, footer, Sentry bootstrap
+tests/                      Vitest against the built dist/ (tests/README.md)
+ops/verify-production.sh    production verifier (deploy job and 30-minute host timer)
+ops/edge/                   Cloudflare Worker in front of Pages
+ops/preview/                the non-production preview target
 ```
 
-## Three Core Mechanics (Fast Reference)
+## Adding a page
 
-1. **Where a page's text comes from:**
-   - **Collection pages (`/work/<slug>/`, `/field-notes/<slug>/`):** Body prose and front matter live in `src/content/case-studies/<slug>.md` and `src/content/field-notes/<slug>.md` (schema in `src/content.config.ts`), rendered into HTML by `src/pages/work/[slug].astro` and `src/pages/field-notes/[slug].astro` and emitted as Markdown twins by `src/pages/work/[slug].md.ts` and `src/pages/field-notes/[slug].md.ts`.
-   - **Static pages (`/`, `/services/`, `/work/`, `/field-notes/`, `/about/`, `/contact/`, `/developers/`, `/privacy/`, `/terms/`, `/404/`):** HTML body copy is authored in `src/pages/<name>.astro` (and `src/pages/{work,field-notes}/index.astro`), page metadata (`title`, `description`, `lastUpdated`, `legalNoMirror`) comes from `staticPages` in `src/data/site-content.ts`, Markdown twin prose comes from `staticBodies` in `src/data/static-markdown.ts` (via `src/pages/<name>.md.ts`), and shared prices/company facts come from `src/data/business.ts` and `src/config/site.ts`.
+- **Case study or field note:** add `src/content/{case-studies,field-notes}/<slug>.md`. HTML, twin,
+  API, feeds, `llms*.txt` and sitemap follow automatically.
+- **Static page `/<slug>/`:** `src/pages/<slug>.astro` on `BaseLayout.astro`; a `PageMeta` entry in
+  `staticPages`; unless `legalNoMirror: true`, a `staticBodies` entry and `src/pages/<slug>.md.ts`
+  calling `twinRoute('/<slug>/')`; add the route to `ROUTES` in `ops/verify-production.sh`. The
+  tests catch a missing `PageMeta` entry or twin; nothing catches a missing `ROUTES` entry.
 
-2. **How a new page is added:**
-   - **New Case Study or Field Note:** Add `src/content/{case-studies,field-notes}/<slug>.md` conforming to `src/content.config.ts`. HTML, `.md` twin, `/api/*.json`, RSS/JSON feeds, `llms*.txt`, and sitemap update automatically.
-   - **New Static Page (`/<slug>/`):**
-     1. Create `src/pages/<slug>.astro` using `BaseLayout.astro`.
-     2. Add its `PageMeta` entry to `staticPages` in `src/data/site-content.ts` (enforced by `tests/agent-readiness.test.ts` against `/api/pages.json`).
-     3. Unless `legalNoMirror: true`, add its Markdown body to `staticBodies` in `src/data/static-markdown.ts` and add `src/pages/<slug>.md.ts` calling `twinRoute('/<slug>/')`.
-     4. Add `/<slug>/` to `ROUTES` in `ops/verify-production.sh` (and `src/components/Nav.astro` / `Footer.astro` if linked in navigation).
+## Contracts the tests hold
 
-3. **How the contact path works:**
-   - `/contact/` (`src/pages/contact.astro`) renders `#contact-form` alongside direct email (`mailto:waseem@automancer.uk`) and phone (`tel:+447451261333`) fallbacks from `src/data/business.ts`.
-   - On submit, the inline script in `src/pages/contact.astro` validates required fields (`name`, `email`, `time_sink`) and `FIELD_LIMITS`, moving focus (`focus()`, `scrollIntoView()`, `aria-invalid="true"`, `aria-describedby="form-error"`) to the first invalid field without calling the network.
-   - Valid submissions `POST` JSON (including `turnstileToken` and hidden `website` honeypot) with a 15-second `AbortSignal.timeout` to `ENDPOINT_URL` (`https://api.automancer.uk/api/lead`, defined in `src/config/site.ts`).
-   - Backend error codes are translated through `LEAD_ERROR_COPY` and `LEAD_ERROR_FALLBACK` (`src/config/site.ts`) via `copyFor()` so raw snake_case machine codes never appear in `#form-error`; repeated 403s, timeouts, or Turnstile load errors (`window.onTurnstileError`) display human fallback copy naming `waseem@automancer.uk` (`tests/contact-errors.test.ts`).
-
-## Invariants Enforced by `pnpm run test`
-
-- **Zero first-party browser storage:** Same-origin scripts must never touch `localStorage`, `sessionStorage`, `document.cookie`, `indexedDB`, or `caches` (`tests/no-browser-storage.test.ts`, `tests/support/storage-sentinel.ts`).
-- **Legal text integrity:** `/privacy/` and `/terms/` have `legalNoMirror: true` and SHA-256-pinned `<main>` text in `tests/legal-integrity.test.ts`.
-- **Page-weight & contrast budgets:** Every layout page must stay within the byte budgets in `tests/performance.test.ts` and WCAG AA contrast ratios in `tests/contrast.test.ts`.
-- **CI-gated deploy:** `.github/workflows/ci.yml` runs the single `checks` job; `.github/workflows/deploy.yml` waits for `checks` to pass on `$GITHUB_SHA` before building and deploying to GitHub Pages, then runs `ops/verify-production.sh --expected-revision "$GITHUB_SHA" https://automancer.uk`.
+- No first-party browser storage (`tests/no-browser-storage.test.ts`).
+- `/privacy/` and `/terms/` are `legalNoMirror` and hash-pinned (`tests/legal-integrity.test.ts`);
+  their wording changes only on Waseem's instruction.
+- The contact form never shows a raw API error code (`tests/contact-errors.test.ts`).
+- Page-weight and contrast budgets (`tests/performance.test.ts`, `tests/contrast.test.ts`,
+  method in `docs/PERFORMANCE.md`).

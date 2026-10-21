@@ -3,9 +3,9 @@
 **What this file is.** The roadmap the next improvement slice reads before planning. It records
 where the site stands against `VISION.md`, what the last slice shipped (with evidence and undo),
 the next three slices in the order they should be taken, and the questions that are genuinely open.
-It does not outrank anything: `VISION.md` is authority 0, `SPEC.md` describes what is built, and
-`docs/PLAN.md` holds the older campaign carry-overs. When this file and `SPEC.md` disagree about
-what exists, `SPEC.md` and the code are right and this file is out of date.
+It does not outrank anything: `VISION.md` is authority 0 and `SPEC.md` describes what is built.
+When this file and `SPEC.md` disagree about what exists, `SPEC.md` and the code are right and this
+file is out of date.
 
 Last updated: 22 October 2026 (claims cover every case study, no exceptions).
 
@@ -27,7 +27,7 @@ disagree. Against that, today:
 ## The last slice, and what it taught
 
 **Isolated preview target + the rollback runbook exercised (18 October 2026, PRs #75, #76, #77;
-merge `6b33642`).** `docs/PLAN.md` §2 had recorded that neither rollback path had ever been run, so
+merge `6b33642`).** Neither rollback path had ever been run, so
 its first use would have been during an incident. The slice added a marked release directory served
 over the tailnet by a user unit (`ops/preview/`), rehearsed the single-commit revert end to end on
 it, and wrote the exercised commands and their output into `docs/DEPLOYMENT.md`.
@@ -74,9 +74,8 @@ entry and verifier check live in the same commit.
 
 ## Next three slices, in order
 
-1. **A public releases surface — approved by Waseem (d476), publishing.** `/releases/`, `/releases.md` and
-   `/api/releases.json`, all built from `CHANGELOG.md`, are in draft PR #84 (a new public page, so
-   it was reviewed by him). Its preview and board are linked from the PR.
+1. **A public releases surface — shipped 21 October (PR #84).** `/releases/`, `/releases.md` and
+   `/api/releases.json`, all built from `CHANGELOG.md`.
 2. **Claim provenance for every case-study number — done.** `/api/claims.json` now covers every
    numeric headline stat on every published case study: `automancer-bd` registered
    `claims.iq_mouldings_pricing_units` ("5 units", from the dossier's multi-unit pricing matrix),
@@ -104,6 +103,3 @@ entry and verifier check live in the same commit.
   site's behalf.
 - **Which name does each case study go by?** Each one shows a card title in some places and a
   headline in others. Picking one changes visible wording, so it is Waseem's choice (tracker t4928).
-- **Should `/services/` publish its prices as schema.org `Offer` data?** The prices are already
-  public and enforced; marking them up asserts them to machines in a new form. Waseem's yes or no
-  (tracker t4930).

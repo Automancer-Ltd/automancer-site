@@ -1,7 +1,7 @@
 name: CI
+# The pull-request verdict. Pushes to main are re-checked by deploy.yml's build
+# job on the merged tree itself, so this workflow never runs on main.
 on:
-  push:
-    branches: [main]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -30,10 +30,8 @@ jobs:
         cache: pnpm
     - name: Install dependencies
       run: pnpm install --frozen-lockfile
-    - name: Run check (lint and typecheck)
-      run: pnpm run check
-    - name: Test production build
-      run: pnpm run test
+    - name: Lint, typecheck, build and test
+      run: pnpm run verify
     - name: Self-test the production checker
       run: |
         ops/verify-production.sh --self-test

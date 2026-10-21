@@ -1,21 +1,16 @@
 name: Deploy to GitHub Pages
 
-# Builds the Astro site and deploys it via the GitHub Pages Actions flow
-# (actions/deploy-pages), NOT the legacy branch-based Pages build.
+# Every push to main builds, deploys and verifies automancer.uk.
 #
-# Trigger is intentionally push-to-main only, so this workflow is inert on
-# every other branch (including relaunch) until this branch is merged.
-# IMPORTANT: the repo's Settings > Pages > Source must be switched from
-# "Deploy from a branch" to "GitHub Actions" for this workflow to take
-# over Pages serving — see the relaunch PR description for details. Until
-# that switch happens, this workflow will build and upload an artifact
-# but Pages will keep serving the legacy branch-based build.
+# There is no CI run on main: a merge can produce a tree no pull request
+# tested, so the build job runs the full verdict (`pnpm run verify`) on this
+# exact commit before it builds the artifact it ships.
 #
 # Every `uses:` below is pinned to a full commit SHA, with the human-readable
 # version in a trailing comment. Version tags are mutable upstream, so the pin
 # is what guarantees this workflow runs the code we reviewed - it holds
 # `pages: write` and `id-token: write`. Dependabot's github-actions ecosystem
-# (.github/dependabot.yml) refreshes both the SHA and the comment weekly.
+# (.github/dependabot.yml) refreshes both the SHA and the comment.
 on:
   push:
     branches: [main]
@@ -25,7 +20,6 @@ on:
 # the site build (third-party code), which must not be able to mint an OIDC token.
 permissions:
   contents: read
-  checks: read
   pages: write
 
 concurrency:
@@ -40,35 +34,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Wait for CI checks on this commit
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          for attempt in $(seq 1 36); do
-            state=$(gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/check-runs?check_name=checks" \
-              --jq '.check_runs | sort_by(.id) | last | "\(.status // "missing"):\(.conclusion // "")"')
-            case "$state" in
-              completed:success)
-                echo "CI checks passed on $GITHUB_SHA"
-                exit 0
-                ;;
-              completed:*)
-                echo "CI checks failed on $GITHUB_SHA ($state)" >&2
-                exit 1
-                ;;
-              *)
-                echo "Waiting for CI checks on $GITHUB_SHA ($state, attempt $attempt/36)…"
-                sleep 10
-                ;;
-            esac
-          done
-          echo "Timed out waiting for CI checks on $GITHUB_SHA" >&2
-          exit 1
-
       - name: Setup pnpm
         uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
-        with:
-          version: 11.10.0
 
       - name: Setup Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -79,14 +46,19 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Lint, typecheck, build and test this commit
+        run: pnpm run verify
+
       - name: Build
         run: pnpm run build
         # Sourced from the repository Actions variable (populated from BWS
         # AUT_SENTRY_WEB_DSN). Astro/Vite only exposes PUBLIC_* values to the
         # browser bundle, so this makes production Pages builds observable
         # without placing a DSN in the repository or local dotenv files.
+        # The release tags each Sentry event with the commit that served it.
         env:
           PUBLIC_AUT_SENTRY_WEB_DSN: ${{ vars.PUBLIC_AUT_SENTRY_WEB_DSN }}
+          PUBLIC_SENTRY_RELEASE: ${{ github.sha }}
 
       - name: Setup Pages
         uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
@@ -102,8 +74,11 @@ jobs:
   deploy:
     needs: build
     runs-on: ${{ fromJSON(vars.CI_RUNNER || '"ubuntu-24.04"') }}
+    # A healthy deploy and verify finish in under a minute. The cap bounds a
+    # down-site run instead of letting every check burn its 90s retry budget.
     timeout-minutes: 10
     permissions:
+      contents: read
       pages: write
       id-token: write
     environment:
@@ -114,26 +89,13 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
 
-  # Post-deploy verification against PRODUCTION ITSELF. deploy-pages only
-  # proves GitHub accepted the artifact; a build that emitted broken or empty
-  # pages would otherwise go green and stay green. This job fails the whole
-  # run unless every page answers, unknown paths are a real 404, llms.txt and
-  # the sitemap exist, the legal footer anchor is served, the TLS certificate
-  # is valid, and production serves this run's exact build revision.
-  #
-  # The assertions live in ops/verify-production.sh — shared verbatim with
-  # the systemd production monitor timer so the two can never drift apart.
-  # No continue-on-error here: this job is mandatory, a red verify means a red release.
-  verify:
-    needs: deploy
-    runs-on: ${{ fromJSON(vars.CI_RUNNER || '"ubuntu-24.04"') }}
-    # A healthy deploy finishes this job in under a minute (measured: whole
-    # runs end in ~45-75s). The cap bounds a down-site run instead of letting
-    # every check burn its full 90s retry budget (~19 min).
-    timeout-minutes: 10
-    steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # Verification against PRODUCTION ITSELF: deploy-pages only proves GitHub
+      # accepted the artifact. This fails the run unless every page answers,
+      # unknown paths are a real 404, the machine surfaces and legal footer are
+      # served, TLS is valid, and production serves this run's exact revision.
+      # The assertions are shared with the 30-minute host monitor (docs/DEPLOYMENT.md).
       - name: Verify production serves the new deploy
         run: ops/verify-production.sh --expected-revision "$GITHUB_SHA" https://automancer.uk

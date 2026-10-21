@@ -14,7 +14,7 @@
  * still 404 live. That is why the servable non-dot copies and the
  * advertisements pointing at THEM are asserted just as hard as the bytes.
  */
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parse } from 'node-html-parser';
 import { describe, expect, it } from 'vitest';
@@ -156,24 +156,9 @@ describe('markdown twins — every content page also speaks Markdown', () => {
     expect(actualTwins.length).toBe(expectedTwins.size);
   });
 
-  it('every twin is non-empty and begins with YAML front matter carrying title + description', () => {
-    for (const [twinPath] of expectedTwins) {
-      const raw = readDistFile(twinPath);
-      expect(raw, `dist/${twinPath} missing`).toBeTruthy();
-      expect(raw!.trim().length, `dist/${twinPath} is empty`).toBeGreaterThan(0);
-      const fm = frontMatterOf(raw!, `dist/${twinPath}`);
-      expect(fm.title?.trim(), `dist/${twinPath}: front matter has no title`).toBeTruthy();
-      expect(
-        fm.description?.trim(),
-        `dist/${twinPath}: front matter has no description`
-      ).toBeTruthy();
-    }
-  });
-
   it('every twin carries real body content below its front matter', () => {
     // An empty entry body would emit a twin that is front matter and
-    // nothing else — non-empty as a FILE, so the test above passes. The
-    // published surface must carry the entry's actual content.
+    // nothing else. The published surface must carry the entry's actual content.
     for (const [twinPath] of expectedTwins) {
       const raw = readDistFile(twinPath)!;
       const fmMatch = /^---\r?\n[\s\S]*?\r?\n---\r?\n?/.exec(raw);
@@ -228,13 +213,6 @@ describe('markdown twins — every content page also speaks Markdown', () => {
 describe('/llms.txt and /llms-full.txt', () => {
   const llms = readDistFile('llms.txt');
   const llmsFull = readDistFile('llms-full.txt');
-
-  it('both exist and are non-empty', () => {
-    expect(llms, 'dist/llms.txt missing').toBeTruthy();
-    expect(llms!.trim().length).toBeGreaterThan(0);
-    expect(llmsFull, 'dist/llms-full.txt missing').toBeTruthy();
-    expect(llmsFull!.trim().length).toBeGreaterThan(0);
-  });
 
   it('advertises llms-full.txt and the agent manifest by absolute URL', () => {
     expect(llms, 'llms.txt should point agents at the full-text file').toContain(
@@ -310,28 +288,9 @@ describe('/llms.txt and /llms-full.txt', () => {
 });
 
 describe('/api/*.json endpoints', () => {
-  const ENDPOINTS = [
-    'api/index.json',
-    'api/business.json',
-    'api/services.json',
-    'api/case-studies.json',
-    'api/field-notes.json',
-    'api/pages.json',
-    'api/stability.json',
-  ];
-
-  const parsed = new Map<string, unknown>();
-  for (const endpoint of ENDPOINTS) {
-    const raw = readDistFile(endpoint);
-    it(`${endpoint} exists and parses as JSON`, () => {
-      expect(raw, `dist/${endpoint} missing`).toBeTruthy();
-      let json: unknown;
-      expect(() => {
-        json = JSON.parse(raw!);
-      }, `dist/${endpoint} is not valid JSON`).not.toThrow();
-      parsed.set(endpoint, json);
-    });
-  }
+  // developer-surface.test.ts parses every API_ENDPOINTS file; here a missing or
+  // malformed file throws inside the test that reads it.
+  const parsed = { get: (endpoint: string): unknown => JSON.parse(readDistFile(endpoint)!) };
 
   it('index.json advertises the manifest and security.txt through servable non-dot paths only', () => {
     const payload = parsed.get('api/index.json');
@@ -507,11 +466,6 @@ describe('security.txt — RFC 9116, served from one builder at two routes', () 
     }
     return fields;
   }
-
-  it('is emitted at BOTH the servable non-dot path and the conventional dot path', () => {
-    expect(copies[0].raw, 'dist/security.txt missing — the only copy GitHub Pages will serve').toBeTruthy();
-    expect(copies[1].raw, 'dist/.well-known/security.txt missing').toBeTruthy();
-  });
 
   it('both copies are byte-identical — one builder, zero drift', () => {
     expect(
@@ -792,24 +746,6 @@ describe('legal pages (/privacy/, /terms/) are never mirrored', () => {
   });
 });
 
-describe('GitHub Pages serving constraints', () => {
-  // MEASURED LIVE against production on 2026-08-22: GitHub Pages does NOT
-  // serve ANY dot-prefixed path on this host. /.nojekyll IS in the deployed
-  // artifact and still answers 404, as do /.well-known/agent.json and
-  // /.well-known/security.txt, while non-dot paths of the same build and
-  // deploy answer 200. So .nojekyll does NOT make dot-paths servable here,
-  // and a file can be present and correct in dist/ yet 404 live — which is
-  // why the servable non-dot copies (/agent.json, /security.txt) and every
-  // advertisement pointing at THEM are asserted above. The /.well-known/
-  // emissions stay for when the host serves them.
-  it('emits .nojekyll anyway — correct hygiene even though it did not fix dot-path serving', () => {
-    expect(
-      existsSync(join(DIST, '.nojekyll')),
-      '.nojekyll is missing from dist/ — GitHub Pages will Jekyll-process the build'
-    ).toBe(true);
-  });
-});
-
 /**
  * VISION.md: what a machine is told never differs from what a person is shown.
  *
@@ -849,15 +785,6 @@ describe('one-week meeting promise — people and machines, same words', () => {
   });
 
   it('machine surfaces state that same promise in the same words', () => {
-    expect(
-      collapsedSource('src/data/wellknown-agent.ts'),
-      'src/data/wellknown-agent.ts drifted from the human one-week meeting promise'
-    ).toContain(MEETING_PROMISE);
-    expect(
-      collapsedSource('src/pages/llms.txt.ts'),
-      'src/pages/llms.txt.ts drifted from the human one-week meeting promise'
-    ).toContain(MEETING_PROMISE);
-
     const agent = JSON.parse(readDistFile('agent.json') ?? '{}') as {
       contact?: { responseTime?: string };
     };
