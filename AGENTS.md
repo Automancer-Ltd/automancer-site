@@ -46,6 +46,7 @@ src/
 public/assets/              # Self-hosted variable `.woff2` fonts, `js/main.js`, SVG/PNG icons & OG image
 tests/                      # 14 Vitest files auditing emitted `dist/` bytes (see `tests/README.md`)
 ops/verify-production.sh    # Live/preview HTTP, revision SHA, Sentry project ID, legal & TLS verifier
+ops/edge/                   # Cloudflare Worker in front of Pages: Markdown negotiation, API problem+json (docs/DEPLOYMENT.md)
 ```
 
 ## Three Core Mechanics (Fast Reference)
