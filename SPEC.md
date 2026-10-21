@@ -50,6 +50,12 @@ Provide a truthful public front door for Automancer. Give people and machines th
 - State: built
 - Shaped by: `src/data/stability.ts`, `src/pages/api/stability.json.ts`, `src/data/api.ts`, `src/data/openapi.ts`, `tests/developer-surface.test.ts`, and `ops/verify-production.sh`.
 
+### Published releases
+
+- What it does: Publishes every release from `CHANGELOG.md` at `/releases/` (HTML, one anchor per version), `/releases.md` and `/api/releases.json`, newest first. The three are built from the one file, so they cannot disagree, and a `## ` heading that is not a release heading fails the build rather than publishing a malformed release.
+- State: built
+- Shaped by: `CHANGELOG.md`, `src/data/releases.ts`, `src/pages/releases.astro`, `src/pages/api/releases.json.ts`, `src/data/static-markdown.ts`, `src/data/api.ts` and `src/data/openapi.ts`.
+
 ### Contact path
 
 - What it does: Validates enquiries in the browser and posts them to the configured lead-intake API. It uses Cloudflare Turnstile and provides an email fallback when submission fails.

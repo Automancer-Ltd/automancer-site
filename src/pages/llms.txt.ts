@@ -116,6 +116,9 @@ export const GET: APIRoute = () => {
     `- [Stability & deprecation policy](${business.url}/api/stability.json): what you may rely on between deploys (paths, operation ids, service ids, field names), what may change without notice, and how a breaking change is published.`
   );
   lines.push(
+    `- [Release notes](${abs('/releases')}): every change to this site, newest first; as data at ${business.url}/api/releases.json and as Markdown at ${business.url}/releases.md.`
+  );
+  lines.push(
     `- [Agent capability manifest](${business.url}/agent.json): canonical copy; also emitted at ${business.url}/.well-known/agent.json for hosts that serve dot-paths.`
   );
   lines.push(`- Feeds (full content, not excerpts): [field notes RSS](${business.url}/field-notes/rss.xml) · [field notes JSON Feed](${business.url}/field-notes/feed.json) · [case studies RSS](${business.url}/work/rss.xml) · [case studies JSON Feed](${business.url}/work/feed.json)`);

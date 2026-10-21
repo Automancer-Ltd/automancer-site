@@ -71,4 +71,11 @@ export const API_ENDPOINTS: ApiEndpoint[] = [
     description:
       'The stability and deprecation policy as data: the endpoint paths and service ids promised stable, the changes that may land without notice, the versioning scheme, the minimum notice a removal gets, and the deprecation list itself (empty today).',
   },
+  {
+    path: '/api/releases.json',
+    operationId: 'getReleases',
+    summary: 'Every release of this site, newest first',
+    description:
+      'Every release of this site, newest first, read from the same changelog /releases renders: version, ISO date, opening summary, the full notes as raw Markdown and each release’s URL on /releases.',
+  },
 ];

@@ -62,7 +62,16 @@ const fieldNotes = defineCollection({
   }),
 });
 
+// CHANGELOG.md is the one record of what changed; /releases, its Markdown twin
+// and /api/releases.json all read it through src/data/releases.ts. Loaded as a
+// collection so its body goes through the same Markdown pipeline as the
+// field notes. No front matter, so no schema.
+const changelog = defineCollection({
+  loader: glob({ pattern: 'CHANGELOG.md', base: '.' }),
+});
+
 export const collections = {
   'case-studies': caseStudies,
   'field-notes': fieldNotes,
+  changelog,
 };
