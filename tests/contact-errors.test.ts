@@ -117,7 +117,7 @@ async function driveFormState(
       this._text = value === null ? '' : String(value);
     },
   };
-  const confirmEl = { style: {} as Record<string, string>, scrollIntoView() {} };
+  const confirmEl = { style: {} as Record<string, string>, scrollIntoView() {}, querySelector: () => null };
   const btnLabel = { textContent: '' };
   const submitBtn = { disabled: false, querySelector: () => btnLabel };
 

@@ -18,7 +18,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parse } from 'node-html-parser';
 import { describe, expect, it } from 'vitest';
-import { DIST, ROOT, SITE_URL, contentPages, readDistFile, resolveInDist } from './support/dist';
+import { DIST, ROOT, SITE_URL, allHtmlFiles, contentPages, readDistFile, resolveInDist } from './support/dist';
 import { contentEntries } from './support/content';
 import { business, formatGBP, services } from '../src/data/business';
 import { fitDescription, fitTitle } from '../src/lib/meta';
@@ -185,6 +185,19 @@ describe('markdown twins — every content page also speaks Markdown', () => {
     }
   });
 
+  it('each page advertises exactly its own twin, and a page with no twin advertises none', () => {
+    // An agent follows <link rel="alternate" type="text/markdown">; one
+    // pointing at a missing twin, or at another page's, is worse than none.
+    const twinByRoute = new Map([...expectedTwins].map(([twin, route]) => [route, `${SITE_URL}/${twin}`]));
+    for (const page of allHtmlFiles().filter((p) => !p.isRedirectStub)) {
+      const hrefs = page.doc
+        .querySelectorAll('link[rel="alternate"][type="text/markdown"]')
+        .map((l) => l.getAttribute('href'));
+      const want = twinByRoute.get(page.route);
+      expect(hrefs, `${page.route}: Markdown alternate link(s)`).toEqual(want ? [want] : []);
+    }
+  });
+
   it("every twin's title/description still match its HTML page's <title>/meta description", () => {
     const byRoute = new Map(contentPages().map((p) => [p.route, p]));
     for (const [twinPath, route] of expectedTwins) {
@@ -254,7 +267,7 @@ describe('/llms.txt and /llms-full.txt', () => {
     const siteMapSection = llms!.split('## Site map')[1]?.split(/^##\s/m)[0] ?? '';
     expect(siteMapSection, 'Site map section missing from llms.txt').toBeTruthy();
 
-    const urls = [...siteMapSection.matchAll(/-\s+(https?:\/\/\S+)/g)].map((m) => m[1]);
+    const urls = [...siteMapSection.matchAll(/^-\s+\[[^\]]+\]\((https?:\/\/[^)\s]+)\)/gm)].map((m) => m[1]);
     expect(urls.length, 'expected sitemap URLs in llms.txt').toBeGreaterThan(0);
 
     for (const url of urls) {

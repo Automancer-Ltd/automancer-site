@@ -65,7 +65,7 @@ answers.
 ## The real number, from a live migration
 
 On a live migration for [a ~600-person supported-living care
-provider](/work/care-provider-transformation), identity matching
+provider](/work/care-provider-transformation/), identity matching
 auto-resolved 274 of 418 review candidates. The same roster import created
 **294 carers and 293 service users** as clean, canonical records, straight
 out of the client's own CSVs.
@@ -130,6 +130,6 @@ paying someone.
 
 If you would rather have that mapped out properly before you commit to
 building anything, that is what an [Automation Opportunity
-Audit](/services) is for, from £450: where your records disagree, what it
+Audit](/services/) is for, from £450: where your records disagree, what it
 would take to make them agree, and what it is worth fixing first. A real
 person reads what you send and writes back.

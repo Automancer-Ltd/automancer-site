@@ -1,7 +1,35 @@
 # Agent-readiness — automancer.uk against is-agentic.com
 
 Status: **shipped on `main` in `v2026.08.22.1`** (merge `4f2e4a8`, 22 August 2026).
-Last reviewed: 31 August 2026.
+Last reviewed: 21 October 2026.
+
+## Re-measured 2026-10-21 — the scanner has changed, so the numbers do not compare
+
+A fresh scan (`GET https://is-agentic.com/api/scan/stream?target=automancer.uk`, scanned
+2026-10-21T01:22:22.658Z, report contract 1.35.0, now served by ora.ai) scored **58/100, grade C**.
+`npx is-agentic automancer.uk` does not rescan; on the same day it returned the stored
+21 September report, rescored under the current rubric at **77/100** (it measured 79 then).
+
+The fall is the rubric, not the site. The scanner now runs about 130 checks in four layers
+(Discovery 4/11, Access 45/54, Usability 37/73, Payments n/a) against the 30 it ran in September,
+and most new ones ask for things this site has no reason to have: an MCP server, OAuth metadata,
+an `auth.md`, payment protocols, SDKs, a CLI, a ChatGPT app, registry listings. It also classifies
+the site as a *business* site and scores that view **82**. Required checks: 14 pass, 11 fail.
+
+What the new list changed:
+
+- **Fixed:** "No sampled page advertises a markdown alternate." Every page with a twin now carries
+  `<link rel="alternate" type="text/markdown">`, tested in `tests/agent-readiness.test.ts`.
+- **Moved from fail to partial:** the versioning / deprecation policy (`/api/stability.json`). The
+  scanner wants it in the OpenAPI document as well.
+- **Fixed:** `<lastmod>` on every case study and field note in the sitemap (read from
+  `/api/pages.json`; other pages have no real modification date, so they carry none), `llms.txt`
+  lists as `[name](url)` Markdown links, and a `sameAs` from the Organization node to the
+  Companies House record.
+- **Not pursued:** MCP, WebMCP, OAuth, payments, CLI and SDKs, rate-limit headers and JSON error
+  bodies (a static host cannot send them), `/.well-known/api-catalog` (GitHub Pages does not serve
+  dot-paths, below), and the brand and search checks, which no page change answers honestly.
+  `VISION.md`: never change a page only to pass a check it does not deserve to pass.
 
 ## Measured baseline & response — official is-agentic.com scan, 2026-08-22
 
@@ -17,7 +45,7 @@ deliberately did not fake.
 | OpenAPI spec published | FAIL (Essential) | New **`/openapi.json`**: a real OpenAPI 3.1 document describing all six `/api/*.json` GET endpoints — unique `operationId` per operation, per-operation description, explicit empty `parameters`, typed response schemas (`components/schemas`), root-level `security: []` documenting that no authentication exists. Generated from the same registry as the endpoints themselves (`src/data/api.ts`) plus `business.ts`, so spec, discovery document and payloads cannot drift; tests validate every emitted payload against its declared schema. |
 | Agent instruction / when-to-use guidance | FAIL (Recommended) | New **"When to use Automancer"** section in `/llms.txt`: concrete jobs drawn only from the published services (`src/data/business.ts`) and real delivered work (`src/content/` — care provider, trade portal, debiaser productisation, fast websites), each tied to named offerings and published prices, followed by an explicit when-to-look-elsewhere list (services outside automation/AI/websites, enterprise-scale procurement, non-UK on-site work, instant-SLA support). No generic marketing copy. |
 | Developer resource discoverability + API/docs linked from homepage | FAIL/PARTIAL (Recommended) | New human-readable documentation page at **`/developers`**: covers every endpoint with example requests, the `.md` twin convention, feeds, `/agent.json`, `/openapi.json`, sitemap, security.txt — and states plainly that the API needs **no authentication** and is **read-only**. Linked from the homepage (a dedicated section), `llms.txt`, `robots.txt`, `/api/index.json` (`related`) and `agent.json`. |
-| JSON-LD Person node completeness | PARTIAL | The founder Person node already carried `name`, `jobTitle` and `url` in this tree (the scanner most plausibly measured a deploy predating them); we added a truthful `description` so the node is complete on all four axes. The ProfessionalService node already carries name, legalName, url, description, address and contact points. **`sameAs` is deliberately absent**: this repo publishes no public social-profile URLs anywhere, and inventing one would be fabrication. A test enforces that any future `sameAs` value must exist verbatim in `src/data/`. |
+| JSON-LD Person node completeness | PARTIAL | The founder Person node already carried `name`, `jobTitle` and `url` in this tree (the scanner most plausibly measured a deploy predating them); we added a truthful `description` so the node is complete on all four axes. The ProfessionalService node already carries name, legalName, url, description, address and contact points. **`sameAs` names only the Companies House record** (`src/data/jsonld.ts`, added 21 October 2026): this repo publishes no public social-profile URLs anywhere, and inventing one would be fabrication. A test enforces that any `sameAs` value must exist verbatim in `src/data/`. |
 | Agent-friendly 404s | PARTIAL (Essential) | A genuine HTTP 404 was already served; the 404 page gained a compact recovery block pointing agents at `/sitemap-index.xml`, `/llms.txt`, `/llms-full.txt` and `/developers` with one-line descriptions. It stays fully visible and useful to humans — it doubles as a "go deeper" list rather than a hidden comment. |
 
 ### Not attempted — host limitations, faking them would be worse than failing

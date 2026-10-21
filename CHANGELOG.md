@@ -1,5 +1,21 @@
 # Release notes
 
+## v2026.10.21.1 — 21 October 2026
+
+The site now makes prices and recovery links easier to see, and gives visitors clearer ways to contact Automancer.
+
+### Improvements
+
+- Prices on the services page and recovery links on the 404 page remain visible when scripts are unavailable.
+- The mobile menu closes when a visitor widens the screen, and focus returns to the menu button.
+
+### Contact
+
+- If the contact form cannot load its security check, visitors see the email option. The form also starts disabled until it is ready, so enquiries are not silently lost when scripts are unavailable.
+- Visitors can retry a failed enquiry without reusing the previous security check.
+- Case study summaries display as plain text.
+
+
 ## v2026.10.20.1 — 20 October 2026
 
 The site now publishes, as data, what a machine may rely on — and, just as plainly, what it may not.

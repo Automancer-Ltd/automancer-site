@@ -93,7 +93,7 @@ repo's own pipeline calls the writer.
 2. `pnpm install` — if the lockfile moved, a green run on the old dependencies
    proves nothing (`prepare` also runs `astro sync` so `.astro/` types exist).
 3. `pnpm run verify` — one command, identical to what CI runs and in CI's
-   order: `pnpm run check` (`oxlint --type-aware`, `tsgo --noEmit`, and fast
+   order: `pnpm run check` (`oxlint --type-aware`, `tsrs --noEmit`, and fast
    tests) first, then `pnpm run test` (fresh `astro build` + full `dist/` suite).
 
 CI (`ci.yml`) runs `checks` (`pnpm run check` and `pnpm run test`) on every PR
@@ -283,7 +283,9 @@ curl -s -o /dev/null -w '%{http_code}\n' https://automancer.uk/definitely-not-a-
 ```
 
 `ops/verify-production.sh` automates a stronger version of this: page
-statuses, a real (not soft) 404, `llms.txt`, sitemap XML validity, the legal
+statuses, a real (not soft) 404, `llms.txt`, sitemap XML validity (the index
+and every sitemap it lists), every endpoint `/api/index.json` lists plus
+`/openapi.json` answering 200 with valid JSON, the legal
 footer anchor on the homepage, and TLS certificate expiry more than 21 days
 out (`TLS_MIN_DAYS=21` in the script — corrected from "14" on 2026-09-22; the
 threshold must sit below Let's Encrypt's ~29-day renewal point) — each

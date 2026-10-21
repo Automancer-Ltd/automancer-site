@@ -4,6 +4,14 @@ import { staticPages, getStudies, getNotes, markdownTwinPath } from '../../data/
 import { abs } from '../../data/urls';
 import { build } from '../../data/build';
 
+// lastUpdated is written for people ("23 August 2026"); openapi.json declares
+// lastModified a date-time, so it is converted here, the one place it is published.
+function isoDate(display: string): string {
+  const t = Date.parse(`${display} UTC`);
+  if (Number.isNaN(t)) throw new Error(`staticPages lastUpdated "${display}" is not a date`);
+  return new Date(t).toISOString();
+}
+
 export const GET: APIRoute = async () => {
   const [studies, notes] = await Promise.all([getStudies(), getNotes()]);
 
@@ -16,7 +24,7 @@ export const GET: APIRoute = async () => {
       // where no twin is emitted.
       markdownUrl: markdownTwinPath(p.path),
       type: p.type,
-      lastModified: p.lastUpdated ?? build.time.toISOString(),
+      lastModified: p.lastUpdated ? isoDate(p.lastUpdated) : build.time.toISOString(),
     })),
     ...studies.map((e) => ({
       url: abs(`/work/${e.id}`),

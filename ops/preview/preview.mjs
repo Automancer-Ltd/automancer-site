@@ -201,9 +201,10 @@ export function readPort(value, fallback) {
  * Exported so the behaviour can be driven directly in tests.
  */
 export async function resolveRequest(root, rawUrl) {
-  let pathname;
+  let encoded, pathname;
   try {
-    pathname = decodeURIComponent(new URL(rawUrl, 'http://preview.invalid').pathname);
+    encoded = new URL(rawUrl, 'http://preview.invalid').pathname;
+    pathname = decodeURIComponent(encoded);
   } catch {
     return null;
   }
@@ -219,8 +220,11 @@ export async function resolveRequest(root, rawUrl) {
   }
   if (info.isDirectory()) {
     // A directory URL without its trailing slash gets the same 301 GitHub
-    // Pages issues, so a rehearsal exercises the hop production has.
-    if (!pathname.endsWith('/')) return { kind: 'redirect', location: `${pathname}/` };
+    // Pages issues, so a rehearsal exercises the hop production has. Built from
+    // the still-encoded path: always ASCII (a decoded non-Latin-1 character made
+    // writeHead throw and crash the process) and never `//host` (a decoded
+    // `%2F` prefix made it an open redirect).
+    if (!pathname.endsWith('/')) return { kind: 'redirect', location: `/${encoded.replace(/^\/+/, '')}/` };
     const index = join(target, 'index.html');
     try {
       const indexInfo = await stat(index);
@@ -269,7 +273,16 @@ export async function startServer(options) {
       : `preview target: ${rootDir} has no ${STAMP_FILE} marker — serving the placeholder until a release is stamped`,
   );
 
-  const server = createServer(async (req, res) => {
+  const server = createServer((req, res) => {
+    handle(req, res).catch((error) => {
+      // One bad request must not take the target down (Restart=always would
+      // bring it back, but a repeated request would keep it down).
+      log(`preview target: ${req.method} ${req.url}: ${error?.message ?? error}`);
+      if (!res.headersSent) res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
+      res.end();
+    });
+  });
+  const handle = async (req, res) => {
     // Re-read the stamp per request: `current` is a symlink flipped atomicly by
     // deploy-preview.sh, so a release published after this process started must
     // take effect without a restart. Cheap (one small file) and it is what makes
@@ -318,8 +331,8 @@ export async function startServer(options) {
       res.end();
       return;
     }
-    createReadStream(hit.file).pipe(res);
-  });
+    createReadStream(hit.file).on('error', () => res.destroy()).pipe(res);
+  };
 
   await new Promise((ok, fail) => {
     server.once('error', fail);

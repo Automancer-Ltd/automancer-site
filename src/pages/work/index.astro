@@ -44,13 +44,13 @@ const rest = studies.filter((e) => e.id !== feature?.id);
 
       <div class="case-grid">
         {feature && (
-          <a href={`/work/${feature.id}`} class="case-card case-card--feature" data-spot>
+          <a href={`/work/${feature.id}/`} class="case-card case-card--feature" data-spot>
             <span class="case-card__tag">
               {feature.data.status && <span class="live-dot" aria-hidden="true"></span>}
               {feature.data.sector}{feature.data.status ? ` · ${feature.data.status}` : ''}
             </span>
             <h2 class="case-card__title">{feature.data.title}</h2>
-            <p class="case-card__blurb" set:html={feature.data.summary ?? feature.data.description} />
+            <p class="case-card__blurb">{feature.data.summary ?? feature.data.description}</p>
             {feature.data.stats.length > 0 && (
               <div class="statband case-card__stats">
                 {feature.data.stats.map((s) => (
@@ -68,7 +68,7 @@ const rest = studies.filter((e) => e.id !== feature?.id);
           </a>
         )}
         {rest.map((e) => (
-          <a href={`/work/${e.id}`} class="case-card" data-spot>
+          <a href={`/work/${e.id}/`} class="case-card" data-spot>
             <span class="case-card__tag">{e.data.sector}{e.data.status ? ` · ${e.data.status}` : ''}</span>
             <h2 class="case-card__title">{e.data.title}</h2>
             <p class="case-card__blurb">{e.data.summary ?? e.data.description}</p>
@@ -91,8 +91,8 @@ const rest = studies.filter((e) => e.id !== feature?.id);
         numbers, not promises.
       </p>
       <div class="cta__ctas">
-        <a href="/contact" class="btn"><span>Book an Audit — from {auditFrom}</span></a>
-        <a href="/services" class="btn btn--ghost"><span>See our services</span><span class="btn__arrow">→</span></a>
+        <a href="/contact/" class="btn"><span>Book an Audit — from {auditFrom}</span></a>
+        <a href="/services/" class="btn btn--ghost"><span>See our services</span><span class="btn__arrow">→</span></a>
       </div>
     </div>
   </section>

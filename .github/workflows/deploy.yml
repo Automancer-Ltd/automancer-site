@@ -21,11 +21,12 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# id-token is granted to the deploy job alone: build runs `pnpm install` and
+# the site build (third-party code), which must not be able to mint an OIDC token.
 permissions:
   contents: read
   checks: read
   pages: write
-  id-token: write
 
 concurrency:
   group: "pages"
@@ -99,6 +100,9 @@ jobs:
     needs: build
     runs-on: ${{ fromJSON(vars.CI_RUNNER || '"ubuntu-24.04"') }}
     timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

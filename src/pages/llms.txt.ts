@@ -96,43 +96,43 @@ export const GET: APIRoute = () => {
     'Everything below is public, static, key-free and generated at build time from the same sources as the HTML pages.'
   );
   lines.push('');
-  lines.push(`- Full site text: ${business.url}/llms-full.txt — every page's text in one file, each section headed with its URL.`);
+  lines.push(`- [Full site text](${business.url}/llms-full.txt): every page's text in one file, each section headed with its URL.`);
   lines.push(
     `- Markdown twins: any content page plus ".md" (e.g. ${business.url}/about.md, ${business.url}/services.md, ${business.url}/work/<slug>.md, ${business.url}/field-notes/<slug>.md) — clean Markdown with YAML front matter, Content-Type text/markdown; charset=utf-8.`
   );
-  lines.push(`- JSON API discovery: ${business.url}/api/index.json — lists every endpoint.`);
+  lines.push(`- [JSON API discovery](${business.url}/api/index.json): lists every endpoint.`);
   lines.push(
-    `- OpenAPI 3.1 spec: ${business.url}/openapi.json — machine-readable description of every JSON endpoint (unique operationIds, typed response schemas) for function calling.`
+    `- [OpenAPI 3.1 spec](${business.url}/openapi.json): machine-readable description of every JSON endpoint (unique operationIds, typed response schemas) for function calling.`
   );
   lines.push(
-    `- Developer docs: ${abs('/developers')} — human-readable guide to every endpoint, Markdown twin, feed and manifest, with example requests. No authentication; read-only.`
+    `- [Developer docs](${abs('/developers')}): human-readable guide to every endpoint, Markdown twin, feed and manifest, with example requests. No authentication; read-only.`
   );
-  lines.push(`- Business facts: ${business.url}/api/business.json`);
-  lines.push(`- Services & pricing: ${business.url}/api/services.json`);
-  lines.push(`- Case studies (full text): ${business.url}/api/case-studies.json`);
-  lines.push(`- Field notes (full text): ${business.url}/api/field-notes.json`);
-  lines.push(`- Page inventory: ${business.url}/api/pages.json — every page with title, description, Markdown-twin URL and last-modified.`);
+  lines.push(`- [Business facts](${business.url}/api/business.json)`);
+  lines.push(`- [Services & pricing](${business.url}/api/services.json)`);
+  lines.push(`- [Case studies (full text)](${business.url}/api/case-studies.json)`);
+  lines.push(`- [Field notes (full text)](${business.url}/api/field-notes.json)`);
+  lines.push(`- [Page inventory](${business.url}/api/pages.json): every page with title, description, Markdown-twin URL and last-modified.`);
   lines.push(
-    `- Stability & deprecation policy: ${business.url}/api/stability.json — what you may rely on between deploys (paths, operation ids, service ids, field names), what may change without notice, and how a breaking change is published.`
+    `- [Stability & deprecation policy](${business.url}/api/stability.json): what you may rely on between deploys (paths, operation ids, service ids, field names), what may change without notice, and how a breaking change is published.`
   );
   lines.push(
-    `- Agent capability manifest: ${business.url}/agent.json (canonical copy; also emitted at ${business.url}/.well-known/agent.json for hosts that serve dot-paths)`
+    `- [Agent capability manifest](${business.url}/agent.json): canonical copy; also emitted at ${business.url}/.well-known/agent.json for hosts that serve dot-paths.`
   );
-  lines.push('- Feeds: /field-notes/rss.xml · /field-notes/feed.json · /work/rss.xml · /work/feed.json (full content, not excerpts).');
-  lines.push(`- Sitemap: ${business.url}/sitemap-index.xml`);
+  lines.push(`- Feeds (full content, not excerpts): [field notes RSS](${business.url}/field-notes/rss.xml) · [field notes JSON Feed](${business.url}/field-notes/feed.json) · [case studies RSS](${business.url}/work/rss.xml) · [case studies JSON Feed](${business.url}/work/feed.json)`);
+  lines.push(`- [Sitemap](${business.url}/sitemap-index.xml)`);
   lines.push(
     '- Note: the bodies of /privacy/ and /terms/ are deliberately NOT mirrored in any machine-readable format (transcription drifts). Fetch those canonical HTML URLs for their current text.'
   );
   lines.push('');
 
   lines.push('## Site map');
-  lines.push(`- ${abs('/')} — Home`);
-  lines.push(`- ${abs('/services')} — Services & pricing`);
-  lines.push(`- ${abs('/work')} — Case studies`);
-  lines.push(`- ${abs('/field-notes')} — Articles`);
-  lines.push(`- ${abs('/about')} — About`);
-  lines.push(`- ${abs('/contact')} — Contact`);
-  lines.push(`- ${abs('/developers')} — Developer & agent documentation`);
+  lines.push(`- [Home](${abs('/')})`);
+  lines.push(`- [Services & pricing](${abs('/services')})`);
+  lines.push(`- [Case studies](${abs('/work')})`);
+  lines.push(`- [Articles](${abs('/field-notes')})`);
+  lines.push(`- [About](${abs('/about')})`);
+  lines.push(`- [Contact](${abs('/contact')})`);
+  lines.push(`- [Developer & agent documentation](${abs('/developers')})`);
 
   return new Response(lines.join('\n') + '\n', {
     headers: { 'Content-Type': 'text/plain; charset=utf-8' },

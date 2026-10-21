@@ -78,7 +78,7 @@ properly rather than skipped.
 
 Both are hand-built and cost essentially nothing to run. No monthly platform fee
 quietly draining the account. The full write-up is in [the fast websites case
-study](/work/fast-small-business-websites).
+study](/work/fast-small-business-websites/).
 
 There is no sleight of hand in that. Hand-built static pages have no platform
 tax to pay, so the running cost collapses to a domain renewal once a year. It is
@@ -110,9 +110,9 @@ that exists today beats a better one that launches in November, because the
 better one is still a guess until someone visits it.
 
 We publish real from-prices for our automation work on our [services
-page](/services), and we would rather tell you a site is a small job than sell
+page](/services/), and we would rather tell you a site is a small job than sell
 you a big one. If you want a straight answer about your own site, fill in [the
-form](/contact). Waseem reads it himself and emails you back, we promise a
+form](/contact/). Waseem reads it himself and emails you back, we promise a
 meeting within one week, and a human makes every decision along the way.
 
 *We build software. We are not solicitors, and none of this is legal advice. For

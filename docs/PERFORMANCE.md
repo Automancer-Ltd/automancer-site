@@ -258,3 +258,46 @@ dimensions, so images cannot cause layout shift today. No content photos
 exist anywhere in the built site. Optional polish for the visual lane:
 loading="lazy" decoding="async" on the footer logo mark (it sits below the
 fold); the nav logo must stay eager.
+
+## Production scripts: Sentry loads on the first error (2026-10-22)
+
+The tables above are built without a DSN, so they never saw the one script
+production adds: `@sentry/browser`, 89,482 B raw / 30,589 B gzip on every page,
+three times the site's CSS. `src/scripts/sentry.ts` now registers two small
+listeners and imports Sentry only when the first uncaught error or unhandled
+rejection happens; errors raised while it loads are queued and sent. Measured
+on the same build with a dummy DSN (command at the end of this section):
+
+| scripts fetched on page load | raw | gzip |
+|---|---:|---:|
+| before (`0695bf4`) | 94,233 | 32,251 |
+| after | 7,113 | 2,868 |
+
+The Sentry chunk (89,165 B raw / 30,409 B gzip) is still emitted and arrives
+on the first error. A browser walk with every `*sentry.io*` request answered
+locally showed no chunk and no Sentry request after load, one envelope after
+the first uncaught error, and one more for a later rejection (Sentry's own
+handler, no duplicate). The DSN stays in the page-load module, so
+`ops/verify-production.sh`'s Sentry check still finds it.
+
+Measure: build with
+`PUBLIC_AUT_SENTRY_WEB_DSN='https://0000000000000000@o1.ingest.de.sentry.io/4511769898647632' pnpm run build`
+(a dummy key, not a secret), then sum the gzip size of every
+`<script src>` in `dist/index.html`.
+
+## Internal links carry their trailing slash (2026-10-21)
+
+GitHub Pages serves every page at its slashed URL and answers the slashless
+form with a 301 (`/contact` → `/contact/`). The build carried 735 internal
+links without the slash (nav, footer, cards and article bodies), so most
+clicks paid one redirect before the page started loading. The redirect stubs
+for the old `.html` URLs also pointed at slashless targets, which made those
+two hops.
+
+Measured from auto-vps on a warm connection: the 301 alone takes 13–15 ms,
+one round trip at that host's 11.8 ms ping. A visitor pays one round trip on
+their own connection per click, which on a phone is usually several times
+that. All 95 source links and the five redirect targets now carry the slash.
+`tests/links.test.ts` ("internal page links") fails the build on any internal
+`href` without one, and was seen failing when a single slashless link was put
+back into a built page.

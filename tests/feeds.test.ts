@@ -75,9 +75,9 @@ describe('/llms.txt — anti-drift vs src/data/business.ts', () => {
     expect(phoneLine, 'llms.txt has no Phone line').toBeTruthy();
     // Byte-identical phone number, including spacing.
     expect(phoneLine).toContain(`Phone: ${business.phone} `);
-    const devDocsLine = lines.find((l) => l.includes('Developer docs:'));
+    const devDocsLine = lines.find((l) => l.includes('[Developer docs]('));
     expect(devDocsLine, 'llms.txt has no Developer docs line').toBeTruthy();
-    expect(devDocsLine).toContain(`Developer docs: ${abs('/developers')} — `);
+    expect(devDocsLine).toContain(`[Developer docs](${abs('/developers')}): `);
   });
 
   it('states every service price byte-identically to business.ts', () => {
@@ -180,8 +180,8 @@ function assertWellFormedXml(xml: string, label: string): void {
 }
 
 describe('RSS feed CDATA escaping', () => {
-  it('escapes ]]> inside Markdown body so CDATA blocks are well-formed and not prematurely terminated', () => {
-    const rawMarkdown = 'Example with nested arrays: `const arr = [[1]]>;` and markup: `<div class="test">nested</div>`.';
+  it('escapes ]]> inside the item HTML so CDATA blocks are well-formed and not prematurely terminated', () => {
+    const html = '<p>Example with nested arrays: <code>const arr = [[1]]>;</code> and markup: <code>&lt;div class="test"&gt;nested&lt;/div&gt;</code>.</p>';
     const xml = rssFeed({
       collectionTitle: 'Case Studies',
       collectionPath: '/work/',
@@ -192,12 +192,13 @@ describe('RSS feed CDATA escaping', () => {
           title: 'Test CDATA escaping',
           description: 'Testing CDATA edge case',
           date: new Date('2026-09-25T12:00:00Z'),
-          body: rawMarkdown,
+          body: '',
+          html,
         },
       ],
     });
 
-    expect(xml).toContain('const arr = [[1]]]]><![CDATA[>;` and markup: `<div class="test">nested</div>`.');
+    expect(xml).toContain('const arr = [[1]]]]><![CDATA[>;</code>');
     assertWellFormedXml(xml, 'RSS feed with CDATA containing ]]>');
   });
 });
