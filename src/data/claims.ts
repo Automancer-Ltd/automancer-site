@@ -15,4 +15,5 @@ export const publishedClaims = [
   { id: 'debiaser_self_service_cost', value: '£10–80 per self-service document review', evidenceRecord: evidence, registry: truthLayer, sourceQuote: 'replaces **hours of consultant review at £100–200/hour (~£300–400/engagement) with a self-service task costing £10–80, completed in minutes**' },
   { id: 'debiaser_live_since', value: 'live in production since 12 June 2026', evidenceRecord: evidence, registry: truthLayer, sourceQuote: 'live in production since 12 Jun 2026 (v1.0)' },
   { id: 'iq_mouldings_phase_status', value: 'Phase 1 signed off April 2026', evidenceRecord: evidence, registry: truthLayer, sourceQuote: 'Phase 1 signed off (Apr 2026) as "usable foundation", staged for client review — not yet full production launch.' },
+  { id: 'iq_mouldings_pricing_units', value: '5 units', evidenceRecord: evidence, registry: truthLayer, sourceQuote: 'a multi-unit pricing matrix (feet/metres/sqft/sqm/each) with bulk reprice' },
 ] as const;

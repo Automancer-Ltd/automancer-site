@@ -17,13 +17,13 @@ describe('/api/claims.json — headline figures trace to truth-layer records', (
       ['debiaser_per_engagement_cost', '£300–400'], ['debiaser_self_service_cost', '£10–80'],
       ['debiaser_hourly_rate_range', '£100–200'], ['debiaser_live_since', '12 Jun 2026'],
     ],
-    'manufacturer-trade-portal': [['iq_mouldings_phase_status', 'Apr 2026']],
+    'manufacturer-trade-portal': [
+      ['iq_mouldings_phase_status', 'Apr 2026'], ['iq_mouldings_pricing_units', '5 units'],
+    ],
   };
   // Rendered numbers whose source is in the evidence record but which have no
   // registry entry yet in automancer-bd data/claims.toml. Shrink, never grow.
-  const awaitingRegistry: Record<string, string[]> = {
-    'manufacturer-trade-portal': ['5 units'],
-  };
+  const awaitingRegistry: Record<string, string[]> = {};
 
   it('publishes every mapped headline stat with a registry entry', () => {
     expect(claims?.source).toBe('Automancer BD truth-layer claims registry');
