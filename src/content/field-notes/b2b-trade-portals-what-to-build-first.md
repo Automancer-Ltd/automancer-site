@@ -75,7 +75,7 @@ shape you already know is right.
 
 Deferring is not delivering less. It is being wrong earlier and more cheaply,
 which is most of what good delivery actually is. The full write-up is in [the
-trade portal case study](/work/manufacturer-trade-portal).
+trade portal case study](/work/manufacturer-trade-portal/).
 
 ## Four questions to phase your own project
 
@@ -110,9 +110,9 @@ guess for six months at a time, then testing what you built against real data
 before anyone's Monday depends on it.
 
 If you would rather work through it with someone who ships this sort of thing,
-that is what an [Automation Opportunity Audit](/services) is for: we map how
+that is what an [Automation Opportunity Audit](/services/) is for: we map how
 your business actually runs and hand you a ranked, costed plan for what to fix
 first, from £450, with the fee credited against a Sprint (from £1,950) or a
-Build (from £4,500) if you go on to do one. Fill in [the form](/contact) and
+Build (from £4,500) if you go on to do one. Fill in [the form](/contact/) and
 Waseem reads it himself, then emails you back. We promise a meeting within one
 week, and a human makes every decision along the way.

@@ -18,7 +18,7 @@ small as the internet would like you to believe.
 ## How much does a small automation project cost?
 
 With us, a small automation project starts at £1,950. That's a
-[Workflow Sprint](/services): 1–3 automations live in around two weeks.
+[Workflow Sprint](/services/): 1–3 automations live in around two weeks.
 Under £1,000, what you can reliably buy is certainty rather than software.
 An Automation Opportunity Audit, from £450, maps where your time is going
 and hands you a costed plan for fixing it.
@@ -53,7 +53,7 @@ the report that currently eats someone's Friday.
 
 It's not a niche problem, either. Support-worker leave requests are one
 of the pieces in active build for
-[a ~600-person supported-living care provider](/work/care-provider-transformation),
+[a ~600-person supported-living care provider](/work/care-provider-transformation/),
 as one piece of a programme that runs to roughly eighteen governed
 workstreams. Small pieces sit perfectly happily inside big programmes.
 They just have to be scoped as small pieces.
@@ -105,7 +105,7 @@ programme.
 ## Where under £1,000 goes furthest
 
 If you can't tell whether your problem is small or big, spend the first
-£450 finding out. The [Audit](/services) gives you a ranked list of what
+£450 finding out. The [Audit](/services/) gives you a ranked list of what
 to automate first, with an estimate of what each item costs you now. It's
 your plan to keep, and if you go on to do a Sprint or a Build with us,
 the fee comes straight off the price.

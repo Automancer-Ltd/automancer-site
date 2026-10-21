@@ -102,9 +102,9 @@ order:
    inspection is not one you want near your care records.
 
 If you cannot tell where your own evidence gaps are, that is what an
-[Automation Opportunity Audit](/services) is for: a working session that
+[Automation Opportunity Audit](/services/) is for: a working session that
 maps how your business actually runs and gives you a ranked, costed plan
 for what to fix first. You can see the fuller care build behind this post
-on our [care provider transformation](/work/care-provider-transformation)
+on our [care provider transformation](/work/care-provider-transformation/)
 write-up. No obligation to do any of it with us, and the audit fee comes
 off if you do.

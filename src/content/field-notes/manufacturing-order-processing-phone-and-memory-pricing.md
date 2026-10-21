@@ -93,7 +93,7 @@ Per-customer pricing is now computed rather than remembered. That is the whole
 trick, and it is not much of a trick: it is a rules engine, written down
 carefully, tested end to end. Not magic. Just very good engineering. You can
 read the full write-up in [the trade portal case
-study](/work/manufacturer-trade-portal).
+study](/work/manufacturer-trade-portal/).
 
 ## Where to start if this sounds like your business
 
@@ -114,7 +114,7 @@ with three questions, in this order.
 
 Those three answers will tell you more than any vendor demo will. If you would
 rather work through them with someone who builds this sort of thing for a
-living, an [Automation Opportunity Audit](/services) is exactly that: we map
+living, an [Automation Opportunity Audit](/services/) is exactly that: we map
 how your business actually runs and hand you a ranked, costed plan for what to
 fix first, from £450, with the fee credited against any project you go on to
 do. No funnel, no discovery-call theatre. Just a straight look at where your

@@ -12,11 +12,11 @@ const fmt = (dt: Date) =>
 // Every top-level section, so recovery never depends on the browser back button.
 const sections = [
   { href: '/', label: 'Home', desc: 'What we do, in one page' },
-  { href: '/services', label: 'Services & pricing', desc: `Four ways to work with us, from ${formatGBP(serviceById('automation-opportunity-audit').priceFrom)}` },
-  { href: '/work', label: 'Work', desc: 'Case studies, live in production' },
-  { href: '/field-notes', label: 'Field notes', desc: "Notes from an AI-run business" },
-  { href: '/about', label: 'About', desc: 'Who we are and how we run' },
-  { href: '/contact', label: 'Contact', desc: 'Reach a human — one-week promise' },
+  { href: '/services/', label: 'Services & pricing', desc: `Four ways to work with us, from ${formatGBP(serviceById('automation-opportunity-audit').priceFrom)}` },
+  { href: '/work/', label: 'Work', desc: 'Case studies, live in production' },
+  { href: '/field-notes/', label: 'Field notes', desc: "Notes from an AI-run business" },
+  { href: '/about/', label: 'About', desc: 'Who we are and how we run' },
+  { href: '/contact/', label: 'Contact', desc: 'Reach a human — one-week promise' },
 ];
 
 // Machine-readable wayfinding for agents/crawlers that followed a dead link.
@@ -25,7 +25,7 @@ const agentPaths = [
   { href: '/sitemap-index.xml', label: '/sitemap-index.xml', desc: 'Every page on this site' },
   { href: '/llms.txt', label: '/llms.txt', desc: 'Plain-text guide to the business and site' },
   { href: '/llms-full.txt', label: '/llms-full.txt', desc: 'The complete site text in one file' },
-  { href: '/developers', label: '/developers', desc: 'JSON API, Markdown twins, feeds and manifests' },
+  { href: '/developers/', label: '/developers', desc: 'JSON API, Markdown twins, feeds and manifests' },
 ];
 ---
 
@@ -45,7 +45,7 @@ const agentPaths = [
       </p>
       <div class="cta__ctas" style="margin-top: var(--sp-10)">
         <a href="/" class="btn"><span>Back to home</span></a>
-        <a href="/work" class="btn btn--ghost"><span>See the work</span><span class="btn__arrow">→</span></a>
+        <a href="/work/" class="btn btn--ghost"><span>See the work</span><span class="btn__arrow">→</span></a>
       </div>
     </div>
   </section>
@@ -78,13 +78,13 @@ const agentPaths = [
       <ul class="reveal" style="list-style:none; margin:0; padding:0; display:grid; gap:var(--sp-4);">
         {notes.map((n) => (
           <li style="display:flex; flex-wrap:wrap; align-items:baseline; gap:var(--sp-3);">
-            <a href={`/field-notes/${n.id}`} class="tlink" style="font-weight:600;">{n.data.title}</a>
+            <a href={`/field-notes/${n.id}/`} class="tlink" style="font-weight:600;">{n.data.title}</a>
             <span class="muted">— {fmt(n.data.date)}</span>
           </li>
         ))}
       </ul>
       <p style="margin-top: var(--sp-6)">
-        <a href="/field-notes" class="arrow-link">All field notes <span class="btn__arrow">→</span></a>
+        <a href="/field-notes/" class="arrow-link">All field notes <span class="btn__arrow">→</span></a>
       </p>
     </div>
   </section>
@@ -99,13 +99,13 @@ const agentPaths = [
       <ul class="reveal" style="list-style:none; margin:0; padding:0; display:grid; gap:var(--sp-4);">
         {studies.map((e) => (
           <li style="display:flex; flex-wrap:wrap; align-items:baseline; gap:var(--sp-3);">
-            <a href={`/work/${e.id}`} class="tlink" style="font-weight:600;">{e.data.headline ?? e.data.title}</a>
+            <a href={`/work/${e.id}/`} class="tlink" style="font-weight:600;">{e.data.headline ?? e.data.title}</a>
             <span class="muted">— {e.data.sector}</span>
           </li>
         ))}
       </ul>
       <p style="margin-top: var(--sp-6)">
-        <a href="/work" class="arrow-link">All work <span class="btn__arrow">→</span></a>
+        <a href="/work/" class="arrow-link">All work <span class="btn__arrow">→</span></a>
       </p>
     </div>
   </section>
@@ -143,7 +143,7 @@ const agentPaths = [
         Waseem). A human reads everything.
       </p>
       <div class="cta__ctas">
-        <a href="/contact" class="btn"><span>Contact us instead</span></a>
+        <a href="/contact/" class="btn"><span>Contact us instead</span></a>
         <a href="/" class="btn btn--ghost"><span>Start over at home</span><span class="btn__arrow">→</span></a>
       </div>
     </div>

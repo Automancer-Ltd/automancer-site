@@ -36,7 +36,7 @@ const fmt = (d: Date) =>
         <>
           <div class="note-list">
             {posts.map((p) => (
-              <a href={`/field-notes/${p.id}`} class="note-row">
+              <a href={`/field-notes/${p.id}/`} class="note-row">
                 <div class="note-row__head">
                   <h2 class="note-row__title">{p.data.title}</h2>
                   <span class="note-row__meta">{fmt(p.data.date)} · {p.data.category ?? p.data.sector}{p.data.draft ? ' · draft' : ''}</span>
@@ -72,8 +72,8 @@ const fmt = (d: Date) =>
         If a note here sounds like your Tuesday, tell us about it. Waseem reads every enquiry himself.
       </p>
       <div class="cta__ctas">
-        <a href="/contact" class="btn"><span>Book an Audit — from {auditFrom}</span></a>
-        <a href="/contact" class="btn btn--ghost"><span>Tell us what's eating your week</span><span class="btn__arrow">→</span></a>
+        <a href="/contact/" class="btn"><span>Book an Audit — from {auditFrom}</span></a>
+        <a href="/contact/" class="btn btn--ghost"><span>Tell us what's eating your week</span><span class="btn__arrow">→</span></a>
       </div>
     </div>
   </section>

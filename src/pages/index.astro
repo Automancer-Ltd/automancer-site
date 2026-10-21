@@ -56,8 +56,8 @@ const caps = [
         <span class="prompt" aria-hidden="true">&gt;_ </span><span data-typed aria-hidden="true">It's not magic. It's very good engineering.</span><span class="hero__caret" aria-hidden="true"></span>
       </p>
       <div class="hero__ctas">
-        <a href="/contact" class="btn"><span>Book an Automation Audit — from {formatGBP(audit.priceFrom)}</span></a>
-        <a href="/work" class="btn btn--ghost"><span>See the work</span><span class="btn__arrow">→</span></a>
+        <a href="/contact/" class="btn"><span>Book an Automation Audit — from {formatGBP(audit.priceFrom)}</span></a>
+        <a href="/work/" class="btn btn--ghost"><span>See the work</span><span class="btn__arrow">→</span></a>
       </div>
     </div>
     <div class="hero__cue" aria-hidden="true"></div>
@@ -127,7 +127,7 @@ const caps = [
         ))}
       </ol>
       <p style="margin-top: var(--sp-10)">
-        <a href="/services" class="arrow-link">Not sure what's automatable? That's literally the audit <span class="btn__arrow">→</span></a>
+        <a href="/services/" class="arrow-link">Not sure what's automatable? That's literally the audit <span class="btn__arrow">→</span></a>
       </p>
     </div>
   </section>
@@ -162,7 +162,7 @@ const caps = [
         ))}
       </div>
       <p style="margin-top: var(--sp-10)">
-        <a href="/services" class="arrow-link">See what's included <span class="btn__arrow">→</span></a>
+        <a href="/services/" class="arrow-link">See what's included <span class="btn__arrow">→</span></a>
       </p>
     </div>
   </section>
@@ -176,7 +176,7 @@ const caps = [
       </div>
       <div class="case-grid">
         {feature && (
-          <a href={`/work/${feature.id}`} class="case-card case-card--feature" data-spot>
+          <a href={`/work/${feature.id}/`} class="case-card case-card--feature" data-spot>
             <span class="case-card__tag">{feature.data.sector}{feature.data.status ? ` · ${feature.data.status}` : ''}</span>
             <h3 class="case-card__title">{feature.data.title}</h3>
             <p class="case-card__blurb">{feature.data.summary ?? feature.data.description}</p>
@@ -186,7 +186,7 @@ const caps = [
           </a>
         )}
         {rest.map((e) => (
-          <a href={`/work/${e.id}`} class="case-card" data-spot>
+          <a href={`/work/${e.id}/`} class="case-card" data-spot>
             <span class="case-card__tag">{e.data.sector}</span>
             <h3 class="case-card__title">{e.data.title}</h3>
             <p class="case-card__blurb">{e.data.summary ?? e.data.description}</p>
@@ -197,7 +197,7 @@ const caps = [
         ))}
       </div>
       <p style="margin-top: var(--sp-10)">
-        <a href="/work" class="arrow-link">See all our work <span class="btn__arrow">→</span></a>
+        <a href="/work/" class="arrow-link">See all our work <span class="btn__arrow">→</span></a>
       </p>
     </div>
   </section>
@@ -215,7 +215,7 @@ const caps = [
         </p>
       </div>
       <div class="cta__ctas" style="margin-top: var(--sp-8)">
-        <a href="/developers" class="btn"><span>Developer &amp; agent documentation</span></a>
+        <a href="/developers/" class="btn"><span>Developer &amp; agent documentation</span></a>
         <a href="/llms.txt" class="btn btn--ghost"><span>Read llms.txt</span><span class="btn__arrow">→</span></a>
       </div>
     </div>
@@ -231,8 +231,8 @@ const caps = [
         himself and emails you back — and we promise a meeting within one week of first contact.
       </p>
       <div class="cta__ctas">
-        <a href="/contact" class="btn"><span>Start with an Audit — from {formatGBP(audit.priceFrom)}</span></a>
-        <a href="/contact" class="btn btn--ghost"><span>Just ask a question</span><span class="btn__arrow">→</span></a>
+        <a href="/contact/" class="btn"><span>Start with an Audit — from {formatGBP(audit.priceFrom)}</span></a>
+        <a href="/contact/" class="btn btn--ghost"><span>Just ask a question</span><span class="btn__arrow">→</span></a>
       </div>
       <p class="cta__reassure">
         Based in Bradford. Working with businesses in Leeds, Manchester and across the UK, remote-first.
