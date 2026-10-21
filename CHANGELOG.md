@@ -1,5 +1,10 @@
 # Release notes
 
+## v2026.10.21.9 — 21 October 2026
+
+Visitors can now read Automancer’s release history on the website, including a page for each release.
+
+
 ## v2026.10.21.8 — 21 October 2026
 
 The website is easier for people and services to navigate, with clearer links to its information and more helpful responses when a page or API request cannot be found.
