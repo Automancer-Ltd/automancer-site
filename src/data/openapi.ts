@@ -9,7 +9,7 @@
  *                             pages and every payload's business fields)
  *   - src/data/urls.ts      — canonical absolute URLs
  *
- * The document describes what ACTUALLY exists: six GET endpoints, no
+ * The document describes what ACTUALLY exists: GET endpoints only, no
  * parameters, no authentication, no side effects. Response schemas mirror
  * each endpoint's emitted payload shape (verified against the built output
  * by tests/developer-surface.test.ts) so an LLM can use them directly for
@@ -361,6 +361,34 @@ const schemas: Record<string, JsonSchema> = {
       description: 'The /api/stability.json payload.',
     }
   ),
+
+  ReleasesResponse: obj(
+    {
+      schemaVersion: str('Semver-ish version of this payload shape.'),
+      generatedAt: dateTime('Build time — payloads change only at deploy.'),
+      url: uri('Where this document is served.'),
+      page: uri('The human page these releases are rendered on.'),
+      count: { type: 'integer' },
+      releases: {
+        type: 'array',
+        description: 'Newest first.',
+        items: obj(
+          {
+            version: str('Stable release id, vYYYY.MM.DD.N; also its anchor on /releases.'),
+            date: str('ISO date (YYYY-MM-DD) of the release.', { format: 'date' }),
+            summary: str('The release notes’ opening paragraph.'),
+            notes: str('The full release notes as raw Markdown.'),
+            url: uri('This release on /releases.'),
+          },
+          { required: ['version', 'date', 'summary', 'notes', 'url'] }
+        ),
+      },
+    },
+    {
+      required: [...PROVENANCE_REQUIRED, 'url', 'page', 'count', 'releases'],
+      description: 'The /api/releases.json payload.',
+    }
+  ),
 };
 
 /** operationId -> component schema name for its 200 response. */
@@ -372,6 +400,7 @@ const RESPONSE_SCHEMA_BY_OPERATION: Record<string, string> = {
   getFieldNotes: 'FieldNotesResponse',
   getPageInventory: 'PageInventoryResponse',
   getStabilityPolicy: 'StabilityPolicy',
+  getReleases: 'ReleasesResponse',
 };
 
 /**

@@ -122,6 +122,7 @@ export const staticPages: PageMeta[] = [
   { path: '/field-notes/', title: 'Field Notes', description: "Dispatches from an AI-run business. Written by the agents, decided by the human. Plain notes on what actually works when you point AI at boring problems.", type: 'CollectionPage' },
   { path: '/about/', title: 'About', description: "An AI-run consultancy with a human at the helm. Automancer's finance, project tracking and website run on agents — every decision taken by Waseem, in Bradford.", type: 'AboutPage' },
   { path: '/contact/', title: 'Contact', description: "Tell us what's eating your week. No calendar gauntlet, no chatbot. Waseem reads it himself, and we promise a meeting within one week of first contact.", type: 'ContactPage' },
+  { path: '/releases/', title: 'Release notes', description: 'Every change to the Automancer website, newest first, from the same changelog we keep for ourselves. Also published as JSON at /api/releases.json.', type: 'CollectionPage' },
   {
     path: '/privacy/',
     title: 'Privacy Policy',
