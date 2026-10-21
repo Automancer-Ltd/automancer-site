@@ -94,12 +94,12 @@ None of this is a secret trick. It's the same discipline you'd want from
 any engineer working near care records: get the foundation right, stage
 everything, reconcile against real data, and let a human sign off before
 anything touches production. That's how we approached the whole
-transformation for [a ~600-person supported-living care provider](/work/care-provider-transformation),
+transformation for [a ~600-person supported-living care provider](/work/care-provider-transformation/),
 delivered as roughly eighteen governed workstreams rather than one risky
 big-bang rebuild.
 
 If you're looking at your own care business and can't tell where to start,
-that's exactly what an [Automation Opportunity Audit](/services) is for:
+that's exactly what an [Automation Opportunity Audit](/services/) is for:
 a working session that maps how your business actually runs, and a ranked,
 costed plan for what to automate first. No obligation to do any of it with
 us, and the fee comes off if you do.

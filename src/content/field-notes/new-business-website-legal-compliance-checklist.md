@@ -94,7 +94,7 @@ We handled domain purchase, DNS, HTTPS hosting and interim email routing too,
 so they had a working front door and a working inbox from day one. That last
 part is not incidental. The email requirement above is impossible to satisfy if
 nobody has decided who reads the inbox yet. The write-up is in [the fast
-websites case study](/work/fast-small-business-websites), and it is hand-built,
+websites case study](/work/fast-small-business-websites/), and it is hand-built,
 so it costs essentially nothing to run.
 
 "We'll add the legal stuff later" fails for a dull reason. Later is when you
@@ -118,9 +118,9 @@ whether you owe the ICO the annual data protection fee is worth ten minutes on
 their registration self-assessment rather than a guess in either direction.
 
 We publish real from-prices for our automation work on our [services
-page](/services), starting with an Automation Opportunity Audit from £450, and
+page](/services/), starting with an Automation Opportunity Audit from £450, and
 we would rather tell you one honest page is enough than sell you eight. If you
-want a straight answer about your own site, fill in [the form](/contact).
+want a straight answer about your own site, fill in [the form](/contact/).
 Waseem reads it himself and emails you back, we promise a meeting within one
 week, and a human makes every decision along the way.
 

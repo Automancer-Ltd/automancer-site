@@ -118,10 +118,10 @@ small automation. Occasionally it is a proper custom system. You cannot know
 which until you have looked, honestly, at where the friction actually is.
 
 If you would rather not do that first pass alone, an [Automation Opportunity
-Audit](/services) is exactly that working session done rigorously: we map how
+Audit](/services/) is exactly that working session done rigorously: we map how
 your business runs and hand you a ranked, costed plan for what to fix first,
 with the fee credited against any project you go on to do. You can also read
-[how we work](/about), agents do the boring work, a human makes every
+[how we work](/about/), agents do the boring work, a human makes every
 decision and takes every call, before you decide whether any of it is for
 you. No funnel, no countdown, just a look at where your week is actually
 going.

@@ -61,7 +61,7 @@ when it drifts.
 
 **What does "reconciled against real data" actually catch?** Here's a real
 example. We built the core platform for [a ~600-person supported-living
-care provider](/work/care-provider-transformation) as part of rebuilding
+care provider](/work/care-provider-transformation/) as part of rebuilding
 their whole digital spine as governed workstreams. One of those workstreams
 reconciled the platform's report mirrors against the client's real exports,
 rather than trusting the ingestion pipeline to have got everything right on
@@ -101,6 +101,6 @@ human sign-off actually sits. A vendor who can answer all three specifically
 has a governed process. A vendor who can't has a demo.
 
 That's the standard we hold our own work to, [not as a slogan but as how we
-actually run](/about): scoped, staged, reconciled against the real thing,
+actually run](/about/): scoped, staged, reconciled against the real thing,
 monitored after it ships, with a human in front of the two decisions that
 are genuinely expensive to get wrong.
