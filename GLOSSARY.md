@@ -30,7 +30,7 @@
 ## From-Price
 **Definition:** The published starting price in GBP (ex VAT) for each commercial offering on the Service Ladder (`£450`, `£1,950`, `£4,500`, and `£495/month`).
 **In code:** `ServiceOffering.priceFrom`, `ServiceOffering.priceUnit`, `serviceById()`, and `formatGBP()` in `src/data/business.ts`; audited across all built HTML, Markdown, and text outputs by `tests/agent-readiness.test.ts`.
-**Invariants:** Every from-price quoted in human HTML (`src/pages/index.astro`, `src/pages/services.astro`, `src/components/Footer.astro`) or machine surfaces (`/api/services.json`, `index.md`, `services.md`, `llms.txt`) must match `services` in `src/data/business.ts`.
+**Invariants:** Every from-price quoted in human HTML (`src/pages/index.astro`, `src/pages/services.astro`, `src/components/Footer.astro`) or machine surfaces (`/api/services.json`, `/services/` schema.org Offers, `index.md`, `services.md`, `llms.txt`) must match `services` in `src/data/business.ts`. Structured prices explicitly identify themselves as from-prices excluding VAT; monthly prices also publish their billing unit.
 
 ## Intake Endpoint
 **Definition:** The first-party HTTP endpoint (`https://api.automancer.uk/api/lead`) that receives contact-form JSON `POST` submissions from `/contact/`.

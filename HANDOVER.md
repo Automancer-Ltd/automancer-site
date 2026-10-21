@@ -18,7 +18,7 @@ disagree. Against that, today:
 | Vision line | State today |
 | --- | --- |
 | A UK business reads pages that answer plainly and publish the price | Built. `/services/` prices render from `src/data/business.ts`; a build test fails if a from-price in the output is not a published `priceFrom` (`v2026.10.14.1`, PR #69). |
-| An agent can quote, price and act on it correctly | Built. Seven `/api/*.json` endpoints, one registry (`src/data/api.ts`) behind the discovery document, the OpenAPI 3.1 spec and `/developers`; `agent.json`, `security.txt`, `llms.txt`, Markdown twins and full-content feeds. |
+| An agent can quote, price and act on it correctly | Built. Seven `/api/*.json` endpoints, one registry (`src/data/api.ts`) behind the discovery document, the OpenAPI 3.1 spec and `/developers`; `agent.json`, `security.txt`, `llms.txt`, Markdown twins and full-content feeds. `/services/` also publishes schema.org Offer prices from the same service data, with a dist-level parity test. |
 | What a machine is told never differs from what a person is shown | Enforced for the facts that matter most: prices, service names, page inventory, JSON-LD, twins and feeds all read shared modules, and dist-level tests compare the payloads with the pages. |
 | Its own honesty audited | Partly. Production is verified after every deploy and every 30 minutes (`ops/verify-production.sh`), including the revision served, the legal block, TLS and the machine surfaces. Nothing yet audits the *claims* on the pages against the truth layer continuously. |
 | Published identifiers are promises | **Built in this slice.** The promise is now a document an agent can fetch and check: `/api/stability.json`. |

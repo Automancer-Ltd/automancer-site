@@ -373,6 +373,47 @@ describe('/api/*.json endpoints', () => {
     });
   });
 
+  it('the services page JSON-LD quotes the same from-prices and units as business.ts', () => {
+    const page = contentPages().find((candidate) => candidate.route === '/services/');
+    expect(page, 'services page was not built').toBeTruthy();
+    const block = page!.doc.querySelector('script[type="application/ld+json"]');
+    expect(block, '/services/ has no JSON-LD data').toBeTruthy();
+    const document = JSON.parse(block!.text) as {
+      '@graph'?: Array<{ '@type'?: string; hasOfferCatalog?: { itemListElement?: unknown[] } }>;
+    };
+    const serviceNode = document['@graph']?.find((node) => node['@type'] === 'Service');
+    const offers = serviceNode?.hasOfferCatalog?.itemListElement as Array<{
+      '@type'?: string;
+      itemOffered?: { name?: string };
+      priceSpecification?: {
+        '@type'?: string;
+        price?: number;
+        priceCurrency?: string;
+        unitCode?: string;
+        description?: string;
+      };
+    }> | undefined;
+
+    expect(offers, '/services/ JSON-LD has no published Offer entries').toHaveLength(services.length);
+    for (const service of services) {
+      const offer = offers!.find((candidate) => candidate.itemOffered?.name === service.name);
+      expect(offer, `JSON-LD has no Offer for ${service.name}`).toBeTruthy();
+      expect(offer!['@type'], `${service.name} is not a schema.org Offer`).toBe('Offer');
+      expect(
+        [offer!.priceSpecification?.price, offer!.priceSpecification?.priceCurrency],
+        `${service.name} structured price disagrees with its published from-price`
+      ).toEqual([service.priceFrom, 'GBP']);
+      expect(
+        offer!.priceSpecification?.description,
+        `${service.name} structured price must say it is a from-price excluding VAT`
+      ).toMatch(/from-price.*excluding VAT/i);
+      expect(
+        offer!.priceSpecification?.unitCode,
+        `${service.name} monthly price must state its billing unit`
+      ).toBe(service.priceUnit === 'month' ? 'MON' : undefined);
+    }
+  });
+
   it('case-studies.json contains exactly the non-draft case studies — no others', () => {
     const payload = parsed.get('api/case-studies.json');
     assertJsonObject(payload, 'api/case-studies.json');
