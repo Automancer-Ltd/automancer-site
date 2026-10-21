@@ -1,5 +1,10 @@
 # Release notes
 
+## v2026.10.21.7 — 21 October 2026
+
+People can now find Automancer’s security contact and service details at the standard web addresses.
+
+
 ## v2026.10.21.2 — 21 October 2026
 
 You can navigate the mobile menu and hear the contact form confirmation using a keyboard or screen reader.
