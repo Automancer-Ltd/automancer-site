@@ -658,10 +658,10 @@ describe('/api/stability.json — the published stability & deprecation policy',
       deprecation?.announcedIn ?? '',
       'the policy must name where a deprecation is announced'
     ).toContain('/api/stability.json');
-    // The site is static files: claiming Deprecation/Sunset headers would be
-    // the "fake a capability" VISION.md forbids. It has to say so.
-    expect(deprecation?.httpHeaders ?? '', 'the host cannot send Deprecation/Sunset headers — say so').toContain(
-      'GitHub Pages'
+    // No Deprecation/Sunset headers are sent; claiming them would be the
+    // "fake a capability" VISION.md forbids. It has to say so.
+    expect(deprecation?.httpHeaders ?? '', 'say plainly that no Deprecation/Sunset headers are sent').toMatch(
+      /^No Deprecation or Sunset HTTP headers are sent\./
     );
   });
 

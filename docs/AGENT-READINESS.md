@@ -3,7 +3,42 @@
 Status: **shipped on `main` in `v2026.08.22.1`** (merge `4f2e4a8`, 22 August 2026).
 Last reviewed: 21 October 2026.
 
-## Re-measured 2026-10-21 — the scanner has changed, so the numbers do not compare
+## Re-measured 2026-10-22 — is-agentic 100/100
+
+Asked for by Waseem ("automancer should score close to 100 on is agentic"). Live state:
+`curl -s 'https://is-agentic.com/api/v1/report?url=https%3A%2F%2Fautomancer.uk'`.
+
+| | Before (scan 2026-10-21T09:43Z) | After (scan 2026-10-21T10:45Z) |
+| --- | --- | --- |
+| is-agentic score | 78 | **100** |
+| Essential | 60/80, 7 of 10 | 80/80, 10 of 10 |
+| Recommended | 14.9/20, 15 of 21 | 16.1/20, 17 of 22 |
+| Bonus | +3.1 | +4.1 |
+| Ora raw score (wider rubric) | 59, grade C | 70, grade B |
+
+The three Essential failures (Markdown negotiation, a Markdown 404 body, JSON API errors) needed a
+server that answers per request. `automancer.uk` is now proxied through Cloudflare with the edge
+Worker in `ops/edge/` in front of GitHub Pages (`docs/DEPLOYMENT.md`, "The edge Worker"). The
+`/.well-known/` 404s turned out to be our deploy, not the host (section below). PRs #99, #101, #102.
+
+To refresh the report: `POST https://ora.ai/api/scan` with `{"url":"https://automancer.uk","force":true}`
+(without `force` it returns a result up to six hours old), then `POST https://is-agentic.com/scan`
+with `url=automancer.uk`, which copies Ora's latest scan into the is-agentic report.
+`POST https://ora.ai/api/scan/checks` re-runs chosen check ids live without touching the stored score.
+
+Still open, on purpose:
+
+- **Rate-limit headers.** No limit is enforced, and `/api/stability.json` says so; advertising one
+  would be false.
+- **CLI tool, SDK, MCP server, WebMCP, auth.md, OAuth.** The site has none of these, and a read-only
+  facts API does not need them.
+- **Brand and developer-resource search.** Search-index outcomes, not page properties.
+- **REST versioning policy (partial).** The policy is in `/openapi.json` (`info.description`,
+  `x-deprecation-policy`); the scanner still reads it as prose. Its heuristic is not published.
+- **sameAs to Wikipedia, Wikidata or social profiles.** None exists; only the Companies House link is real.
+- **Markdown for AI user agents asking for HTML.** That serves a different page to the same request
+  by user agent; Markdown goes to whoever asks for it with `Accept`.
+
 
 A fresh scan (`GET https://is-agentic.com/api/scan/stream?target=automancer.uk`, scanned
 2026-10-21T01:22:22.658Z, report contract 1.35.0, now served by ora.ai) scored **58/100, grade C**.
