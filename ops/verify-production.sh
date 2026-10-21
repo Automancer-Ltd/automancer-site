@@ -81,6 +81,7 @@ FAILED_CHECKS=()
 
 # --self-test state (see self_test below); empty when not self-testing.
 SELF_TEST_FAILURES=()
+declare -A SELF_TEST_DIRECTIONS=() SELF_TEST_CHECKS=()
 SELFTEST_SERVER_PID=''   # PID of the local fixture server, killed by cleanup
 SELFTEST_SCENARIO=''     # scenario file the fixture server reloads per request
 
@@ -529,6 +530,47 @@ check_stability_policy() {
   rm -f "$BODY_FILE"
 }
 
+# check_api_surface — every endpoint /api/index.json lists, plus /openapi.json,
+# answers 200 with valid JSON. The checks above name a few surfaces; this one
+# follows the site's own registry, so a new endpoint is covered the deploy it
+# appears, and a Pages fault that breaks one cannot deploy green.
+check_api_surface() {
+  local index="${BASE_URL}/api/index.json" paths path n=0
+  fetch_body "$index" || return 1
+  if ! paths=$(python3 - "$BODY_FILE" 2>&1 <<'PY'
+import json, sys
+try:
+    doc = json.load(open(sys.argv[1], encoding="utf-8"))
+except Exception as exc:
+    sys.exit(f"not JSON: {exc}")
+eps = doc.get("endpoints") if isinstance(doc, dict) else None
+if not isinstance(eps, list) or not eps:
+    sys.exit("endpoints[] missing or empty")
+for e in eps:
+    p = e.get("path") if isinstance(e, dict) else None
+    if not isinstance(p, str) or not p.startswith("/"):
+        sys.exit("an endpoint has no path")
+    print(p)
+PY
+  ); then
+    printf 'GET %s returned HTTP 200 but is not the API index: %s\n' "$index" "$(printf '%s' "$paths" | tr -d '\n')"
+    rm -f "$BODY_FILE"
+    return 1
+  fi
+  rm -f "$BODY_FILE"
+  for path in $paths /openapi.json; do
+    fetch_body "${BASE_URL}${path}" || return 1
+    if ! json_parses "$BODY_FILE"; then
+      printf 'GET %s%s returned HTTP 200 but the body is NOT valid JSON\n' "$BASE_URL" "$path"
+      rm -f "$BODY_FILE"
+      return 1
+    fi
+    rm -f "$BODY_FILE"
+    n=$((n + 1))
+  done
+  printf 'GET /api/index.json -> its %d listed endpoints and /openapi.json all answer 200 with valid JSON\n' "$((n - 1))"
+}
+
 check_security_txt() {
   local url="${BASE_URL}${SECURITY_TXT_PATH}" verdict expected_canonical=''
   fetch_body "$url" || return 1
@@ -568,8 +610,32 @@ check_sitemap() {
     rm -f "$BODY_FILE"
     return 1
   fi
-  printf 'GET %s -> 200 and parses as XML\n' "$url"
+  # The index only points at the real sitemaps; a broken child is the failure
+  # that matters. Each <loc>'s path is fetched from BASE_URL, so a preview or
+  # the self-test never reaches production.
+  local children child n=0
+  children=$(python3 - "$BODY_FILE" <<'PY'
+import sys, xml.etree.ElementTree as ET
+from urllib.parse import urlparse
+root = ET.parse(sys.argv[1]).getroot()
+if root.tag.rsplit('}', 1)[-1] == 'sitemapindex':
+    for loc in root.iter():
+        if loc.tag.rsplit('}', 1)[-1] == 'loc' and loc.text:
+            print(urlparse(loc.text.strip()).path)
+PY
+  )
   rm -f "$BODY_FILE"
+  for child in $children; do
+    fetch_body "${BASE_URL}${child}" || return 1
+    if ! xml_parses "$BODY_FILE"; then
+      printf 'GET %s%s (listed by %s) returned HTTP 200 but is NOT well-formed XML\n' "$BASE_URL" "$child" "$SITEMAP_PATH"
+      rm -f "$BODY_FILE"
+      return 1
+    fi
+    rm -f "$BODY_FILE"
+    n=$((n + 1))
+  done
+  printf 'GET %s -> 200 and parses as XML, with %d child sitemap(s) that parse too\n' "$url" "$n"
 }
 
 check_homepage_anchor() {
@@ -926,6 +992,8 @@ self_test_expect() {
   local expected=$1 label=$2 fn=$3
   shift 3
   local detail rc=0 first
+  SELF_TEST_DIRECTIONS[$label]+="$expected "
+  SELF_TEST_CHECKS[$fn]=1
   if detail=$("$fn" "$@" 2>&1); then rc=0; else rc=$?; fi
   first=$(printf '%s\n' "$detail" | head -1)
   [[ -n $first ]] || first='(no output)'
@@ -968,7 +1036,7 @@ self_test() {
   HOST='127.0.0.1'
   HOST_PORT="127.0.0.1:${port}"
 
-  log "Self-test: driving 28 independently-failable assertions across 11 checks on ${BASE_URL}"
+  log "Self-test: driving each assertion to fail and to pass on ${BASE_URL}"
   log "(fixtures use 127.0.0.1 only; the TLS trust-chain assertion remains live-only)"
   log ""
 
@@ -1011,8 +1079,19 @@ self_test() {
 
   self_test_route_scenario "/sitemap-index.xml" 200 "this is not xml"
   self_test_expect fail "sitemap is well-formed XML" check_sitemap
-  self_test_route_scenario "/sitemap-index.xml" 200 "<sitemapindex><sitemap><loc>https://automancer.uk/sitemap-0.xml</loc></sitemap></sitemapindex>"
+  self_test_scenario '{"routes":{"/sitemap-index.xml":{"status":200,"body":"<sitemapindex><sitemap><loc>https://automancer.uk/sitemap-0.xml</loc></sitemap></sitemapindex>"},"/sitemap-0.xml":{"status":200,"body":"not xml"}},"default":{"status":404,"body":""}}'
+  self_test_expect fail "sitemap's child sitemaps parse" check_sitemap
+  self_test_scenario '{"routes":{"/sitemap-index.xml":{"status":200,"body":"<sitemapindex><sitemap><loc>https://automancer.uk/sitemap-0.xml</loc></sitemap></sitemapindex>"},"/sitemap-0.xml":{"status":200,"body":"<urlset></urlset>"}},"default":{"status":404,"body":""}}'
   self_test_expect pass "sitemap is well-formed XML" check_sitemap
+  self_test_expect pass "sitemap's child sitemaps parse" check_sitemap
+
+  self_test_scenario '{"routes":{"/api/index.json":{"status":200,"body":"{\"endpoints\":[{\"path\":\"/api/a.json\"}]}"},"/api/a.json":{"status":200,"body":"<html>a Pages error page</html>"},"/openapi.json":{"status":200,"body":"{}"}},"default":{"status":404,"body":""}}'
+  self_test_expect fail "every listed API endpoint serves JSON" check_api_surface
+  self_test_scenario '{"routes":{"/api/index.json":{"status":200,"body":"{\"endpoints\":[{\"path\":\"/api/a.json\"}]}"},"/api/a.json":{"status":200,"body":"{}"}},"default":{"status":404,"body":""}}'
+  self_test_expect fail "openapi.json is part of the API surface" check_api_surface
+  self_test_scenario '{"routes":{"/api/index.json":{"status":200,"body":"{\"endpoints\":[{\"path\":\"/api/a.json\"}]}"},"/api/a.json":{"status":200,"body":"{}"},"/openapi.json":{"status":200,"body":"{}"}},"default":{"status":404,"body":""}}'
+  self_test_expect pass "every listed API endpoint serves JSON" check_api_surface
+  self_test_expect pass "openapi.json is part of the API surface" check_api_surface
 
   self_test_route_scenario "/agent.json" 200 "{ not json"
   self_test_expect fail "agent manifest is valid JSON" check_agent_manifest
@@ -1196,12 +1275,17 @@ Canonical: https://example.com/security.txt
   log "Fixture server on 127.0.0.1:${port} (pid ${pid}) stopped and gone."
 
   log ""
+  # An assertion only proven in one direction proves nothing about the other.
+  for i in "${!SELF_TEST_DIRECTIONS[@]}"; do
+    [[ ${SELF_TEST_DIRECTIONS[$i]} == *fail* && ${SELF_TEST_DIRECTIONS[$i]} == *pass* ]] ||
+      SELF_TEST_FAILURES+=("${i} (only driven to ${SELF_TEST_DIRECTIONS[$i]% })")
+  done
   if (( ${#SELF_TEST_FAILURES[@]} > 0 )); then
     log "SELF-TEST RESULT: ${#SELF_TEST_FAILURES[@]} direction(s) FAILED:"
     for i in "${SELF_TEST_FAILURES[@]}"; do log "  - $i"; done
     exit 1
   fi
-  log "SELF-TEST RESULT: all 28 locally isolatable assertions across 11 checks can fail AND can pass."
+  log "SELF-TEST RESULT: all ${#SELF_TEST_DIRECTIONS[@]} locally isolatable assertions across ${#SELF_TEST_CHECKS[@]} checks can fail AND can pass."
 }
 main() {
   if [[ ${1:-} == '--self-test' ]]; then
@@ -1249,6 +1333,7 @@ main() {
   if ! poll_check "${SITEMAP_PATH} answers 200 and parses as XML" check_sitemap; then :; fi
   if ! poll_check "${AGENT_MANIFEST_PATH} answers 200 and parses as JSON" check_agent_manifest; then :; fi
   if ! poll_check "${STABILITY_POLICY_PATH} answers 200 and serves the published policy" check_stability_policy; then :; fi
+  if ! poll_check "every /api/index.json endpoint and /openapi.json answer 200 with JSON" check_api_surface; then :; fi
   if ! poll_check "${SECURITY_TXT_PATH} answers 200 and satisfies RFC 9116" check_security_txt; then :; fi
   if ! poll_check "homepage contains structural anchor \"${HOMEPAGE_ANCHOR}\"" check_homepage_anchor; then :; fi
   if [[ -n $EXPECTED_REVISION ]]; then

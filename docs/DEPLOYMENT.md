@@ -283,7 +283,9 @@ curl -s -o /dev/null -w '%{http_code}\n' https://automancer.uk/definitely-not-a-
 ```
 
 `ops/verify-production.sh` automates a stronger version of this: page
-statuses, a real (not soft) 404, `llms.txt`, sitemap XML validity, the legal
+statuses, a real (not soft) 404, `llms.txt`, sitemap XML validity (the index
+and every sitemap it lists), every endpoint `/api/index.json` lists plus
+`/openapi.json` answering 200 with valid JSON, the legal
 footer anchor on the homepage, and TLS certificate expiry more than 21 days
 out (`TLS_MIN_DAYS=21` in the script — corrected from "14" on 2026-09-22; the
 threshold must sit below Let's Encrypt's ~29-day renewal point) — each

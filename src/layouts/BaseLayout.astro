@@ -4,8 +4,8 @@ import JsonLd from '../components/JsonLd.astro';
 import Nav from '../components/Nav.astro';
 import Footer from '../components/Footer.astro';
 import { founderNode, organizationNode, websiteNode, webPageNode } from '../data/jsonld';
-import { staticPages } from '../data/site-content';
-import { pagePath } from '../data/urls';
+import { markdownTwinPath, staticPages } from '../data/site-content';
+import { abs, pagePath } from '../data/urls';
 import '../styles/global.css';
 
 export interface Props {
@@ -17,9 +17,12 @@ export interface Props {
   schema?: Record<string, unknown>[];
   /** WebPage subtype for structured data (ContactPage, AboutPage, …). */
   pageType?: string;
+  /** Site path of this page's Markdown twin, where it is not a static page. */
+  markdown?: string;
 }
 
-const { title, description, image, ogType = 'website', schema = [], pageType } = Astro.props;
+const { title, description, image, ogType = 'website', schema = [], pageType, markdown } = Astro.props;
+const markdownUrl = markdown ? abs(markdown) : markdownTwinPath(Astro.url.pathname);
 
 // A static page's JSON-LD type comes from its staticPages entry (the same one
 // /api/pages.json publishes), limited to real schema.org WebPage subtypes:
@@ -36,6 +39,7 @@ const jsonLdType = pageType ?? (listedType && SCHEMA_PAGE_TYPES.has(listedType) 
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#000000" />
     <SEO title={`${title} | Automancer`} description={description} image={image} type={ogType} />
+    {markdownUrl && <link rel="alternate" type="text/markdown" href={markdownUrl} />}
 
     <link rel="icon" type="image/png" sizes="32x32" href="/assets/images/favicon-32.png" />
     <link rel="icon" type="image/png" sizes="16x16" href="/assets/images/favicon-16.png" />

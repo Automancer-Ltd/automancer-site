@@ -145,7 +145,7 @@ const steps = [
 
           <div id="form-confirm" class="form-confirm" style="display:none" role="status" aria-live="polite">
             <p class="sys sys--spectral" style="margin-bottom: var(--sp-4)">received</p>
-            <h2>Thanks — that's landed with Waseem.</h2>
+            <h2 tabindex="-1">Thanks — that's landed with Waseem.</h2>
             <p>
               He reads these himself, and you'll get a personal reply. We promise a meeting within one
               week of first contact. No chatbot, no queue.
@@ -312,6 +312,10 @@ const steps = [
               form.style.display = 'none';
               confirmEl.style.display = 'block';
               confirmEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              // The focused Send button was just hidden with the form; land
+              // keyboard and screen-reader users on the confirmation instead.
+              var confirmHeading = confirmEl.querySelector('h2');
+              if (confirmHeading && confirmHeading.focus) confirmHeading.focus({ preventScroll: true });
               return;
             }
           }

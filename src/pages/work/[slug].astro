@@ -26,7 +26,7 @@ const d = entry.data;
 
 {/* SERP metadata is length-fitted (see src/lib/meta.ts); the visible
      headline below keeps the frontmatter copy verbatim. */}
-<BaseLayout title={fitTitle(d.title)} description={fitDescription(d.description)}>
+<BaseLayout title={fitTitle(d.title)} description={fitDescription(d.description)} markdown={`/work/${entry.id}.md`}>
   <!-- Designed hero -->
   <article>
     <header class="page-hero hatch">
