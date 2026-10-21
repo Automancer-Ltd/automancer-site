@@ -18,6 +18,7 @@
 import { business } from './business';
 import { build } from './build';
 import { API_ENDPOINTS } from './api';
+import { DEPRECATION_POLICY, DEPRECATIONS } from './stability';
 
 type JsonSchema = Record<string, unknown>;
 
@@ -443,7 +444,8 @@ export function openApiSpec() {
         business.url +
         '/developers — start there, or at ' +
         business.url +
-        '/api/index.json for machine discovery.',
+        '/api/index.json for machine discovery.\n\n' +
+        `Versioning and deprecation: this is version 1 of the API. A breaking change is published at a new versioned path (/api/v2/<name>.json) while the old path keeps its shape; a removal is announced in ${business.url}/api/stability.json \`deprecations\` at least ${DEPRECATION_POLICY.minimumNoticeDays} days before its sunset date. New fields and endpoints may be added at any deploy.`,
       contact: {
         name: business.tradingName,
         email: business.email,
@@ -462,6 +464,12 @@ export function openApiSpec() {
     ],
     paths,
     components: { schemas },
+    'x-deprecation-policy': {
+      url: `${business.url}/api/stability.json`,
+      minimumNoticeDays: DEPRECATION_POLICY.minimumNoticeDays,
+      procedure: DEPRECATION_POLICY.procedure,
+      deprecations: DEPRECATIONS,
+    },
     'x-generated-at': build.time.toISOString(),
     'x-markdown-twins': {
       description:

@@ -1,6 +1,6 @@
 // /agent.json — the SERVED copy of the agent capability manifest.
 //
-// GitHub Pages does not serve dot-prefixed paths (measured live 2026-08-22:
+// Until 22 Oct 2026 the deploy dropped dot-prefixed paths from its upload (measured live 2026-08-22:
 // /.well-known/agent.json returns 404 in production even with .nojekyll in
 // the artifact), so this non-dot route is where agents can actually fetch
 // the manifest. Both this route and /.well-known/agent.json render from the

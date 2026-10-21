@@ -93,7 +93,7 @@ export const NOT_PROMISED: string[] = [
   'Response headers of any kind, including `Deprecation`, `Sunset` and `Link` — see `deprecation.httpHeaders`.',
   'Rate limits: none is enforced and none is guaranteed. Payloads change only at deploy, so cache them.',
   'An uptime SLA. Production is checked after every deploy and every 30 minutes afterwards; that is monitoring, not a promise of availability.',
-  'The `/.well-known/` copies of agent.json and security.txt: this host answers 404 for dot-prefixed paths (measured live 2026-08-22). Use /agent.json and /security.txt, which is what every surface advertises.',
+  'The `/.well-known/` copies of agent.json and security.txt. They are served (they answered 404 until 22 Oct 2026), but /agent.json and /security.txt are what every surface advertises: rely on those.',
   'The wording and layout of the HTML pages, as long as the facts they state stay the same.',
 ];
 

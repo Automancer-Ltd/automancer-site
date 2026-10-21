@@ -464,7 +464,7 @@ describe('JSON-LD — Person and ProfessionalService nodes are complete', () => 
       for (const block of blocks) {
         const graph = (JSON.parse(block.text) as { '@graph'?: Spec[] })['@graph'] ?? [];
         for (const node of graph) {
-          if (node['@type'] !== 'ProfessionalService') continue;
+          if (![node['@type']].flat().includes('ProfessionalService')) continue;
           seen++;
           expect(node.name, `${page.route}: org node lacks name`).toBeTruthy();
           expect(node.description, `${page.route}: org node lacks description`).toBeTruthy();

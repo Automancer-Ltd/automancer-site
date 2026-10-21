@@ -5,7 +5,7 @@
 //   /security.txt               (src/pages/security.txt.ts — SERVED by GitHub Pages)
 //   /.well-known/security.txt   (injected in astro.config.mjs — standardised location)
 //
-// GitHub Pages does not serve dot-prefixed paths (measured live 2026-08-22,
+// Until 22 Oct 2026 the deploy dropped dot-prefixed paths from its upload (measured live 2026-08-22,
 // with .nojekyll present), so /security.txt is where the file actually
 // resolves; the /.well-known/ route stays emitted for when the host supports
 // it. Canonical MUST name a URL the file is really served from (RFC 9116
