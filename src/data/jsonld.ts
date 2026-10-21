@@ -12,6 +12,8 @@ import { business } from './business';
 import { pagePath } from './urls';
 
 const ORG_ID = `${business.url}/#organization`;
+/** The company's public Companies House record (checked 21 October 2026). */
+const COMPANIES_HOUSE_URL = 'https://find-and-update.company-information.service.gov.uk/company/17060907';
 const SITE_ID = `${business.url}/#website`;
 
 /** The founder Person node — referenced by @id from org, articles, notes. */
@@ -61,7 +63,7 @@ export function organizationNode() {
     // The Companies House record is the one verified profile. VAT number and
     // social profiles are not published anywhere verified, so no taxID and no
     // other sameAs. Add only when a real profile exists.
-    sameAs: [business.companiesHouseUrl],
+    sameAs: [COMPANIES_HOUSE_URL],
     founder: { '@id': founderNode()['@id'] },
   };
 }
