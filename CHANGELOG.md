@@ -1,5 +1,23 @@
 # Release notes
 
+## v2026.10.21.8 — 21 October 2026
+
+The website is easier for people and services to navigate, with clearer links to its information and more helpful responses when a page or API request cannot be found.
+
+### Improvements
+
+- Pages with a Markdown version now provide it to visitors and services that request it.
+- Website pages link to the sitemap, AI guidance, API details, and the homepage’s Markdown version, making this information easier to discover.
+- The homepage now shares the same structured service and pricing details as the Services page, helping services understand what Automancer offers.
+
+### Fixes
+
+- When a page or API request cannot be found, the site provides a helpful error response.
+- The API reference now documents error responses for unavailable pages and server problems.
+- The service directory now includes a link to every listed endpoint.
+- The site’s service information now includes its version and website address.
+
+
 ## v2026.10.21.7 — 21 October 2026
 
 People can now find Automancer’s security contact and service details at the standard web addresses.
