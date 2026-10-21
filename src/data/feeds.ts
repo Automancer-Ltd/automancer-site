@@ -42,7 +42,7 @@ export async function studyFeedItems(): Promise<FeedItem[]> {
     return {
       slug: e.id,
       path: pagePath(`/work/${e.id}`),
-      title: e.data.headline ?? e.data.title,
+      title: e.data.title,
       description: e.data.description,
       date: e.data.date,
       body: parts.join('\n').trim() + '\n',

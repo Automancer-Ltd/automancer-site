@@ -13,7 +13,8 @@ export const GET: APIRoute = async () => {
     note: 'All case studies are anonymised at launch until written client sign-off; every fact is taken from real delivered work.',
     caseStudies: studies.map((e) => ({
       slug: e.id,
-      title: e.data.headline ?? e.data.title,
+      title: e.data.title,
+      headline: e.data.headline,
       description: e.data.description,
       url: abs(`/work/${e.id}`),
       markdownUrl: abs(`/work/${e.id}.md`),

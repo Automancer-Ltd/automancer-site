@@ -432,6 +432,20 @@ describe('/api/*.json endpoints', () => {
       payload['pages'].length
     );
   });
+
+  it("pages.json names every page as its HTML <title> does", () => {
+    const payload = parsed.get('api/pages.json');
+    assertJsonObject(payload, 'api/pages.json');
+    assertJsonArray<{ url: string; title: string }>(payload['pages'], 'api/pages.json', '"pages"');
+    const byRoute = new Map(contentPages().map((p) => [p.route, p]));
+    for (const entry of payload['pages']) {
+      const route = new URL(entry.url).pathname;
+      const htmlTitle = byRoute.get(route)?.doc.querySelector('title')?.text.trim();
+      expect(htmlTitle, `api/pages.json: title "${entry.title}" disagrees with ${route} <title>`).toBe(
+        `${fitTitle(entry.title)} | Automancer`
+      );
+    }
+  });
 });
 
 describe('security.txt — RFC 9116, served from one builder at two routes', () => {

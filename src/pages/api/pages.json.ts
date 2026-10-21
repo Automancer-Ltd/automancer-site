@@ -28,7 +28,7 @@ export const GET: APIRoute = async () => {
     })),
     ...studies.map((e) => ({
       url: abs(`/work/${e.id}`),
-      title: e.data.headline ?? e.data.title,
+      title: e.data.title,
       description: e.data.description,
       markdownUrl: abs(`/work/${e.id}.md`),
       type: 'CaseStudy',
