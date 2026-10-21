@@ -75,9 +75,9 @@ describe('/llms.txt — anti-drift vs src/data/business.ts', () => {
     expect(phoneLine, 'llms.txt has no Phone line').toBeTruthy();
     // Byte-identical phone number, including spacing.
     expect(phoneLine).toContain(`Phone: ${business.phone} `);
-    const devDocsLine = lines.find((l) => l.includes('Developer docs:'));
+    const devDocsLine = lines.find((l) => l.includes('[Developer docs]('));
     expect(devDocsLine, 'llms.txt has no Developer docs line').toBeTruthy();
-    expect(devDocsLine).toContain(`Developer docs: ${abs('/developers')} — `);
+    expect(devDocsLine).toContain(`[Developer docs](${abs('/developers')}): `);
   });
 
   it('states every service price byte-identically to business.ts', () => {

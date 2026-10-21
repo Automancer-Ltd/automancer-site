@@ -315,7 +315,12 @@ strong { font-weight: 600; color: inherit; }
   transform: translateX(100%); visibility: hidden;
   transition: transform var(--dur-3) var(--ease-out-expo), visibility var(--dur-3);
 }
-.mobile-menu.is-open { transform: none; visibility: visible; }
+.mobile-menu.is-open {
+  transform: none; visibility: visible;
+  /* Visible at once on open, so focus can move into it; the delayed
+     visibility above only keeps it showing while it slides out. */
+  transition: transform var(--dur-3) var(--ease-out-expo), visibility 0s;
+}
 .mobile-menu__link {
   font-family: var(--font-display); font-weight: 700; font-size: var(--t-3);
   letter-spacing: -0.03em; color: var(--white);
