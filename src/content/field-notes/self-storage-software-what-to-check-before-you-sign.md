@@ -85,7 +85,7 @@ has grown past what running your own would cost, or when the platform cannot
 do the one thing your business actually depends on and the roadmap answer is
 "not this year". That is the calculation a UK plastics manufacturer went
 through before we built their [trade
-portal](/work/manufacturer-trade-portal). Account-specific pricing that used to
+portal](/work/manufacturer-trade-portal/). Account-specific pricing that used to
 live in people's heads is now computed by a rules engine, with ordering,
 production and dispatch in one flow, Phase 1 signed off in April 2026.
 Different sector, same question: at what point does renting someone else's
@@ -93,7 +93,7 @@ approximation cost more than owning the real thing?
 
 Ours are published, so you can do that sum without booking anything. An
 Automation Opportunity Audit is from £450, and a System / Agent Build is from
-£4,500. They are on the [services page](/services) with everything else.
+£4,500. They are on the [services page](/services/) with everything else.
 
 ## What I'd actually do about it
 
@@ -114,7 +114,7 @@ on this page.
 If you want a second pair of eyes on it, that is what an Automation
 Opportunity Audit is for: from £450, credited in full against any project you
 go on to do, and you keep the plan either way. Or just fill in [the
-form](/contact). Waseem reads it himself and emails you back, we promise a
+form](/contact/). Waseem reads it himself and emails you back, we promise a
 meeting within one week, and a human makes every decision along the way.
 
 *We build software, we are not solicitors, and none of the above is legal

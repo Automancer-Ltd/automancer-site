@@ -93,6 +93,6 @@ product, they have not drawn it for yours either.
 This is what governed AI actually looks like: not a human in every step, but
 a human at the two steps that matter, and a tight, monitored, reconciled
 loop for everything in between. If you want to see what that looks like on a
-real system rather than a description of one, [how we work](/about) covers
-the rest of it, or an [Automation Opportunity Audit](/services) is where we
+real system rather than a description of one, [how we work](/about/) covers
+the rest of it, or an [Automation Opportunity Audit](/services/) is where we
 map the same question onto your business.

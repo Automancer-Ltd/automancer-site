@@ -84,6 +84,23 @@ describe('internal references resolve to emitted files', () => {
   });
 });
 
+describe('internal page links', () => {
+  it('link to the URL GitHub Pages serves, with its trailing slash', () => {
+    // GitHub Pages answers /contact with a 301 to /contact/, so every click
+    // on a slashless link pays one extra round trip before the page loads.
+    const offenders = refs.filter((r) => {
+      if (r.attr !== 'href' || !r.value.startsWith('/') || r.value.startsWith('//')) return false;
+      const path = r.value.split(/[?#]/)[0]!;
+      const last = path.split('/').pop()!;
+      return !path.endsWith('/') && !last.includes('.');
+    });
+    expect(
+      offenders.map((r) => `${r.page}: href="${r.value}"`),
+      'internal links without a trailing slash (each costs a redirect)'
+    ).toEqual([]);
+  });
+});
+
 describe('outbound reference policy', () => {
   it('never points at localhost or a loopback address', () => {
     const offenders = refs.filter((r) => {

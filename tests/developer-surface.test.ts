@@ -298,7 +298,7 @@ describe('/developers — human-readable docs linked from the homepage', () => {
     expect(
       hrefsOf(homepage!),
       'the homepage must link /developers — the is-agentic finding was exactly this gap'
-    ).toContain('/developers');
+    ).toContain('/developers/');
   });
 
   it('llms.txt and robots.txt advertise both /developers and /openapi.json', () => {
@@ -392,7 +392,7 @@ describe('404 page — machine-readable recovery block', () => {
   it('points stranded agents at the four wayfinding surfaces', () => {
     expect(notFound, 'dist/404.html missing').toBeTruthy();
     const hrefs = notFound.doc.querySelectorAll('a[href]').map((a) => a.getAttribute('href') ?? '');
-    for (const path of ['/sitemap-index.xml', '/llms.txt', '/llms-full.txt', '/developers']) {
+    for (const path of ['/sitemap-index.xml', '/llms.txt', '/llms-full.txt', '/developers/']) {
       expect(hrefs, `the 404 recovery block must link ${path}`).toContain(path);
     }
   });
