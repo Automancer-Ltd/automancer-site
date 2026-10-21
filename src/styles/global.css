@@ -217,13 +217,14 @@ strong { font-weight: 600; color: inherit; }
 .wrap--wide { max-width: var(--w-wide); }
 .wrap--text { max-width: var(--w-text); }
 .section { padding-block: var(--section-y); position: relative; }
-.section.on-near + .section.on-near { padding-top: 0; }
 .section--tight { padding-block: clamp(3rem, 6vw, 5rem); }
 
 .on-dark  { background: var(--bg); color: var(--ink); }
 .on-near  { background: var(--near); color: var(--ink); }
 .on-paper { background: var(--paper); color: var(--ink-dark); }
 .on-paper-2 { background: var(--paper-2); color: var(--ink-dark); }
+/* Adjacent sections on the same surface don't stack two paddings. */
+.section.on-near + .section.on-near { padding-top: 0; }
 .on-paper h1, .on-paper h2, .on-paper h3, .on-paper h4,
 .on-paper-2 h1, .on-paper-2 h2, .on-paper-2 h3, .on-paper-2 h4 { color: var(--ink-dark); }
 
@@ -447,6 +448,7 @@ strong { font-weight: 600; color: inherit; }
 .section-head h2 { font-size: var(--t-section); line-height: 1.05; letter-spacing: -0.035em; }
 .section-head p:not(.eyebrow) { margin-top: var(--sp-5); font-size: var(--t-1); color: var(--muted); max-width: 60ch; }
 .on-paper .section-head p, .on-paper-2 .section-head p { color: var(--muted-dark); }
+.section-head h2 + ul { margin-top: var(--sp-5); }
 
 /* ─────────────────────────── Hero (home) ─────────────────────────── */
 .hero {
