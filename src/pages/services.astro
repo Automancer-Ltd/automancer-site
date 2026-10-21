@@ -1,6 +1,7 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 import { formatGBP, serviceById } from '../data/business';
+import { serviceCatalogNode } from '../data/jsonld';
 import { staticPages } from '../data/site-content';
 
 const audit = serviceById('automation-opportunity-audit');
@@ -97,6 +98,7 @@ const faqs = [
 <BaseLayout
   title="Services & pricing"
   description={servicesDescription}
+  schema={[serviceCatalogNode()]}
 >
   <!-- Hero -->
   <section class="page-hero hatch">

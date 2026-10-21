@@ -34,7 +34,7 @@ Provide a truthful public front door for Automancer. Give people and machines th
 
 ### Shared business truth
 
-- What it does: Holds business facts, service data, page metadata, canonical URLs, and structured-data builders. Human and machine surfaces read these shared modules. Published from-prices on the human pages are rendered from `services` in `business.ts`, the same array `/api/services.json` publishes. Field-note prose still quotes those prices; the build fails if a from-price in the output is not one of them.
+- What it does: Holds business facts, service data, page metadata, canonical URLs, and structured-data builders. Human and machine surfaces read these shared modules. Published from-prices on the human pages, `/api/services.json`, and `/services/` schema.org `Offer` entries all derive from `services` in `business.ts`; the dist tests compare them. Field-note prose still quotes those prices; the build fails if a from-price in the output is not one of them.
 - State: built
 - Shaped by: `src/data/business.ts`, `src/data/static-markdown.ts`, `src/data/urls.ts`, and `src/data/jsonld.ts`.
 

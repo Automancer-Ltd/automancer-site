@@ -8,7 +8,7 @@
  *     support: no aggregateRating, no review, no invented sameAs, no
  *     priceValidUntil. Omit rather than guess.
  */
-import { business } from './business';
+import { business, services } from './business';
 import { pagePath } from './urls';
 
 const ORG_ID = `${business.url}/#organization`;
@@ -78,6 +78,52 @@ export function websiteNode() {
     publisher: { '@id': ORG_ID },
     inLanguage: 'en-GB',
     // No potentialAction SearchAction: the site has no search feature.
+  };
+}
+
+/** Published service prices for agents; generated from the same source as /services and /api/services.json. */
+export function serviceCatalogNode() {
+  return {
+    '@type': 'Service',
+    '@id': `${business.url}/services/#service`,
+    name: `${business.tradingName} — AI & workflow automation services`,
+    description:
+      'Automation audits, workflow implementation, custom AI systems and ongoing operations support for UK small businesses.',
+    provider: { '@id': ORG_ID },
+    areaServed: business.areasServed,
+    hasOfferCatalog: {
+      '@type': 'OfferCatalog',
+      '@id': `${business.url}/services/#offer-catalog`,
+      name: 'Services and published from-prices (GBP, excluding VAT)',
+      itemListElement: services.map((service) => ({
+        '@type': 'Offer',
+        '@id': `${business.url}/services/#offer-${service.id}`,
+        name: service.name,
+        description: service.description,
+        itemOffered: {
+          '@type': 'Service',
+          name: service.name,
+          description: service.description,
+          provider: { '@id': ORG_ID },
+        },
+        priceSpecification:
+          service.priceUnit === 'month'
+            ? {
+                '@type': 'UnitPriceSpecification',
+                price: service.priceFrom,
+                priceCurrency: 'GBP',
+                description: 'Published from-price, excluding VAT.',
+                billingIncrement: 1,
+                unitCode: 'MON',
+              }
+            : {
+                '@type': 'PriceSpecification',
+                price: service.priceFrom,
+                priceCurrency: 'GBP',
+                description: 'Published from-price, excluding VAT.',
+              },
+      })),
+    },
   };
 }
 
