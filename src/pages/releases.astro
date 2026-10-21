@@ -24,7 +24,7 @@ const releases = await getReleases();
   <section class="section on-dark">
     <div class="wrap">
       {releases.map((r) => (
-        <article id={r.version} class="prose" style="margin-inline:0; margin-bottom: clamp(3rem, 6vw, 4.5rem)">
+        <article id={r.version} class="prose" style="margin-inline:0; margin-bottom: clamp(3rem, 6vw, 4.5rem); scroll-margin-top: 6.5rem">
           <p class="article-meta"><span>{r.version}</span></p>
           <h2 style="margin-top: var(--sp-2)"><time datetime={r.date}>{r.displayDate}</time></h2>
           <Fragment set:html={r.html} />
