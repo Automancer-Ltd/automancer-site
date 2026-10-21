@@ -6,6 +6,7 @@ import Footer from '../components/Footer.astro';
 import { founderNode, organizationNode, websiteNode, webPageNode } from '../data/jsonld';
 import { markdownTwinPath, staticPages } from '../data/site-content';
 import { abs, pagePath } from '../data/urls';
+import { build } from '../data/build';
 import '../styles/global.css';
 
 export interface Props {
@@ -39,6 +40,8 @@ const jsonLdType = pageType ?? (listedType && SCHEMA_PAGE_TYPES.has(listedType) 
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#000000" />
     <meta name="is-agentic-site-type" content="business" />
+    {/* The full commit this page was built from: deploy checks compare it with the commit shipped. */}
+    {build.commitFull && <meta name="build-revision" content={build.commitFull} />}
     <SEO title={`${title} | Automancer`} description={description} image={image} type={ogType} />
     {markdownUrl && <link rel="alternate" type="text/markdown" href={markdownUrl} />}
 

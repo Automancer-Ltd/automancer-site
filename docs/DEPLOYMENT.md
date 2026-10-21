@@ -15,7 +15,8 @@
 3. Record the production verification with estate-watch (`deploy-verify` skill in Executor):
    `deploy.start({ product: "site", url: "https://automancer.uk", commit })` before the merge,
    `deploy.verify({ run })` after the deploy run is green, `deploy.get({ run })` for the verdict.
-   The homepage footer names the short revision (`deploy.json` holds the regex Guardian reads).
+   Every page names its full commit in `<meta name="build-revision">`, which the version check
+   matches; the footer shows the short form (`deploy.json` holds the regex Guardian reads).
 
 There is no database, migration or operator step. Docs-only changes still deploy (the build stamp
 changes); they are cheap.
