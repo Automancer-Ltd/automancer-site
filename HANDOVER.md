@@ -7,7 +7,7 @@ It does not outrank anything: `VISION.md` is authority 0, `SPEC.md` describes wh
 `docs/PLAN.md` holds the older campaign carry-overs. When this file and `SPEC.md` disagree about
 what exists, `SPEC.md` and the code are right and this file is out of date.
 
-Last updated: 20 October 2026 (slice: published stability & deprecation policy, `/api/stability.json`).
+Last updated: 21 October 2026 (next slices brought up to date: claims and the re-measure shipped; releases drafted).
 
 ## Where the site stands against the vision
 
@@ -74,19 +74,17 @@ entry and verifier check live in the same commit.
 
 ## Next three slices, in order
 
-1. **A public releases surface.** `CHANGELOG.md` is the estate's one honest record of what changed,
-   and no visitor or agent can read it. Publish `/releases/` (HTML) and `/api/releases.json` from
-   that file as the single source, linked from `/developers` and `llms.txt`. It makes "a change is
-   announced" a real place, which is what the deprecation policy currently has to point at itself
-   for.
-2. **Claim provenance an agent can check.** `VISION.md` says every number traces to evidence
-   somebody else holds. Prices are enforced; the headline stats in the case studies are not. Add
-   `/api/claims.json` mapping each published number to the record that holds it, and a test that a
-   headline stat cannot exist without an entry.
-3. **Re-measure the agent-readiness score.** `docs/PLAN.md` §3 records 63/100 (22 Aug) → 79/100
-   (21 Sep) and six remaining failures; the versioning/deprecation finding has now been answered
-   with data. Re-scan and record both numbers together, and let the new failure list decide whether
-   anything else is worth the effort — measuring is the planned step here, not a slice in itself.
+1. **A public releases surface — drafted, waiting for Waseem.** `/releases/`, `/releases.md` and
+   `/api/releases.json`, all built from `CHANGELOG.md`, are in draft PR #84 (a new public page, so
+   it waits for his review). Its preview and board are linked from the PR.
+2. **Claim provenance for every case study.** `/api/claims.json` shipped in PR #90 for the
+   flagship care-provider case study, with a test that its numeric stats each have an entry. The
+   other case studies' headline numbers (for example the document-review prices on the debiaser
+   study) have none yet. Their evidence belongs in the `automancer-bd` truth layer
+   (`data/claims.toml`), which this repo only copies from, so the slice starts there, not here.
+3. **No third slice is planned.** The agent-readiness re-measure is done (21 October:
+   `docs/AGENT-READINESS.md`, "Re-measured 2026-10-21"). Its honest gaps were closed in PRs #85 and
+   #86, and the rest are deliberately not pursued. The open decisions below come first.
 
 ## Open questions
 
@@ -104,3 +102,8 @@ entry and verifier check live in the same commit.
   `VISION.md` forbids accounts, sessions and a site database. Until that changes, `agent.json` tells
   agents to use email — which is honest, and remains the weakest link for an agent acting on the
   site's behalf.
+- **Which name does each case study go by?** Each one shows a card title in some places and a
+  headline in others. Picking one changes visible wording, so it is Waseem's choice (tracker t4928).
+- **Should `/services/` publish its prices as schema.org `Offer` data?** The prices are already
+  public and enforced; marking them up asserts them to machines in a new form. Waseem's yes or no
+  (tracker t4930).
