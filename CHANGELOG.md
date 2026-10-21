@@ -1,5 +1,10 @@
 # Release notes
 
+## v2026.10.21.2 — 21 October 2026
+
+You can navigate the mobile menu and hear the contact form confirmation using a keyboard or screen reader.
+
+
 ## v2026.10.21.1 — 21 October 2026
 
 The site now makes prices and recovery links easier to see, and gives visitors clearer ways to contact Automancer.
