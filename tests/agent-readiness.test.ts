@@ -18,7 +18,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parse } from 'node-html-parser';
 import { describe, expect, it } from 'vitest';
-import { DIST, ROOT, SITE_URL, contentPages, readDistFile, resolveInDist } from './support/dist';
+import { DIST, ROOT, SITE_URL, allHtmlFiles, contentPages, readDistFile, resolveInDist } from './support/dist';
 import { contentEntries } from './support/content';
 import { business, formatGBP, services } from '../src/data/business';
 import { fitDescription, fitTitle } from '../src/lib/meta';
@@ -182,6 +182,19 @@ describe('markdown twins — every content page also speaks Markdown', () => {
         raw.slice(fmMatch![0].length).trim().length,
         `dist/${twinPath} has NOTHING below its front matter — an entry was published without content`
       ).toBeGreaterThan(0);
+    }
+  });
+
+  it('each page advertises exactly its own twin, and a page with no twin advertises none', () => {
+    // An agent follows <link rel="alternate" type="text/markdown">; one
+    // pointing at a missing twin, or at another page's, is worse than none.
+    const twinByRoute = new Map([...expectedTwins].map(([twin, route]) => [route, `${SITE_URL}/${twin}`]));
+    for (const page of allHtmlFiles()) {
+      const hrefs = page.doc
+        .querySelectorAll('link[rel="alternate"][type="text/markdown"]')
+        .map((l) => l.getAttribute('href'));
+      const want = twinByRoute.get(page.route);
+      expect(hrefs, `${page.route}: Markdown alternate link(s)`).toEqual(want ? [want] : []);
     }
   });
 

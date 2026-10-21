@@ -27,7 +27,7 @@ const fmt = (dt: Date) =>
 
 {/* SERP metadata is length-fitted (see src/lib/meta.ts); the visible
      article title below keeps the frontmatter copy verbatim. */}
-<BaseLayout title={fitTitle(d.title)} description={fitDescription(d.description)} ogType="article">
+<BaseLayout title={fitTitle(d.title)} description={fitDescription(d.description)} ogType="article" markdown={`/field-notes/${entry.id}.md`}>
   <Fragment slot="head">
     <JsonLd
       nodes={[articleNode({ path: Astro.url.pathname, title: d.title, description: d.description, date: d.date, author: d.author, body: entry.body })]}
