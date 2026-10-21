@@ -3,7 +3,7 @@
 //   /agent.json                 (src/pages/agent.json.ts — SERVED by GitHub Pages)
 //   /.well-known/agent.json     (injected in astro.config.mjs — standardised location)
 //
-// GitHub Pages does not serve dot-prefixed paths (measured live 2026-08-22,
+// Until 22 Oct 2026 the deploy dropped dot-prefixed paths from its upload (measured live 2026-08-22,
 // with .nojekyll present), so /agent.json is the canonical copy agents can
 // actually fetch; the /.well-known/ route stays emitted for when the host
 // supports it. The manifest deliberately contains NO self-URL: both routes

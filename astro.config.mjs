@@ -29,10 +29,10 @@ function withLastmod(item) {
  * injected explicitly. The handlers live in src/data/ next to the modules
  * they are generated from (business facts, build provenance).
  *
- * GitHub Pages does not serve dot-prefixed paths (measured 2026-08-22), so
- * these routes are the SECONDARY copies. The canonical, actually-served
- * twins /agent.json and /security.txt are ordinary scanned pages in
- * src/pages/, rendering from the same data modules — one source, no drift.
+ * Until 22 Oct 2026 the deploy's artifact upload dropped dot-prefixed paths,
+ * so /.well-known/ answered 404 and the non-dot twins /agent.json and
+ * /security.txt (ordinary pages in src/pages/) became the advertised copies.
+ * Both copies render from the same data modules — one source, no drift.
  */
 /** @type {import('astro').AstroIntegration} */
 const wellKnownRoutes = {
@@ -47,6 +47,16 @@ const wellKnownRoutes = {
       injectRoute({
         pattern: '/.well-known/security.txt',
         entrypoint: './src/data/wellknown-security.ts',
+        prerender: true,
+      });
+      injectRoute({
+        pattern: '/.well-known/ard.json',
+        entrypoint: './src/data/wellknown-ard.ts',
+        prerender: true,
+      });
+      injectRoute({
+        pattern: '/.well-known/api-catalog',
+        entrypoint: './src/data/wellknown-api-catalog.ts',
         prerender: true,
       });
     },

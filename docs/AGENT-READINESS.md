@@ -59,7 +59,15 @@ The dot-path serving constraint documented below remains in force and affects
 scoring similarly: `/.well-known/*` copies are emitted but 404 live, which is
 why every advertisement points at the servable non-dot paths instead.
 
-## Host constraint: GitHub Pages does not serve dot-prefixed paths
+## Host constraint (corrected 2026-10-22): the deploy dropped dot-prefixed paths, not GitHub Pages
+
+The 404s below were real, but the cause was ours. `actions/upload-pages-artifact` (v4 onwards)
+leaves out every dot-prefixed path unless `include-hidden-files: true` is set, so `.well-known/`
+never reached GitHub Pages. `.github/workflows/deploy.yml` now sets it, and
+`ops/verify-production.sh` checks in production that `/.well-known/security.txt`, `agent.json`,
+`ard.json` and `api-catalog` answer 200. The non-dot copies stay the advertised addresses, so
+nothing that already points at them changes. The history below is kept as measured.
+
 
 Measured live against production on 2026-08-22, with `.nojekyll` present in
 the deployed artifact:

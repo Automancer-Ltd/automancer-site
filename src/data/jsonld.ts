@@ -29,10 +29,10 @@ export function founderNode() {
   };
 }
 
-/** The canonical ProfessionalService node, shared by every page's @graph. */
+/** The canonical Organization + ProfessionalService node, shared by every page's @graph. */
 export function organizationNode() {
   return {
-    '@type': 'ProfessionalService',
+    '@type': ['Organization', 'ProfessionalService'],
     '@id': ORG_ID,
     name: business.tradingName,
     legalName: business.legalName,

@@ -33,6 +33,9 @@ readonly SITEMAP_PATH="/sitemap-index.xml"
 # shipped: green CI, green deploy, dead URLs that llms.txt advertised.
 readonly AGENT_MANIFEST_PATH="/agent.json"
 readonly SECURITY_TXT_PATH="/security.txt"
+# Standard-location copies. The Pages upload dropped dot-paths until 22 Oct 2026,
+# so production checks they are really served (a dist/ test cannot see that).
+readonly WELL_KNOWN_PATHS=("/.well-known/security.txt" "/.well-known/agent.json" "/.well-known/ard.json" "/.well-known/api-catalog")
 # The stability & deprecation policy. Checked for SHAPE, not just for a 200:
 # a promise an agent cannot trust is worse than no promise, and any old JSON
 # would pass a parse-only check.
@@ -571,6 +574,15 @@ PY
   printf 'GET /api/index.json -> its %d listed endpoints and /openapi.json all answer 200 with valid JSON\n' "$((n - 1))"
 }
 
+check_well_known() {
+  local path
+  for path in "${WELL_KNOWN_PATHS[@]}"; do
+    fetch_body "${BASE_URL}${path}" || return 1
+    rm -f "$BODY_FILE"
+  done
+  printf '%s -> 200\n' "${WELL_KNOWN_PATHS[*]}"
+}
+
 check_security_txt() {
   local url="${BASE_URL}${SECURITY_TXT_PATH}" verdict expected_canonical=''
   fetch_body "$url" || return 1
@@ -1093,6 +1105,12 @@ self_test() {
   self_test_expect pass "every listed API endpoint serves JSON" check_api_surface
   self_test_expect pass "openapi.json is part of the API surface" check_api_surface
 
+  self_test_route_scenario "/.well-known/security.txt" 200 "x"
+  self_test_expect fail "the /.well-known/ copies are all served" check_well_known
+  printf '{"routes":{%s},"default":{"status":404,"body":""}}\n' \
+    "$(printf '"%s":{"status":200,"body":"x"},' "${WELL_KNOWN_PATHS[@]}" | sed 's/,$//')" >"$SELFTEST_SCENARIO"
+  self_test_expect pass "the /.well-known/ copies are all served" check_well_known
+
   self_test_route_scenario "/agent.json" 200 "{ not json"
   self_test_expect fail "agent manifest is valid JSON" check_agent_manifest
   self_test_route_scenario "/agent.json" 200 "{}"
@@ -1335,6 +1353,10 @@ main() {
   if ! poll_check "${STABILITY_POLICY_PATH} answers 200 and serves the published policy" check_stability_policy; then :; fi
   if ! poll_check "every /api/index.json endpoint and /openapi.json answer 200 with JSON" check_api_surface; then :; fi
   if ! poll_check "${SECURITY_TXT_PATH} answers 200 and satisfies RFC 9116" check_security_txt; then :; fi
+  # Production only: the preview server is not the Pages upload this guards.
+  if (( ! PREVIEW_MODE )); then
+    if ! poll_check "the /.well-known/ copies are served" check_well_known; then :; fi
+  fi
   if ! poll_check "homepage contains structural anchor \"${HOMEPAGE_ANCHOR}\"" check_homepage_anchor; then :; fi
   if [[ -n $EXPECTED_REVISION ]]; then
     if ! poll_check "homepage serves expected build revision ${EXPECTED_REVISION}" check_revision; then :; fi
