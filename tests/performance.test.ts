@@ -31,6 +31,15 @@ const LAYOUT_MEASURED = 210164;
  */
 const LAYOUT_EXCEPTIONS: Record<string, { measured: number; reason: string }> = {};
 
+/**
+ * Pages whose own HTML grows with the record they publish, so any fixed total
+ * budget would fail every few releases. They keep the JS and font checks; the
+ * shared payload they carry is the one every other page's total already pins.
+ */
+const GROWS_WITH_CONTENT: Record<string, string> = {
+  '/releases/': 'the whole of CHANGELOG.md, about 1 KB of HTML per release',
+};
+
 /** Measured 2026-08-31: identical on every layout page (shared layout assets). */
 const MEASURED_JS = 4751; // dist/assets/js/main.js — the only external script
 const MEASURED_FONTS = 120620; // 4 variable woff2 files reachable from fonts.css
@@ -51,7 +60,7 @@ const defaultBudget = LAYOUT_MEASURED + headroom(LAYOUT_MEASURED);
 
 describe('page-weight budgets', () => {
   it('keeps every layout page within its total-weight budget', () => {
-    for (const p of layoutPages) {
+    for (const p of layoutPages.filter((page) => !(page.route in GROWS_WITH_CONTENT))) {
       const measured = LAYOUT_EXCEPTIONS[p.route]?.measured ?? LAYOUT_MEASURED;
       const budget = measured + headroom(measured);
       expect(
@@ -61,6 +70,11 @@ describe('page-weight budgets', () => {
           'Something got heavier — see docs/PERFORMANCE.md for how to re-derive.',
       ).toBeLessThanOrEqual(budget);
     }
+  });
+
+  it('names only built pages as growing with their content', () => {
+    const missing = Object.keys(GROWS_WITH_CONTENT).filter((route) => !layoutPages.some((p) => p.route === route));
+    expect(missing, 'GROWS_WITH_CONTENT names pages the build no longer emits — delete them').toEqual([]);
   });
 
   it('lists only live exceptions that the default budget would reject', () => {
