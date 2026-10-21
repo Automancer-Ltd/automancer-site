@@ -1,7 +1,33 @@
 # Agent-readiness — automancer.uk against is-agentic.com
 
 Status: **shipped on `main` in `v2026.08.22.1`** (merge `4f2e4a8`, 22 August 2026).
-Last reviewed: 31 August 2026.
+Last reviewed: 21 October 2026.
+
+## Re-measured 2026-10-21 — the scanner has changed, so the numbers do not compare
+
+A fresh scan (`GET https://is-agentic.com/api/scan/stream?target=automancer.uk`, scanned
+2026-10-21T01:22:22.658Z, report contract 1.35.0, now served by ora.ai) scored **58/100, grade C**.
+`npx is-agentic automancer.uk` does not rescan; on the same day it returned the stored
+21 September report, rescored under the current rubric at **77/100** (it measured 79 then).
+
+The fall is the rubric, not the site. The scanner now runs about 130 checks in four layers
+(Discovery 4/11, Access 45/54, Usability 37/73, Payments n/a) against the 30 it ran in September,
+and most new ones ask for things this site has no reason to have: an MCP server, OAuth metadata,
+an `auth.md`, payment protocols, SDKs, a CLI, a ChatGPT app, registry listings. It also classifies
+the site as a *business* site and scores that view **82**. Required checks: 14 pass, 11 fail.
+
+What the new list changed:
+
+- **Fixed:** "No sampled page advertises a markdown alternate." Every page with a twin now carries
+  `<link rel="alternate" type="text/markdown">`, tested in `tests/agent-readiness.test.ts`.
+- **Moved from fail to partial:** the versioning / deprecation policy (`/api/stability.json`). The
+  scanner wants it in the OpenAPI document as well.
+- **Honest and cheap, tracked:** `<lastmod>` in the sitemap, Markdown links in `llms.txt`, and a
+  `sameAs` link from the Organization node to the Companies House record.
+- **Not pursued:** MCP, WebMCP, OAuth, payments, CLI and SDKs, rate-limit headers and JSON error
+  bodies (a static host cannot send them), `/.well-known/api-catalog` (GitHub Pages does not serve
+  dot-paths, below), and the brand and search checks, which no page change answers honestly.
+  `VISION.md`: never change a page only to pass a check it does not deserve to pass.
 
 ## Measured baseline & response — official is-agentic.com scan, 2026-08-22
 

@@ -87,6 +87,12 @@ work bought. **Done looks like:** re-run and record both numbers together.
     remaining list above is what decides whether anything else is worth doing.
   - Remaining 3 partials: Agent-friendly 404s (Essential), Developer resource discoverability (Recommended), Brand name discoverability (Recommended).
 
+**Re-measured 2026-10-21:** **58 / 100** (grade C) on a rebuilt scanner of about 130 checks, against
+**77 / 100** for the stored September report rescored under the same rubric. The two September
+figures above came from a 30-check rubric and do not compare with either. What the new failures
+say, what was fixed and what is deliberately not pursued: `docs/AGENT-READINESS.md`, "Re-measured
+2026-10-21".
+
 ## 4. Two worktrees share this repo's git settings
 
 A `git config` change in one silently changes the other. **This is a live foot-gun, not a
