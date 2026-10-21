@@ -172,7 +172,8 @@ const schemas: Record<string, JsonSchema> = {
         items: obj(
           {
             slug: str('URL slug — the same id used by /work/<slug>.'),
-            title: str(),
+            title: str("The case study's name, as on its /work card and in its page <title>."),
+            headline: str("The editorial heading shown as the case study page's h1."),
             description: str(),
             url: uri(),
             markdownUrl: uri(),

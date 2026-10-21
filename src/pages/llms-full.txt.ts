@@ -43,11 +43,11 @@ export const GET: APIRoute = async () => {
   // straight from the collection entries.
   const [studies, notes] = await Promise.all([getStudies(), getNotes()]);
   for (const e of studies) {
-    const parts: string[] = [];
+    const parts: string[] = [`# ${e.data.headline ?? e.data.title}`, ''];
     if (e.data.subhead) parts.push(e.data.subhead, '');
     if (e.data.stats.length > 0) parts.push(...e.data.stats.map((s) => `- **${s.v}** — ${s.l}`), '');
     parts.push(e.body ?? '');
-    pushSection(`/work/${e.id}`, e.data.headline ?? e.data.title, e.data.description, parts.join('\n'));
+    pushSection(`/work/${e.id}`, e.data.title, e.data.description, parts.join('\n'));
   }
   for (const e of notes) {
     pushSection(`/field-notes/${e.id}`, e.data.title, e.data.description, e.body ?? '');

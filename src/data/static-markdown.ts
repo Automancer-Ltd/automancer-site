@@ -62,7 +62,7 @@ ${priceLine()}
 
 ${studies
   .slice(0, 3)
-  .map((e) => `- [${e.data.headline ?? e.data.title}](${abs(`/work/${e.id}`)}) — ${e.data.summary ?? e.data.description}`)
+  .map((e) => `- [${e.data.title}](${abs(`/work/${e.id}`)}) — ${e.data.summary ?? e.data.description}`)
   .join('\n')}
 
 Full list: ${abs('/work')}
@@ -219,7 +219,7 @@ Real systems, live in production. Case studies where every fact is taken from th
 ${studies
   .map(
     (e) =>
-      `- **[${e.data.headline ?? e.data.title}](${abs(`/work/${e.id}`)})** (${e.data.sector}${e.data.status ? ` · ${e.data.status}` : ''}) — ${e.data.description}`
+      `- **[${e.data.title}](${abs(`/work/${e.id}`)})** (${e.data.sector}${e.data.status ? ` · ${e.data.status}` : ''}) — ${e.data.description}`
   )
   .join('\n')}
 
