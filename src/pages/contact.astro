@@ -276,7 +276,7 @@ const steps = [
         if (emailVal.length > limits.email) return failField(form.email, 'That email looks too long to be right.');
         if (company.length > limits.company) return failField(form.company, 'Business name is a bit long — under ' + limits.company + ' characters, please.');
         if (!timeSink) return failField(form.time_sink, 'Tell us what’s eating your week — even a sentence helps.');
-        if (message.length > limits.message) return failField(form.time_sink, 'That’s a lot of detail. Please trim it under ' + limits.message + ' characters.');
+        if (message.length > limits.message) return failField(null, 'Your message is over the ' + limits.message + '-character limit across the message, team size and extra boxes. Please shorten any of them.');
 
         var token = turnstileToken();
         // No widget at all (a blocker stopped api.js, so the error callback
