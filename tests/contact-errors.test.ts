@@ -26,7 +26,8 @@
  * each failure naming the code a visitor would have seen. If it stays green
  * against that file, this file is wrong, not the fix.
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { Window, type HTMLElement, type HTMLInputElement } from 'happy-dom';
 import { readDistFile } from './support/dist';
 import { LEAD_ERROR_COPY } from '../src/config/site';
 
@@ -63,6 +64,7 @@ interface StubResponse {
 
 interface FieldStub {
   value: string;
+  validity: { typeMismatch: boolean };
   focusCalls: number;
   scrollCalls: unknown[];
   attrs: Record<string, string>;
@@ -130,6 +132,7 @@ async function driveFormState(
     const attrs: Record<string, string> = {};
     return {
       value,
+      validity: { typeMismatch: false },
       focusCalls: 0,
       scrollCalls: [],
       attrs,
@@ -356,6 +359,50 @@ describe('the built contact page never shows a lead-API machine code', () => {
 
 describe('client-side validation moves focus to the first invalid field', () => {
   const script = builtContactScript();
+
+  it('keeps malformed reply addresses out of intake and allows a corrected address', async () => {
+    const window = new Window({
+      url: 'https://automancer.uk/contact/',
+      settings: { disableJavaScriptFileLoading: true, disableCSSFileLoading: true, disableIframePageLoading: true },
+    });
+    try {
+      window.document.write(readDistFile(PAGE)!.replace(/<script\b[\s\S]*?<\/script>/gi, ''));
+      const form = window.document.querySelector('form')!;
+      // happy-dom does not expose named controls as form properties like browsers do.
+      for (const control of Array.from(form.elements)) {
+        const name = control.getAttribute('name');
+        if (name) Object.defineProperty(form, name, { value: control });
+      }
+      const email = form.elements.namedItem('email') as HTMLInputElement;
+      (form.elements.namedItem('name') as HTMLInputElement).value = 'Test Visitor';
+      (form.elements.namedItem('time_sink') as HTMLInputElement).value = 'Manual spreadsheet reconciliation.';
+      const requests: string[] = [];
+      window.fetch = async (_url, init) => {
+        if (typeof init?.body !== 'string') throw new Error('Expected a JSON enquiry body');
+        requests.push(init.body);
+        return new window.Response('{"ok":true}', { status: 200 });
+      };
+      window.eval('window.turnstile = { getResponse: () => "test-token", reset() {} };');
+      window.eval(script);
+
+      for (const address of ['visitor@', 'visitor@@example.test', 'visitor name@example.test']) {
+        email.value = address;
+        form.dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
+        expect(requests, `${address} must be corrected before using an intake request`).toHaveLength(0);
+        expect(window.document.activeElement).toBe(email);
+        expect(email.getAttribute('aria-invalid')).toBe('true');
+      }
+
+      email.value = 'visitor+enquiry@example.test';
+      form.dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
+      await vi.waitFor(() => expect(window.document.querySelector<HTMLElement>('#form-confirm')!.style.display).toBe('block'));
+      expect(requests).toHaveLength(1);
+      expect(JSON.parse(requests[0]).email).toBe('visitor+enquiry@example.test');
+      expect(email.hasAttribute('aria-invalid')).toBe(false);
+    } finally {
+      await window.happyDOM.close();
+    }
+  });
 
   it('empty name: focuses #name, scrolls it into view, and associates the message', async () => {
     const result = await driveFormState(script, { status: 200 }, 1, { name: '' });
