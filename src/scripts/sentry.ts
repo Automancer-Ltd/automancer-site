@@ -14,10 +14,7 @@
  */
 const dsn = import.meta.env.PUBLIC_AUT_SENTRY_WEB_DSN;
 
-// The IP-revealing key terms @sentry/browser 10 denied (in headers, cookies
-// and query params) on top of its built-in sensitive-key list when
-// sendDefaultPii was false. Sentry 11's built-in list no longer includes
-// them, so they are carried over here.
+// Preserve v10's IP-revealing query-key filters. Cookies and headers are off.
 const IP_KEY_TERMS = ['forwarded', '-ip', 'remote-', 'via', '-user'];
 
 if (import.meta.env.PROD && dsn) {
@@ -35,14 +32,13 @@ if (import.meta.env.PROD && dsn) {
           // The commit deploy.yml built, so an issue names the deploy that shipped it.
           release: import.meta.env.PUBLIC_SENTRY_RELEASE,
           // Sentry 11 removed sendDefaultPii and its dataCollection defaults collect
-          // everything, so omitting this block would widen collection. These are the
-          // values Sentry 10 derived from sendDefaultPii: false, so visitors get the
-          // same treatment the privacy page describes. userInfo: false is what keeps
+          // everything, so disable identity, cookie, header and body collection.
+          // Keep the other restrictive v10 settings. userInfo: false keeps
           // Sentry from inferring the visitor's IP address (infer_ip: 'never').
           dataCollection: {
             userInfo: false,
-            cookies: { deny: IP_KEY_TERMS },
-            httpHeaders: { deny: IP_KEY_TERMS },
+            cookies: false,
+            httpHeaders: false,
             httpBodies: [],
             urlQueryParams: { deny: IP_KEY_TERMS },
             genAI: { inputs: false, outputs: false },
