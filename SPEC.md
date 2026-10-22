@@ -58,7 +58,7 @@ Provide a truthful public front door for Automancer. Give people and machines th
 
 ### Contact path
 
-- What it does: Validates enquiries in the browser, including native email-address validation before any request, and posts them to the configured lead-intake API. It uses Cloudflare Turnstile and provides an email fallback when submission fails.
+- What it does: Validates enquiries in the browser, including native email-address validation before any request, and posts them to the configured lead-intake API. It uses Cloudflare Turnstile and provides an email fallback when submission fails. Scrolling to invalid fields and confirmation follows the visitor's reduced-motion preference.
 - State: built
 - Shaped by: `src/pages/contact.astro` and `src/config/site.ts`.
 
