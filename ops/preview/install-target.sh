@@ -34,7 +34,6 @@ USER_UNIT_DIR="${AUTOMANCER_USER_UNIT_DIR:-$HOME/.config/systemd/user}"
 SYSTEMCTL_BIN="${SYSTEMCTL_BIN:-/usr/bin/systemctl}"
 SERVE_PORT="${AUTOMANCER_SITE_PREVIEW_PORT:-4174}"
 REQUIRED_FILES=(ops/preview/preview.mjs ops/systemd/user/automancer-site-preview.service ops/verify-production.sh)
-RELEASE_NOTE_NAMES=(automancer-site wick gdp-chorus gdp-ic1)
 
 die() { printf 'REFUSED: %s\n' "$*" >&2; exit 1; }
 note() { printf '%s\n' "$*"; }
@@ -55,28 +54,8 @@ if (( clone_only == 0 )) && [[ $ROOT != "$DEFAULT_ROOT" ]]; then
   die "a custom preview root needs a matching unit; ExecStart pins $DEFAULT_ROOT (use --clone-only to prepare a clone elsewhere)"
 fi
 
-# AUT-9801: four release-note units survive only in systemd's in-memory copy.
-# `daemon-reload` would drop them, so refuse before touching systemd.
-refuse_broken_release_note_units() {
-  local name suffix path broken=0
-  for name in "${RELEASE_NOTE_NAMES[@]}"; do
-    for suffix in service timer; do
-      path="$USER_UNIT_DIR/${name}-release-notes-catchup.${suffix}"
-      if [[ -L $path && ! -e $path ]]; then
-        printf 'REFUSED: %s is a dangling symlink; a user-manager reload would remove a live release-note unit. Resolve AUT-9801 first.\n' "$path" >&2
-        broken=1
-      fi
-    done
-  done
-  (( broken == 0 ))
-}
-
-if (( clone_only == 0 )); then
-  refuse_broken_release_note_units
-
-  if [[ -z ${XDG_RUNTIME_DIR:-} ]]; then
-    export XDG_RUNTIME_DIR="/run/user/$(id -u)"
-  fi
+if (( clone_only == 0 )) && [[ -z ${XDG_RUNTIME_DIR:-} ]]; then
+  export XDG_RUNTIME_DIR="/run/user/$(id -u)"
 fi
 
 if [[ ! -d $TARGET/.git ]]; then

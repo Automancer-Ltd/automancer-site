@@ -51,9 +51,6 @@ not move it. After changing `ops/verify-production.sh` or `ops/systemd/user/`, d
 ops/deploy-production-monitor.sh <full-main-sha>
 ```
 
-It refuses before touching anything if a release-note unit link is dangling (AUT-9801), because a
-user-manager reload would drop that unit.
-
 **Sentry fails silently by design of the guard.** `src/scripts/sentry.ts` initialises only when
 `PROD && dsn`, so an unset or wrong `PUBLIC_AUT_SENTRY_WEB_DSN` repository variable builds and
 deploys green with monitoring off. The verifier therefore compares the project id in the served

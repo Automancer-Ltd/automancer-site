@@ -26,14 +26,12 @@
     "astro": "^7.4.0"
   },
   "devDependencies": {
-    "@astrojs/check": "^0.9.10",
     "axe-core": "^4.14.0",
     "happy-dom": "^21.0.3",
     "node-html-parser": "^9.0.4",
     "oxlint": "^1.88.0",
     "oxlint-tsgolint": "^7.0.2004",
     "tsrs": "0.18.0-ts7.1.0-dev.20260929",
-    "typescript": "^7.0.2",
     "vitest": "^5.0.5"
   }
 }

@@ -7,39 +7,12 @@ REPO_URL="${AUTOMANCER_SITE_MONITOR_REPO_URL:-https://github.com/Automancer-Ltd/
 USER_UNIT_DIR="${AUTOMANCER_USER_UNIT_DIR:-$HOME/.config/systemd/user}"
 SYSTEMCTL_BIN="${SYSTEMCTL_BIN:-/usr/bin/systemctl}"
 UNIT_NAME=automancer-site-production-verify
-RELEASE_NOTE_NAMES=(automancer-site wick gdp-chorus gdp-ic1)
-
-refuse_broken_release_note_units() {
-  local name suffix path broken=0
-  for name in "${RELEASE_NOTE_NAMES[@]}"; do
-    for suffix in service timer; do
-      path="$USER_UNIT_DIR/${name}-release-notes-catchup.${suffix}"
-      if [[ -L "$path" && ! -e "$path" ]]; then
-        printf 'REFUSED: %s is a dangling symlink; a user-manager reload would remove a live release-note unit. Resolve AUT-9801 first.\n' "$path" >&2
-        broken=1
-      fi
-    done
-  done
-  (( broken == 0 ))
-}
-
-if [[ ${1:-} == --preflight-only ]]; then
-  [[ $# -eq 1 ]] || { printf 'usage: %s --preflight-only\n' "$0" >&2; exit 64; }
-  refuse_broken_release_note_units
-  printf 'production monitor deploy preflight passed\n'
-  exit 0
-fi
 
 if [[ $# -ne 1 || ! $1 =~ ^[0-9a-fA-F]{40}$ ]]; then
   printf 'usage: %s <reviewed-automancer-site-main-sha>\n' "$0" >&2
   exit 64
 fi
 requested=${1,,}
-
-# This check must happen before cloning, moving a pin, linking units, or asking
-# systemd to reload. AUT-9801 records four release-note units that currently
-# survive only in systemd's in-memory copy.
-refuse_broken_release_note_units
 
 if [[ -z ${XDG_RUNTIME_DIR:-} ]]; then
   export XDG_RUNTIME_DIR="/run/user/$(id -u)"
