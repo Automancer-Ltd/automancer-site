@@ -272,7 +272,7 @@ const steps = [
         // Client-side validation mirroring the endpoint's limits.
         if (!name) return failField(form.name, 'Please add your name.');
         if (name.length > limits.name) return failField(form.name, 'Name is a bit long — keep it under ' + limits.name + ' characters.');
-        if (!emailVal || emailVal.indexOf('@') === -1) return failField(form.email, 'Please add a valid email so Waseem can reply.');
+        if (!emailVal || form.email.validity.typeMismatch) return failField(form.email, 'Please add a valid email so Waseem can reply.');
         if (emailVal.length > limits.email) return failField(form.email, 'That email looks too long to be right.');
         if (company.length > limits.company) return failField(form.company, 'Business name is a bit long — under ' + limits.company + ' characters, please.');
         if (!timeSink) return failField(form.time_sink, 'Tell us what’s eating your week — even a sentence helps.');
