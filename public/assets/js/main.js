@@ -46,14 +46,15 @@
       var setOpen = function (open) {
         var wasOpen = menu.classList.contains('is-open');
         menu.classList.toggle('is-open', open);
-        if (open) menu.showModal();
-        else menu.close();
+        // Cached HTML may still use a div.
+        if (menu.showModal) {
+          if (open) menu.showModal();
+          else menu.close();
+        }
         hamburger.setAttribute('aria-expanded', String(open));
         hamburger.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
         document.body.style.overflow = open ? 'hidden' : '';
-        // Keyboard users land where they left: in the menu, then back on its button.
-        // The open state's visibility does not transition (global.css), so the
-        // close button is focusable as soon as the class lands.
+        // Focus the menu on open, then return to its button on close.
         if (open && closeBtn) closeBtn.focus();
         else if (wasOpen && !open && hamburger.offsetParent) hamburger.focus();
       };
@@ -68,6 +69,9 @@
       if (closeBtn) closeBtn.addEventListener('click', function () { setOpen(false); });
       menu.querySelectorAll('a').forEach(function (a) {
         a.addEventListener('click', function () { setOpen(false); });
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && menu.classList.contains('is-open')) setOpen(false);
       });
       menu.addEventListener('cancel', function (e) {
         e.preventDefault();
