@@ -64,7 +64,7 @@ Provide a truthful public front door for Automancer. Give people and machines th
 
 ### Privacy, legal, and accessibility controls
 
-- What it does: Publishes the privacy and terms pages. It prevents first-party browser storage and checks structural accessibility, legal facts, links, and content integrity in the production build.
+- What it does: Publishes the privacy and terms pages. It prevents first-party browser storage and checks structural accessibility, legal facts, links, and content integrity in the production build. The mobile navigation opens as a native modal dialog, keeping background controls inert until it closes and returning focus to its menu button.
 - State: built
 - Shaped by: `src/pages/privacy.astro`, `src/pages/terms.astro`, `tests/no-browser-storage.test.ts`, `tests/a11y.test.ts`, and `tests/legal-integrity.test.ts`.
 

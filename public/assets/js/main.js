@@ -46,6 +46,8 @@
       var setOpen = function (open) {
         var wasOpen = menu.classList.contains('is-open');
         menu.classList.toggle('is-open', open);
+        if (open) menu.showModal();
+        else menu.close();
         hamburger.setAttribute('aria-expanded', String(open));
         hamburger.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
         document.body.style.overflow = open ? 'hidden' : '';
@@ -67,8 +69,9 @@
       menu.querySelectorAll('a').forEach(function (a) {
         a.addEventListener('click', function () { setOpen(false); });
       });
-      document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape' && menu.classList.contains('is-open')) setOpen(false);
+      menu.addEventListener('cancel', function (e) {
+        e.preventDefault();
+        setOpen(false);
       });
     }
 

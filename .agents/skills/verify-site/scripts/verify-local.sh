@@ -72,7 +72,7 @@ ab() {
 }
 
 ab_eval() {
-  ab eval "$1" --json | jq -r '.data.result // .data // empty'
+  ab eval "$1" --json | jq -r '.data.result'
 }
 
 assert_eq() {
@@ -309,6 +309,19 @@ menu_open_state="$(ab_eval 'JSON.stringify({
 assert_eq "$(echo "$menu_open_state" | jq -r '.isOpen')" "true" "mobile menu opens on click"
 assert_eq "$(echo "$menu_open_state" | jq -r '.ariaExpanded')" "true" "mobile hamburger aria-expanded=true"
 
+# Keyboard focus must stay in the full-screen menu, not reach the hidden page.
+ab eval 'document.querySelector(".mobile-menu a:last-child").focus()' >/dev/null
+ab press Tab >/dev/null
+# A native dialog may let Tab visit browser chrome (activeElement becomes body).
+assert_eq "$(ab_eval 'document.activeElement === document.body || document.querySelector(".mobile-menu").contains(document.activeElement)')" "true" "Tab cannot focus the page behind the open menu"
+ab press Tab >/dev/null
+assert_eq "$(ab_eval 'document.querySelector(".mobile-menu").contains(document.activeElement)')" "true" "Tab returns to the menu after browser chrome"
+ab eval 'document.querySelector(".mobile-menu__close").focus()' >/dev/null
+ab press Shift+Tab >/dev/null
+assert_eq "$(ab_eval 'document.querySelector(".mobile-menu").contains(document.activeElement)')" "true" "Shift+Tab cannot escape the open mobile menu"
+ab eval 'document.querySelector("main a").focus()' >/dev/null
+assert_eq "$(ab_eval 'document.querySelector(".mobile-menu").contains(document.activeElement)')" "true" "background links are inert while the menu is open"
+
 ab eval 'document.querySelector(".mobile-menu__close")?.click()' >/dev/null
 sleep 0.2
 menu_closed_state="$(ab_eval 'JSON.stringify({
@@ -317,6 +330,12 @@ menu_closed_state="$(ab_eval 'JSON.stringify({
 })')"
 assert_eq "$(echo "$menu_closed_state" | jq -r '.isOpen')" "false" "mobile menu closes on close button"
 assert_eq "$(echo "$menu_closed_state" | jq -r '.ariaExpanded')" "false" "mobile hamburger aria-expanded=false"
+assert_eq "$(ab_eval 'document.activeElement === document.querySelector(".hamburger")')" "true" "closing the menu restores focus"
+
+ab eval 'document.querySelector(".hamburger").click()' >/dev/null
+ab press Escape >/dev/null
+assert_eq "$(ab_eval 'document.querySelector(".mobile-menu").classList.contains("is-open")')" "false" "Escape closes the menu"
+assert_eq "$(ab_eval 'document.activeElement === document.querySelector(".hamburger")')" "true" "Escape restores focus"
 
 for item in \
   "/:mobile-home-check" \

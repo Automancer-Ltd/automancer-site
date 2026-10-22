@@ -309,12 +309,15 @@ strong { font-weight: 600; color: inherit; }
 
 .mobile-menu {
   position: fixed; inset: 0; z-index: var(--z-overlay);
+  inline-size: 100%; block-size: 100%; max-inline-size: none; max-block-size: none;
+  border: 0; color: inherit;
   background: var(--black);
   display: flex; flex-direction: column; justify-content: center;
   gap: var(--sp-6); padding: var(--pad-x);
   transform: translateX(100%); visibility: hidden;
   transition: transform var(--dur-3) var(--ease-out-expo), visibility var(--dur-3);
 }
+.mobile-menu::backdrop { background: transparent; }
 .mobile-menu.is-open {
   transform: none; visibility: visible;
   /* Visible at once on open, so focus can move into it; the delayed
