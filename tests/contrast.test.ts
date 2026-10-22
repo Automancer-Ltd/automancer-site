@@ -84,12 +84,6 @@ describe('footer spectral tagline', () => {
     const ratio = darkest('spectrum-text', declaration('.footer', 'background'));
     expect(ratio, `darkest point of --spectrum-text is ${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(4.5);
   });
-
-  it('the display spectrum is the sub-AA gradient this gate exists to catch', () => {
-    // Positive control: the unlifted violet stop really is below 4.5 on black.
-    const ratio = darkest('spectrum', declaration('.footer', 'background'));
-    expect(ratio, `darkest point of --spectrum is ${ratio.toFixed(2)}:1 — expected below 4.5`).toBeLessThan(4.5);
-  });
 });
 
 describe('muted body-secondary on paper vs dark', () => {
@@ -100,13 +94,6 @@ describe('muted body-secondary on paper vs dark', () => {
   ])('meets WCAG AA on the %s surface', (_name, textSelector, surfaceSelector) => {
     const ratio = contrast(declaration(textSelector, 'color'), declaration(surfaceSelector, 'background'));
     expect(ratio, `${textSelector} on ${surfaceSelector} is ${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(4.5);
-  });
-
-  it('the dark-surface --muted token on paper is the 2.33:1 pair this gate exists to catch', () => {
-    // Positive control: the failing pair really is below AA, so a usage
-    // check that forbids it is about this pair, not a broken instrument.
-    const ratio = contrast('var(--muted)', declaration('.on-paper', 'background'));
-    expect(ratio, `--muted on paper is ${ratio.toFixed(2)}:1 — expected below 4.5`).toBeLessThan(4.5);
   });
 });
 

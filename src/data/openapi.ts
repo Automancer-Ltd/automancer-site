@@ -17,6 +17,7 @@
  */
 import { business } from './business';
 import { build } from './build';
+import { abs } from './urls';
 import { API_ENDPOINTS } from './api';
 import { DEPRECATION_POLICY, DEPRECATIONS } from './stability';
 
@@ -502,9 +503,9 @@ export function openApiSpec() {
       contact: {
         name: business.tradingName,
         email: business.email,
-        url: `${business.url}/contact`,
+        url: abs('/contact'),
       },
-      termsOfService: abs_('/terms'),
+      termsOfService: abs('/terms'),
     },
     servers: [{ url: business.url, description: 'Production static site (GitHub Pages).' }],
     // Empty security requirement = the whole API is key-free and unauthenticated.
@@ -527,11 +528,11 @@ export function openApiSpec() {
     'x-markdown-twins': {
       description:
         'Every HTML content page is also available as clean Markdown at its own path plus ".md" (e.g. /about.md), served as text/markdown with YAML front matter.',
-      index: abs_('/index.md'),
+      index: abs('/index.md'),
     },
     externalDocs: {
       description: 'Developer & agent documentation — every surface this site offers, with examples.',
-      url: abs_('/developers'),
+      url: abs('/developers'),
     },
     // The versioning and deprecation policy, one fetch away from the spec
     // itself. This host cannot send Deprecation/Sunset response headers, so a
@@ -539,14 +540,9 @@ export function openApiSpec() {
     'x-stability-policy': {
       description:
         'What machines may rely on: the paths and service ids promised stable, what may change without notice, the versioning scheme and the deprecation list.',
-      url: abs_('/api/stability.json'),
+      url: abs('/api/stability.json'),
     },
   };
-}
-
-// Local alias keeps the builder above readable without shadowing imports.
-function abs_(path: string): string {
-  return new URL(path, business.url).toString();
 }
 
 /** Render the spec as the HTTP response /openapi.json serves. */

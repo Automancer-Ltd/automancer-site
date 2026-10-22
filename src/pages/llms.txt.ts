@@ -2,15 +2,12 @@
 // crawlers/agents. Generated from src/data/business.ts so it can never
 // drift from the JSON-LD structured data or the services page.
 import type { APIRoute } from 'astro';
-import { business, services, serviceById } from '../data/business';
+import { business, formatGBP, services, serviceById } from '../data/business';
 import { abs } from '../data/urls';
 
-const formatPrice = (n: number) =>
-  n.toLocaleString('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 });
-
-const auditPrice = formatPrice(serviceById('automation-opportunity-audit').priceFrom);
-const buildPrice = formatPrice(serviceById('system-agent-build').priceFrom);
-const opsPrice = formatPrice(serviceById('ai-ops-partner').priceFrom);
+const auditPrice = formatGBP(serviceById('automation-opportunity-audit').priceFrom);
+const buildPrice = formatGBP(serviceById('system-agent-build').priceFrom);
+const opsPrice = formatGBP(serviceById('ai-ops-partner').priceFrom);
 
 export const GET: APIRoute = () => {
   const lines: string[] = [];
@@ -68,7 +65,7 @@ export const GET: APIRoute = () => {
   lines.push('## Services and pricing (from-price, GBP)');
   for (const service of services) {
     const unit = service.priceUnit === 'month' ? '/month' : ' (project)';
-    lines.push(`- ${service.name}: from ${formatPrice(service.priceFrom)}${unit} — ${service.description}`);
+    lines.push(`- ${service.name}: from ${formatGBP(service.priceFrom)}${unit} — ${service.description}`);
   }
   lines.push('');
 

@@ -4,9 +4,9 @@
 
 ## Agent Manifest
 **Definition:** The machine-readable JSON capability document describing Automancer Ltd, its services, content endpoints, feeds, and contact paths for autonomous agents.
-**In code:** `buildAgentManifest()` in `src/data/wellknown-agent.ts`, emitted at `/agent.json` (`src/pages/agent.json.ts`) and `/.well-known/agent.json` (`src/pages/.well-known/agent.json.ts`).
+**In code:** `renderAgentManifest()` in `src/data/wellknown-agent.ts`, emitted at `/agent.json` (`src/pages/agent.json.ts`) and `/.well-known/agent.json` (injected in `astro.config.mjs`). Its endpoint list comes from `API_ENDPOINTS` (`src/data/api.ts`).
 **Not to be confused with:** `openapi.json` (`src/data/openapi.ts`), which is the OpenAPI 3.1 schema for the `/api/*.json` endpoints.
-**Invariants:** Both `/agent.json` and `/.well-known/agent.json` must be byte-identical, and every advertised same-origin URL must use non-dot paths because GitHub Pages returns HTTP 404 on dot-prefixed paths in production.
+**Invariants:** Both `/agent.json` and `/.well-known/agent.json` must be byte-identical, and every advertised same-origin URL uses the non-dot paths (see Non-Dot Twin Route).
 
 ## Automancer
 **Definition:** Automancer Ltd (UK company number `17060907`, ICO registration `ZC180569`, trading as Automancer), an AI and workflow automation consultancy for UK small businesses led by founder Waseem Ilyas.
@@ -52,7 +52,7 @@
 **Invariants:** Every Content Page except `/privacy/`, `/terms/` (`legalNoMirror: true`), and `/developers/` (the API reference page) emits a `.md` twin whose front-matter `title` and `description` match the HTML page's fitted `<title>` and `<meta name="description">`.
 
 ## Non-Dot Twin Route
-**Definition:** The root-level `/agent.json` and `/security.txt` routes emitted alongside `/.well-known/agent.json` and `/.well-known/security.txt` because GitHub Pages returns HTTP 404 for dot-prefixed paths on `automancer.uk`.
+**Definition:** The root-level `/agent.json` and `/security.txt` routes emitted alongside `/.well-known/agent.json` and `/.well-known/security.txt`. They became the advertised addresses while the deploy dropped dot-prefixed paths (fixed 22 Oct 2026; `ops/verify-production.sh` now checks the `/.well-known/` copies serve), and stay advertised because published identifiers are promises.
 **In code:** `src/pages/agent.json.ts`, `src/pages/security.txt.ts`, `src/data/wellknown-agent.ts`, and `src/data/wellknown-security.ts`.
 
 ## One-Week Meeting Promise

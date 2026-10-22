@@ -1,8 +1,9 @@
 // Service offerings with published from-prices — same array the /services
 // page pricing derives from.
 import type { APIRoute } from 'astro';
-import { business, services } from '../../data/business';
+import { services } from '../../data/business';
 import { build } from '../../data/build';
+import { abs } from '../../data/urls';
 
 export const GET: APIRoute = () =>
   new Response(
@@ -19,7 +20,7 @@ export const GET: APIRoute = () =>
           priceFrom: s.priceFrom,
           priceCurrency: 'GBP',
           priceUnit: s.priceUnit,
-          url: `${business.url}/services`,
+          url: abs('/services'),
         })),
       },
       null,

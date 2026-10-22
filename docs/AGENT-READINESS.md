@@ -90,9 +90,8 @@ deliberately did not fake.
 | Markdown content negotiation (`Accept: text/markdown` → markdown body + `Vary: Accept`) | GitHub Pages serves static files only: no content negotiation, no custom response headers. Our `.md` twins at explicit URLs are the best available equivalent on this host. Any workaround would be a fabrication, not a fix. |
 | Brand-name discoverability | A search-index outcome, not a property of this codebase. |
 
-The dot-path serving constraint documented below remains in force and affects
-scoring similarly: `/.well-known/*` copies are emitted but 404 live, which is
-why every advertisement points at the servable non-dot paths instead.
+Every advertisement points at the non-dot paths; the `/.well-known/*` copies
+also serve since 22 October 2026 (section below).
 
 ## Host constraint (corrected 2026-10-22): the deploy dropped dot-prefixed paths, not GitHub Pages
 

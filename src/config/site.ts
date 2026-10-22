@@ -1,9 +1,6 @@
 /**
- * Site-wide runtime configuration.
- *
- * This is the ONE obvious place later passes (form-backend integration,
- * security) should edit to point the site at real, live endpoints/keys.
- * Everything here is a placeholder as of the structure-only scaffold.
+ * Site-wide runtime configuration: the live intake endpoint, its field limits,
+ * the visitor copy for its error codes and the Turnstile site key.
  */
 
 /**
