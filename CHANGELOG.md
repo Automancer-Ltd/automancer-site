@@ -1,5 +1,10 @@
 # Release notes
 
+## v2026.10.22.5 — 22 October 2026
+
+The mobile menu stays in view as you move through the page, so you can keep using it without losing your place.
+
+
 ## v2026.10.22.1 — 22 October 2026
 
 When visitors or search tools open a legacy `.html` link, they go straight to its page.
