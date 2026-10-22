@@ -18,8 +18,9 @@
  *
  * Scope and honesty about it:
  *   - This greps the BUILT OUTPUT — inline scripts and every emitted JS
- *     asset, so third-party bundles (Sentry) are covered too, not just our
- *     own source.
+ *     asset, not just our own source. The test build has no Sentry DSN, so
+ *     the lazily loaded Sentry chunk is not emitted here (a DSN build of
+ *     @sentry/browser 11 references no storage API: checked 2026-10-22).
  *   - This is a STATIC scan of source text, not proof the APIs are never
  *     called. Adversarial review (AUT-6705, 2026-08-22) demonstrated that a
  *     computed reference — `window[["session", "Storage"].join("")]`,

@@ -341,7 +341,6 @@ const steps = [
             if (turnstileFailures >= 2) {
               showError(copyFor(f, 'The security check keeps failing, which is probably a fault on our side rather than anything you did.') + ' Please email ' + email + ' directly and we\u2019ll pick it up straight away.');
             } else {
-              resetTurnstile();
               showError(copyFor(f, 'The security check needs another go — please complete it again and resend.'));
             }
           } else if (res.status === 429) {

@@ -15,6 +15,7 @@ import type { APIRoute } from 'astro';
 import { business } from './business';
 import { build } from './build';
 import { abs } from './urls';
+import { API_ENDPOINTS } from './api';
 
 const api = (path: string, description: string) => ({
   path,
@@ -51,14 +52,8 @@ const agentManifestBody = {
       description:
         'OpenAPI 3.1 specification of every JSON endpoint — unique operationIds and typed response schemas, suitable for LLM function calling.',
     },
-    endpoints: [
-      api('/api/business.json', 'Canonical business facts: names, registration, address, contact, areas served.'),
-      api('/api/services.json', 'Service offerings with published from-prices (GBP) and stable ids.'),
-      api('/api/case-studies.json', 'Every case study: metadata plus full body text.'),
-      api('/api/field-notes.json', 'Every field note article: metadata plus full body text.'),
-      api('/api/pages.json', 'Every page on the site: URL, title, description, Markdown twin, type, last-modified.'),
-      api('/api/stability.json', 'What may be relied on between deploys — stable paths, operation ids, service ids and field names — plus what may change without notice and the minimum notice a removal gets.'),
-    ],
+    // Every endpoint the discovery document lists, from the same registry.
+    endpoints: API_ENDPOINTS.filter((e) => e.path !== '/api/index.json').map((e) => api(e.path, e.summary)),
     markdownTwins: {
       convention:
         'Every content page is also available as clean Markdown with YAML front matter at the same path plus ".md" (for example /about/ -> /about.md).',
@@ -105,14 +100,9 @@ const agentManifestBody = {
   },
 };
 
-/** The manifest payload, shared by both routes — build it exactly once here. */
-export function agentManifest() {
-  return agentManifestBody;
-}
-
 /** Render the manifest as the HTTP response both routes serve. */
 export function renderAgentManifest(): Response {
-  return new Response(JSON.stringify(agentManifest(), null, 2) + '\n', {
+  return new Response(JSON.stringify(agentManifestBody, null, 2) + '\n', {
     headers: { 'Content-Type': 'application/json; charset=utf-8' },
   });
 }
