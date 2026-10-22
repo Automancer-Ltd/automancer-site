@@ -114,7 +114,10 @@ describe('draft exclusion', () => {
       (m) => new URL(m[1]).pathname
     );
 
-    for (const entry of drafts()) {
+    const draftEntries = drafts();
+    expect(draftEntries.length, "draft-leak guard needs at least one draft fixture").toBeGreaterThan(0);
+
+    for (const entry of draftEntries) {
       const route = slugToRoute(entry);
       // 1. No emitted page at its route…
       expect(

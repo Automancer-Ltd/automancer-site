@@ -12,7 +12,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Window } from 'happy-dom';
 import { describe, expect, it } from 'vitest';
-import { ROOT, SITE_URL, contentPages } from './support/dist';
+import { ROOT, SITE_URL, pageCheckPages } from './support/dist';
 
 const AXE = readFileSync(join(ROOT, 'node_modules/axe-core/axe.min.js'), 'utf8');
 const LAYOUT_RULES = ['color-contrast', 'target-size', 'scrollable-region-focusable'];
@@ -39,7 +39,7 @@ async function violations(html: string, route: string): Promise<string[]> {
 }
 
 describe('axe-core WCAG 2.2 A/AA', () => {
-  for (const page of contentPages()) {
+  for (const page of pageCheckPages()) {
     it(`${page.route} has no violations`, async () => {
       expect(await violations(page.html, page.route)).toEqual([]);
     });

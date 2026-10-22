@@ -113,12 +113,14 @@ export function allHtmlFiles(): BuiltPage[] {
   return cachedPages;
 }
 
-/**
- * Pages that carry the full layout (SEO tags, landmarks, JSON-LD):
- * everything except the 404 utility page and the redirect stubs.
- */
+/** Pages listed as content (excludes the utility 404 and redirect stubs). */
 export function contentPages(): BuiltPage[] {
   return allHtmlFiles().filter((p) => !p.is404 && !p.isRedirectStub);
+}
+
+/** Full-layout pages that need SEO and accessibility checks, including the 404. */
+export function pageCheckPages(): BuiltPage[] {
+  return allHtmlFiles().filter((p) => !p.isRedirectStub);
 }
 
 /** Read any emitted file relative to dist/, or null if absent. */
