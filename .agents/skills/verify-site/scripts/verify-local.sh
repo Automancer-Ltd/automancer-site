@@ -113,7 +113,6 @@ services_checks="$(ab_eval 'JSON.stringify({
   h1Count: document.querySelectorAll("h1").length,
   overviewRows: document.querySelectorAll(".overview-row").length,
   offers: Array.from(document.querySelectorAll(".offer")).map(o => ({
-    id: o.id,
     amt: o.querySelector(".offer__amt")?.textContent?.trim()
   })),
   canonical: document.querySelector("link[rel=\"canonical\"]")?.getAttribute("href"),
