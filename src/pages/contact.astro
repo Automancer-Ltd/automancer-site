@@ -218,7 +218,7 @@ const steps = [
         }
         if (typeof field.focus === 'function') field.focus();
         if (typeof field.scrollIntoView === 'function') {
-          field.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          field.scrollIntoView({ block: 'center' });
         }
       }
 
@@ -311,7 +311,7 @@ const steps = [
               sent = true;
               form.style.display = 'none';
               confirmEl.style.display = 'block';
-              confirmEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              confirmEl.scrollIntoView({ block: 'center' });
               // The focused Send button was just hidden with the form; land
               // keyboard and screen-reader users on the confirmation instead.
               var confirmHeading = confirmEl.querySelector('h2');

@@ -270,6 +270,61 @@ assert_eq "$(echo "$contact_turnstile_err" | jq -r '.handled')" "true" "contact 
 assert_eq "$(echo "$contact_turnstile_err" | jq -r '.hasEmailFallback')" "true" "contact Turnstile fallback email"
 assert_eq "$(echo "$contact_turnstile_err" | jq -r '.leaksCode')" "false" "contact no raw code leak"
 
+# Reduced-motion visitors must reach errors and confirmation without a scroll animation.
+ab set media light reduced-motion >/dev/null
+for viewport in '1280 800' '390 844'; do
+  read -r width height <<< "$viewport"
+  ab set viewport "$width" "$height" >/dev/null
+  ab open "$BASE_URL/contact/" >/dev/null
+  ab wait --load networkidle >/dev/null
+  contact_motion="$(ab_eval '(async () => {
+    const form = document.getElementById("contact-form");
+    let requests = 0;
+    window.fetch = async () => {
+      requests++;
+      return new Response(JSON.stringify({ok: true}), {status: 200});
+    };
+    window.turnstile = {getResponse: () => "synthetic-token", reset() {}};
+    const submit = () => form.dispatchEvent(new Event("submit", {bubbles: true, cancelable: true}));
+    const movement = async () => {
+      const positions = [scrollY];
+      for (let i = 0; i < 12; i++) {
+        await new Promise(requestAnimationFrame);
+        positions.push(scrollY);
+      }
+      return Math.max(...positions) - Math.min(...positions);
+    };
+    const visible = el => {
+      const rect = el.getBoundingClientRect();
+      return rect.top >= 80 && rect.bottom <= innerHeight;
+    };
+    form.name.focus({preventScroll: true});
+    scrollTo({top: 0, behavior: "instant"});
+    submit();
+    const errorMovement = await movement();
+    const errorFocused = document.activeElement === form.name && visible(form.name);
+    form.name.value = "Synthetic Visitor";
+    form.email.value = "visitor@example.test";
+    form.time_sink.value = "Fictional verification only.";
+    scrollTo({top: 0, behavior: "instant"});
+    submit();
+    for (let i = 0; i < 120 && document.getElementById("form-confirm").style.display !== "block"; i++) {
+      await new Promise(requestAnimationFrame);
+    }
+    const confirmationMovement = await movement();
+    return JSON.stringify({
+      reduced: matchMedia("(prefers-reduced-motion: reduce)").matches,
+      stable: errorMovement <= 1 && confirmationMovement <= 1,
+      errorMovement, confirmationMovement, errorFocused, requests,
+      confirmed: document.activeElement === document.querySelector("#form-confirm h2") && visible(document.activeElement)
+    });
+  })()')"
+  printf '%s\n' "$contact_motion" > "$EVIDENCE_DIR/contact-motion-$width.json"
+  assert_eq "$(jq -r '.reduced and .stable and .errorFocused and .confirmed and (.requests == 1)' <<< "$contact_motion")" "true" "contact reduced motion at $viewport"
+done
+ab set media light >/dev/null
+ab set viewport 1280 800 >/dev/null
+
 # Feature 06: Developers & 404
 ab open "$BASE_URL/developers/" >/dev/null
 ab wait --load networkidle >/dev/null

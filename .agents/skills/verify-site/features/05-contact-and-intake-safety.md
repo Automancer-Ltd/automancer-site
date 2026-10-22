@@ -20,6 +20,7 @@ Covers `/contact/`, `#contact-form` fields, direct `mailto:waseem@automancer.uk`
    - `#name` no longer has `aria-invalid`
 6. **Turnstile widget error fallback**: invoke `window.onTurnstileError()` in the page context. Assert:
    - `#form-error` displays human copy offering `waseem@automancer.uk` and never leaks raw error code `600010` or snake_case tokens.
+7. **Reduced motion**: enable `prefers-reduced-motion: reduce`. Submit an empty name, then correct the form and submit with the Intake Endpoint mocked to return success. Both the invalid field and confirmation heading must receive focus and become visible without animated scrolling. No real enquiry is sent.
 
 ## Evidence
 - `desktop-contact.png`, `desktop-contact-validation.png`, `mobile-contact.png`.
