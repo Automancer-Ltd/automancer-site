@@ -1,5 +1,10 @@
 # Release notes
 
+## v2026.10.22.6 — 22 October 2026
+
+The contact form respects reduced-motion preferences when it scrolls into view.
+
+
 ## v2026.10.22.5 — 22 October 2026
 
 The mobile menu stays in view as you move through the page, so you can keep using it without losing your place.
