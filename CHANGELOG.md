@@ -1,5 +1,10 @@
 # Release notes
 
+## v2026.10.22.1 — 22 October 2026
+
+When visitors or search tools open a legacy `.html` link, they go straight to its page.
+
+
 ## v2026.10.21.9 — 21 October 2026
 
 Visitors can now read Automancer’s release history on the website, including a page for each release.
