@@ -1,5 +1,9 @@
 {
   "kind": "auto",
   "url": "https://automancer.uk",
-  "regex": "<span>build:</span><b>([0-9a-f]{7,40})</b>"
+  "regex": "<span>build:</span><b>([0-9a-f]{7,40})</b>",
+  "cloudflare": {
+    "account_id": "736c27679be9d886c17b9069bb7353ec",
+    "workers": { "production": "automancer-site-edge", "preview": "automancer-site-edge-probe" }
+  }
 }
