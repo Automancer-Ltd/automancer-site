@@ -108,6 +108,6 @@ const jsonLdType = pageType ?? (listedType && SCHEMA_PAGE_TYPES.has(listedType) 
       <slot />
     </main>
     <Footer />
-    <script is:inline src="/assets/js/main.js" defer></script>
+    <script is:inline src={`/assets/js/main.js?v=${build.commitFull}`} defer></script>
   </body>
 </html>

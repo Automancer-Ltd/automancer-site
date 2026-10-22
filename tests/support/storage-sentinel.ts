@@ -15,9 +15,9 @@
  * spelled the reference to get there.
  */
 import { Window } from 'happy-dom';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { DIST } from './dist';
+import { DIST, resolveInDist } from './dist';
 
 /** Script `type` values that are actual executable JavaScript. */
 const JS_SCRIPT_TYPES = new Set(['', 'text/javascript', 'module']);
@@ -170,12 +170,12 @@ export function runPage(html: string): PageRunResult {
     let source: string;
     if (src) {
       if (/^https?:\/\//.test(src)) continue; // cross-origin, out of scope (see docstring)
-      const distPath = join(DIST, src.replace(/^\//, ''));
-      if (!existsSync(distPath)) {
+      const distPath = resolveInDist('index.html', src);
+      if (!distPath) {
         errors.push(`script src="${src}" does not exist in ${DIST}`);
         continue;
       }
-      source = readFileSync(distPath, 'utf8');
+      source = readFileSync(join(DIST, distPath), 'utf8');
     } else {
       source = script.textContent;
     }

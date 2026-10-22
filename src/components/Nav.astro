@@ -39,7 +39,7 @@ const isActive = (href: string) =>
   </button>
 </header>
 
-<div class="mobile-menu" id="mobile-menu" aria-label="Menu">
+<dialog class="mobile-menu" id="mobile-menu" aria-label="Menu">
   <button class="mobile-menu__close" aria-label="Close menu">&times;</button>
   <a href="/" class="mobile-menu__link"><span class="sys">00</span>Home</a>
   {navLinks.map((link, i) => (
@@ -48,4 +48,4 @@ const isActive = (href: string) =>
     </a>
   ))}
   <a href="/contact/" class="mobile-menu__link"><span class="sys">05</span>Contact</a>
-</div>
+</dialog>
