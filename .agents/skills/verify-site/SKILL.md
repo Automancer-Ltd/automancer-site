@@ -24,7 +24,7 @@ ops/verify-production.sh --expected-revision "$(git rev-parse origin/main)" http
 Every user journey and surface is specified under [`.agents/skills/verify-site/features/`](features/):
 
 - [`01-home-and-navigation.md`](features/01-home-and-navigation.md) — Homepage (`/`), proof strip, 4-rung service ladder, desktop nav, mobile hamburger menu drawer (`390x844`), and `/404`.
-- [`02-services-and-pricing.md`](features/02-services-and-pricing.md) — `/services/` overview table, all 4 anchored offer sections (`#audit`, `#sprint`, `#build`, `#support`), GBP from-prices matching `src/data/business.ts`, and CTA links.
+- [`02-services-and-pricing.md`](features/02-services-and-pricing.md) — `/services/` overview table, all 4 anchored offer sections (`#offer-1`, `#offer-2`, `#offer-3`, `#offer-4`), GBP from-prices matching `src/data/business.ts`, and CTA links.
 - [`03-work-and-field-notes.md`](features/03-work-and-field-notes.md) — `/work/` index, all 4 case-study pages (`/work/<slug>/`), `/field-notes/` index, and field-note articles (`/field-notes/<slug>/`), including `.md` twin routes and feed discovery links.
 - [`04-about-and-legal.md`](features/04-about-and-legal.md) — `/about/` company facts (`17060907`), `/privacy/` (`23 August 2026`), `/terms/` (`3 July 2026`), legal no-mirror enforcement, and runtime zero-storage check (`localStorage`, `sessionStorage`, `document.cookie`).
 - [`05-contact-and-intake-safety.md`](features/05-contact-and-intake-safety.md) — `/contact/` form fields, direct `mailto:`/`tel:` fallbacks, client-side validation (`#name` and `#email` focus + `aria-invalid="true"` with zero network leak to `ENDPOINT_URL`), and `window.onTurnstileError()` human fallback copy.
