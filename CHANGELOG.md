@@ -1,5 +1,16 @@
 # Release notes
 
+## v2026.10.22.8 — 22 October 2026
+
+> **Plain-English notes are not written yet.** The writer did not describe these changes.
+> Below is the raw change list, grouped by area. Replace this section before
+> showing it to a client.
+
+### General
+
+- Contact form: name the combined limit; developers page: drop hosting phrase (t7216)
+
+
 ## v2026.10.22.6 — 22 October 2026
 
 The contact form respects reduced-motion preferences when it scrolls into view.
