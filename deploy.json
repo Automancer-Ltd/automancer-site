@@ -3,7 +3,7 @@
   "url": "https://automancer.uk",
   "regex": "<span>build:</span><b>([0-9a-f]{7,40})</b>",
   "cloudflare": {
-    "account_id": "736c27679be9d886c17b9069bb7353ec",
+    "account_id": "d974bcbc49ae64c2675c1ff7f410ba94",
     "workers": { "production": "automancer-site-edge", "preview": "automancer-site-edge-probe" }
   }
 }
