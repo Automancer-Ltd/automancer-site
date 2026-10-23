@@ -1,5 +1,10 @@
 # Release notes
 
+## v2026.10.23.5 — 23 October 2026
+
+The services page now lists what each service includes, so visitors can see its scope alongside the starting price.
+
+
 ## v2026.10.23.4 — 23 October 2026
 
 > **Plain-English notes are not written yet.** The writer did not describe these changes.
