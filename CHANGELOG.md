@@ -1,5 +1,18 @@
 # Release notes
 
+## v2026.10.23.1 — 23 October 2026
+
+The website’s presentation is more consistent across pages and screen sizes.
+
+### Improvements
+
+- The Developers page now shows its heading before the action buttons, with more space between section headings and lists.
+- Section labels, story text, and feature rows now align and read more clearly.
+- The home page’s work cards sit in a balanced two-column layout.
+- On phones, the hero clears the navigation and the scroll cue no longer overlaps the action buttons.
+- Text wraps more cleanly, and sections on the same background have more even spacing.
+
+
 ## v2026.10.22.8 — 22 October 2026
 
 > **Plain-English notes are not written yet.** The writer did not describe these changes.
