@@ -10,6 +10,13 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 permissions:
   contents: read
+env:
+  # Bound stalled npm registry requests to about two minutes including retries.
+  npm_config_fetch_timeout: "20000"
+  npm_config_fetch_retries: "4"
+  npm_config_fetch_retry_mintimeout: "2000"
+  npm_config_fetch_retry_maxtimeout: "10000"
+
 jobs:
   checks:
     runs-on: ${{ fromJSON(vars.CI_RUNNER || '"ubuntu-24.04"') }}
