@@ -1,5 +1,16 @@
 # Release notes
 
+## v2026.10.23.4 — 23 October 2026
+
+> **Plain-English notes are not written yet.** The writer did not describe these changes.
+> Below is the raw change list, grouped by area. Replace this section before
+> showing it to a client.
+
+### Contact
+
+- lead-form Turnstile widget from the Automancer Cloudflare account (#131)
+
+
 ## v2026.10.23.1 — 23 October 2026
 
 The website’s presentation is more consistent across pages and screen sizes.
