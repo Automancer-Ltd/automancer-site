@@ -315,13 +315,14 @@ describe('/api/*.json endpoints', () => {
     ).toEqual([]);
   });
 
-  it('services.json states exactly the services in src/data/business.ts (name, price, unit)', () => {
+  it('services.json states exactly the services in src/data/business.ts (name, price, unit, includes)', () => {
     const payload = parsed.get('api/services.json') as { services?: unknown[] };
     expect(payload?.services, 'services.json has no services array').toBeTruthy();
     const emitted = payload.services as Array<{
       name: string;
       priceFrom: number;
       priceUnit: string;
+      includes?: string[];
     }>;
     expect(emitted, 'service count disagrees with business.ts').toHaveLength(services.length);
     emitted.forEach((s, i) => {
@@ -329,7 +330,34 @@ describe('/api/*.json endpoints', () => {
         [s.name, s.priceFrom, s.priceUnit],
         `services.json[${i}] has drifted from business.ts`
       ).toEqual([services[i].name, services[i].priceFrom, services[i].priceUnit]);
+      expect(s.includes, `services.json[${i}] includes drifted from business.ts`).toEqual([
+        ...services[i].includes,
+      ]);
     });
+  });
+
+  it('the services page "What\'s included" list is the includes array /api/services.json publishes', () => {
+    const page = contentPages().find((candidate) => candidate.route === '/services/');
+    expect(page, 'services page was not built').toBeTruthy();
+    for (const service of services) {
+      const offer = [...page!.doc.querySelectorAll('.offer')].find(
+        (el) => el.querySelector('.offer__name')?.text.trim() === service.name
+      );
+      expect(offer, `services page has no offer named ${service.name}`).toBeTruthy();
+      const shown = [...offer!.querySelectorAll('.offer__includes li')].map((li) =>
+        li.text.replace(/\s+/g, ' ').trim()
+      );
+      expect(shown, `${service.name} page list disagrees with the published includes`).toEqual([
+        ...service.includes,
+      ]);
+    }
+    const twin = readDistFile('services.md');
+    expect(twin, 'services.md missing').toBeTruthy();
+    for (const service of services) {
+      for (const item of service.includes) {
+        expect(twin, `services.md omits an included item of ${service.name}`).toContain(item);
+      }
+    }
   });
 
   it('the services page JSON-LD quotes the same from-prices and units as business.ts', () => {

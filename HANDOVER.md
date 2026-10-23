@@ -7,7 +7,7 @@ It does not outrank anything: `VISION.md` is authority 0 and `SPEC.md` describes
 When this file and `SPEC.md` disagree about what exists, `SPEC.md` and the code are right and this
 file is out of date.
 
-Last updated: 22 October 2026 (claims cover every case study, no exceptions).
+Last updated: 23 October 2026 (service scope is the same list for people and machines).
 
 ## Where the site stands against the vision
 
@@ -18,8 +18,8 @@ disagree. Against that, today:
 | Vision line | State today |
 | --- | --- |
 | A UK business reads pages that answer plainly and publish the price | Built. `/services/` prices render from `src/data/business.ts`; a build test fails if a from-price in the output is not a published `priceFrom` (`v2026.10.14.1`, PR #69). |
-| An agent can quote, price and act on it correctly | Built. The `/api/*.json` endpoints in one registry (`src/data/api.ts`) behind the discovery document, the OpenAPI 3.1 spec and `/developers`; `agent.json`, `security.txt`, `llms.txt`, Markdown twins and full-content feeds. `/services/` also publishes schema.org Offer prices from the same service data, with a dist-level parity test. |
-| What a machine is told never differs from what a person is shown | Enforced for the facts that matter most: prices, service names, page inventory, JSON-LD, twins and feeds all read shared modules, and dist-level tests compare the payloads with the pages. |
+| An agent can quote, price and act on it correctly | Built. The `/api/*.json` endpoints in one registry (`src/data/api.ts`) behind the discovery document, the OpenAPI 3.1 spec and `/developers`; `agent.json`, `security.txt`, `llms.txt`, Markdown twins and full-content feeds. `/api/services.json` `includes` is the same included list `/services/` shows, and the build fails if they disagree. Acting still means email: the form needs a browser security check. |
+| What a machine is told never differs from what a person is shown | Enforced for the facts that matter most: prices, service names, each service's included list, page inventory, JSON-LD, twins and feeds all read shared modules, and dist-level tests compare the payloads with the pages. |
 | Its own honesty audited | Partly. Production is verified after every deploy and every 30 minutes (`ops/verify-production.sh`), including the revision served, the legal block, TLS and the machine surfaces. Nothing yet audits the *claims* on the pages against the truth layer continuously. |
 | Published identifiers are promises | **Built in this slice.** The promise is now a document an agent can fetch and check: `/api/stability.json`. |
 | Nothing reaches the public without Waseem | Honoured: this repository ships the site; it never speaks to a prospect itself. |
@@ -72,18 +72,35 @@ Advertised from `/api/index.json`, `/openapi.json` (`x-stability-policy`), `/dev
 Undo: revert this merge; nothing else depends on the endpoint, and the OpenAPI schema, registry
 entry and verifier check live in the same commit.
 
+## The last slice: service scope, the same list for people and machines (23 October 2026)
+
+`/services` already showed a "What's included" list on every offer. `/api/services.json` did not,
+so an agent could quote a from-price and a one-line description, not the scope a person reads.
+The Markdown twin carried its own wording of those bullets, so the two views could drift.
+
+The bullets now live once, on each service in `src/data/business.ts` — the sentences already
+published on the page, not a new claim. `/services`, `/services.md`, `llms.txt` and
+`/api/services.json` (`includes`) all read that array. A dist test fails if the page list and the
+payload disagree. Who an offer is for, and the FAQ, stay on the page: they are not scope.
+
+Undo: revert this merge. `includes` is additive; a consumer that ignores unknown fields is
+unaffected, and the page renders the same sentences it did before.
+
 ## Next three slices, in order
 
-1. **A public releases surface — shipped 21 October (PR #84).** `/releases/`, `/releases.md` and
-   `/api/releases.json`, all built from `CHANGELOG.md`.
-2. **Claim provenance for every case-study number — done.** `/api/claims.json` now covers every
-   numeric headline stat on every published case study: `automancer-bd` registered
-   `claims.iq_mouldings_pricing_units` ("5 units", from the dossier's multi-unit pricing matrix),
-   this repo copies it into `src/data/claims.ts`, and `tests/claims.test.ts` fails if any new
-   numeric stat appears without an entry (`awaitingRegistry` is empty).
-3. **No third slice is planned.** The agent-readiness re-measure is done (21 October:
-   `docs/AGENT-READINESS.md`, "Re-measured 2026-10-21"). Its honest gaps were closed in PRs #85 and
-   #86, and the rest are deliberately not pursued. The open decisions below come first.
+1. **Stop publishing the release-notes placeholder.** `/releases` currently shows "Plain-English
+   notes are not written yet" and "Replace this section before showing it to a client" on
+   v2026.10.23.4 and v2026.10.22.8. A visitor reading the release history sees internal process
+   language. Rewrite those two notes from the commits they describe, and fail the build if the
+   placeholder ships again.
+2. **Publish the enquiry contract, including its limit.** `agent.json` tells agents to prefer
+   email because the form needs JavaScript and a browser security check. The field names, limits
+   and that limit are not themselves data an agent can fetch. Publish them from the same module
+   the form uses, and keep saying email is the path an agent can actually complete. Do not invent
+   a Turnstile bypass.
+3. **No third slice until the open questions below are answered.** They are Waseem's, not a
+   guess: the stability-policy wording, case-study names (tracker t4928), and whether a removed
+   `/api/v1` path is ever retired.
 
 ## Open questions
 
@@ -91,9 +108,6 @@ entry and verifier check live in the same commit.
   restates `VISION.md` ("published identifiers are promises") and what the repo already does. If he
   disagrees with any rule, `VISION.md` wins and the payload changes — that is a conversation, not a
   rewrite by an agent.
-- **Should the JSON API ever grow "what's included" in a service?** Today a machine can quote a
-  from-price and a one-line description, not scope. Adding scope means adding claims, and claims
-  come from the truth layer, not from this repo.
 - **Would a breaking change ever remove a `/api/v1` path?** The policy says the old path keeps
   serving for at least 90 days after it is listed. Keeping it forever is cheap on a static host;
   retiring it is a decision nobody has needed yet.

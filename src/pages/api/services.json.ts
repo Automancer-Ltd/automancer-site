@@ -17,6 +17,7 @@ export const GET: APIRoute = () =>
           id: s.id,
           name: s.name,
           description: s.description,
+          includes: s.includes,
           priceFrom: s.priceFrom,
           priceCurrency: 'GBP',
           priceUnit: s.priceUnit,

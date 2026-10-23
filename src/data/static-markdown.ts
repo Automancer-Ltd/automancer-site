@@ -81,32 +81,28 @@ function servicesBody(): string {
       amt: formatGBP(audit.priceFrom),
       note: 'from · credited in full against any project you go on to do',
       one: 'We find where your time and money are leaking — and hand you a costed plan to plug it.',
-      includes:
-        '- A working session mapping how your business actually runs — the tools, the handoffs, the bottlenecks.\n- A ranked list of automation opportunities, each with an estimate of what it costs you now.\n- A costed, plain-English plan: what to do first, what it\u2019ll take, and what it\u2019ll cost.\n- No obligation to do any of it with us. It\u2019s your plan to keep.',
+      includes: audit.includes.map((item) => '- ' + item).join('\n'),
     },
     {
       name: sprint.name,
       amt: formatGBP(sprint.priceFrom),
       note: 'from',
       one: '1–3 automations, live and working, in roughly two weeks.',
-      includes:
-        '- We take 1–3 specific, well-defined workflows and automate them end to end.\n- Built on tools you already use where we can; new pieces added only where they earn their place.\n- Live in production in around two weeks, with you testing it as we go.\n- Handover so your team knows how it works — and how to trust the numbers coming out of it.',
+      includes: sprint.includes.map((item) => '- ' + item).join('\n'),
     },
     {
       name: systemBuild.name,
       amt: formatGBP(systemBuild.priceFrom),
       note: 'from',
       one: 'A proper custom system or AI agent, built to run your business — not bent around someone else\u2019s.',
-      includes:
-        '- Custom software designed around how you actually work.\n- Built audited, monitored, backed up and tested — not a prototype that falls over the first busy Monday.\n- AI agents where they add value, with a human kept firmly in control of anything that matters.\n- Delivered in governed stages so you see it working before it goes live.',
+      includes: systemBuild.includes.map((item) => '- ' + item).join('\n'),
     },
     {
       name: ops.name,
       amt: `${formatGBP(ops.priceFrom)}/mo`,
       note: 'from · cancel anytime',
       one: 'We don\u2019t build it and vanish. We stay on, keep it running, and automate the next thing.',
-      includes:
-        '- Monitoring and maintenance of everything we\u2019ve built for you.\n- A steady drip of new automation — we keep finding and removing the next bottleneck.\n- A human (Waseem) who knows your setup and answers when you need something.\n- Cancel anytime. No twelve-month lock-in, no exit fee.',
+      includes: ops.includes.map((item) => '- ' + item).join('\n'),
     },
   ];
 
