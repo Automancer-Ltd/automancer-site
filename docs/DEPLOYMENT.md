@@ -86,8 +86,8 @@ for `/.well-known/api-catalog`, HTTP → HTTPS, and one 301 from each legacy `*.
 `astro.config.mjs` `redirects` to its page. Everything else passes through.
 
 - **Deploy it:** `ops/edge/deploy.sh` (Executor `cloudflare-full-access`, account "Waseem
-  Cloudflare", the Automancer account; the zone moves there from the hello@ account under
-  automancer-ops `docs/plans/automancer-uk-cloudflare-move.md`). A merged change to `worker.js` is not live until this runs. Try it first with
+  Cloudflare", the Automancer account, which has held the zone since 23 Oct 2026). A merged change to `worker.js`
+  is not live until this runs. Try it first with
   `ops/edge/deploy.sh automancer-site-edge-probe` (workers.dev, real origin).
 - **Zone settings it relies on:** `email_obfuscation` off (it rewrites mailto links),
   `browser_check` off (it challenges agents), `browser_cache_ttl` 0 (respect GitHub's
