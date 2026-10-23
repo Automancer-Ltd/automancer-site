@@ -9,8 +9,8 @@
 # module's handler. tests/edge-worker.test.ts tests the module itself.
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
-readonly CF_ACCOUNT=736c27679be9d886c17b9069bb7353ec            # owns the automancer.uk zone
-readonly EXECUTOR_ACCOUNT=acc_a7f7b05b-c59d-4108-8d96-45b89784a390 # Executor "Cloudflare waseemIlyas"
+readonly CF_ACCOUNT=d974bcbc49ae64c2675c1ff7f410ba94            # Automancer account; owns the automancer.uk zone
+readonly EXECUTOR_ACCOUNT=acc_64a83ca1-7690-43cb-86c7-287ef67135ec # Executor "Waseem Cloudflare"
 script=${1:-automancer-site-edge}
 
 code=$(sed -e 's/^export function /function /' -e 's/^export default {/const handler = {/' "$here/worker.js")
