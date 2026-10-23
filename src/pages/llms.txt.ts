@@ -66,6 +66,7 @@ export const GET: APIRoute = () => {
   for (const service of services) {
     const unit = service.priceUnit === 'month' ? '/month' : ' (project)';
     lines.push(`- ${service.name}: from ${formatGBP(service.priceFrom)}${unit} — ${service.description}`);
+    for (const item of service.includes) lines.push(`  - ${item}`);
   }
   lines.push('');
 

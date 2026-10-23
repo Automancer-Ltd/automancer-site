@@ -27,6 +27,13 @@ export interface ServiceOffering {
   id: string;
   name: string;
   description: string;
+  /**
+   * The "What's included" bullets the /services page shows, in that order.
+   * /api/services.json and the Markdown twin read this same list, so a machine
+   * quotes the scope a person reads. These sentences are already published on
+   * the page; this field does not add a claim.
+   */
+  includes: readonly string[];
   /** GBP, numeric, no currency symbol. */
   priceFrom: number;
   /** e.g. "project" or "month" */
@@ -69,6 +76,12 @@ export const services: ServiceOffering[] = [
     name: 'Automation Opportunity Audit',
     description:
       'A focused review of your workflows to identify where automation will have the biggest impact.',
+    includes: [
+      'A working session where we map how your business actually runs — the tools, the handoffs, the bottlenecks.',
+      'A ranked list of automation opportunities, each with an estimate of the time or money it’s costing you now.',
+      'A costed, plain-English plan: what to do first, what it’ll take, and what it’ll cost.',
+      'No obligation to do any of it with us. It’s your plan to keep.',
+    ],
     priceFrom: 450,
     priceUnit: 'project',
   },
@@ -76,6 +89,12 @@ export const services: ServiceOffering[] = [
     id: 'workflow-implementation-sprint',
     name: 'Workflow Sprint',
     description: 'Build and deploy automation for 1–3 selected workflows.',
+    includes: [
+      'We take 1–3 specific, well-defined workflows and automate them end to end.',
+      'Built on tools you already use where we can; new pieces added only where they earn their place.',
+      'Live in production in around two weeks, with you testing it as we go.',
+      'Handover so your team knows how it works — and how to trust the numbers coming out of it.',
+    ],
     priceFrom: 1950,
     priceUnit: 'project',
   },
@@ -84,6 +103,12 @@ export const services: ServiceOffering[] = [
     name: 'System / Agent Build',
     description:
       'From task-specific assistants to full AI employees that draw on your organisational knowledge.',
+    includes: [
+      'Custom software designed around how you actually work.',
+      'Built the way we build our own company: audited, monitored, backed up, and tested — not a prototype that falls over the first busy Monday.',
+      'AI agents where they add value, with a human kept firmly in control of anything that matters.',
+      'Delivered in governed stages so you see it working before it goes live, and you’re never staring at a big-bang launch.',
+    ],
     priceFrom: 4500,
     priceUnit: 'project',
   },
@@ -92,6 +117,12 @@ export const services: ServiceOffering[] = [
     name: 'AI Ops Partner',
     description:
       'Ongoing optimisation and support as your automation footprint grows.',
+    includes: [
+      'We monitor and maintain everything we’ve built for you, so it keeps working while you don’t think about it.',
+      'A steady drip of new automation — we keep finding and removing the next bottleneck.',
+      'A human (Waseem) who knows your setup and answers when you need something.',
+      'Cancel anytime. No twelve-month lock-in, no exit fee, no hostage situation. If it’s not earning its keep, you stop.',
+    ],
     priceFrom: 495,
     priceUnit: 'month',
   },

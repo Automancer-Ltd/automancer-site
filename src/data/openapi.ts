@@ -143,7 +143,10 @@ const schemas: Record<string, JsonSchema> = {
           {
             id: str('Stable kebab-case id derived from the service name.'),
             name: str(),
-            description: str(),
+            description: str('One-line description. Scope is `includes`, the same bullets the /services page shows.'),
+            includes: strArray(
+              'The "What\'s included" bullets the /services page shows for this service, in that order.',
+            ),
             priceFrom: { type: 'number', description: 'Published "from" price.' },
             priceCurrency: oneOf('GBP'),
             priceUnit: str('What the from-price buys one unit of.', {
@@ -152,7 +155,7 @@ const schemas: Record<string, JsonSchema> = {
             url: uri(),
           },
           {
-            required: ['id', 'name', 'description', 'priceFrom', 'priceCurrency', 'priceUnit', 'url'],
+            required: ['id', 'name', 'description', 'includes', 'priceFrom', 'priceCurrency', 'priceUnit', 'url'],
           }
         ),
       },

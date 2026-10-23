@@ -1,7 +1,7 @@
 # Automancer Site — Living Specification
 
 > Internal living spec. Update the relevant module section in the SAME branch
-> as any behaviour change. Last verified against the code: 2026-10-20.
+> as any behaviour change. Last verified against the code: 2026-10-23.
 
 ## North star
 
@@ -34,7 +34,7 @@ Provide a truthful public front door for Automancer. Give people and machines th
 
 ### Shared business truth
 
-- What it does: Holds business facts, service data, page metadata, canonical URLs, and structured-data builders. Human and machine surfaces read these shared modules. Published from-prices on the human pages, `/api/services.json`, and `/services/` schema.org `Offer` entries all derive from `services` in `business.ts`; the dist tests compare them. Field-note prose still quotes those prices; the build fails if a from-price in the output is not one of them.
+- What it does: Holds business facts, service data, page metadata, canonical URLs, and structured-data builders. Human and machine surfaces read these shared modules. Published from-prices on the human pages, `/api/services.json`, and `/services/` schema.org `Offer` entries all derive from `services` in `business.ts`; the dist tests compare them. Each service's What's included list is the same array: the /services page, `/services.md`, `llms.txt` and `/api/services.json` `includes` all read it, and the build fails if the page list and the payload disagree. Field-note prose still quotes those prices; the build fails if a from-price in the output is not one of them.
 - State: built
 - Shaped by: `src/data/business.ts`, `src/data/static-markdown.ts`, `src/data/urls.ts`, and `src/data/jsonld.ts`.
 
