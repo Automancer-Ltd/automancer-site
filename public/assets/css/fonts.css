@@ -4,7 +4,9 @@
    the site falls in its unicode-range; verified by scanning every page in dist/).
    All four binaries are VARIABLE fonts covering their full weight axis, so one
    file per family serves every weight below; duplicate per-weight copies of the
-   byte-identical binaries were removed the same day. Served from our own origin — no request
+   byte-identical binaries were removed the same day. Syne leaves out U+007E:
+   its tilde is a dot-sized squiggle that reads "~600" as "·600", so the
+   tilde falls through to Space Grotesk. Served from our own origin — no request
    ever leaves the visitor's browser to a third-party font host. */
 
 /* JetBrains Mono 400 — latin (self-hosted, from Google Fonts, OFL/Apache) */
@@ -114,7 +116,7 @@
   font-weight: 600;
   font-display: swap;
   src: url(/assets/fonts/syne-800-latin.woff2) format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+  unicode-range: U+0000-007D, U+007F-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
 /* Syne 700 — latin (self-hosted, from Google Fonts, OFL/Apache) */
@@ -124,7 +126,7 @@
   font-weight: 700;
   font-display: swap;
   src: url(/assets/fonts/syne-800-latin.woff2) format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+  unicode-range: U+0000-007D, U+007F-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
 /* Syne 800 — latin (self-hosted, from Google Fonts, OFL/Apache) */
@@ -134,5 +136,5 @@
   font-weight: 800;
   font-display: swap;
   src: url(/assets/fonts/syne-800-latin.woff2) format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+  unicode-range: U+0000-007D, U+007F-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
