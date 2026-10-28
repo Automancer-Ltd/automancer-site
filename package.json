@@ -18,6 +18,7 @@
     "check": "pnpm run lint && pnpm run typecheck && if [ -f dist/index.html ]; then SKIP_BUILD=1 vitest run; else SKIP_BUILD=1 vitest run tests/storage-sentinel.test.ts; fi",
     "test": "vitest run",
     "test:watch": "vitest",
+    "journey": "playwright test",
     "verify": "pnpm run lint && pnpm run typecheck && pnpm run test"
   },
   "dependencies": {
@@ -26,6 +27,7 @@
     "astro": "^7.4.0"
   },
   "devDependencies": {
+    "@playwright/test": "1.64.1",
     "axe-core": "^4.14.0",
     "happy-dom": "^21.0.3",
     "node-html-parser": "^9.0.4",

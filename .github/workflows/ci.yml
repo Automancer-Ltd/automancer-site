@@ -42,6 +42,10 @@ jobs:
       run: pnpm install --frozen-lockfile
     - name: Lint, typecheck, build and test
       run: pnpm run verify
+    - name: Install the journey browser
+      run: pnpm exec playwright install --with-deps chromium
+    - name: Visitor journey (phone and desktop, against the built dist/)
+      run: pnpm run journey
     - name: Self-test the production checker
       run: ops/verify-production.sh --self-test
     - name: Self-test the preview target's deploy logic
