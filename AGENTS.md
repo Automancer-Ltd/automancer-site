@@ -19,11 +19,17 @@ Run builds, tests and typechecks through `checkq` on auto-vps (`heavy -- …` fo
 checkq -- pnpm install --frozen-lockfile   # also runs `astro sync` (LSP types in .astro/)
 checkq -- pnpm run check                   # fast (~5 s): oxlint, tsrs, vitest on the dist/ that exists
 checkq -- pnpm run verify                  # the full verdict CI and the deploy run: lint, typecheck, build, audit
+checkq -- pnpm run journey                 # visitor journey in a real browser (phone + desktop) on the built dist/
 ```
 
 `check` audits whatever `dist/` already holds, so after a source change a stale `dist/` fails it
 for reasons your change did not cause: run `verify` (it rebuilds) or delete `dist/` first.
 
+- **The visitor journey** (`tests/journey/`, Playwright): nav, published prices, the contact form's
+  validation, send, refusal and outage paths, painted screenshots. CI runs it on the built `dist/`;
+  `deploy.yml` runs it against production (`JOURNEY_URL=https://automancer.uk`), read-only, with the
+  enquiry endpoint and Turnstile stubbed so it never sends a real enquiry. Needs `build` first and a
+  browser (`pnpm exec playwright install chromium`).
 - **See it in the real product:** [`.agents/skills/verify-site/SKILL.md`](.agents/skills/verify-site/SKILL.md)
   (`scripts/verify-local.sh` builds, previews and drives every journey in `features/` at desktop and
   mobile widths).

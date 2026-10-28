@@ -3,15 +3,18 @@
 ## How a change reaches production
 
 1. Pull request → `.github/workflows/ci.yml` job `checks` (the one required context): estate
-   checks, `pnpm run verify` (lint, typecheck, build, `dist/` audit) and the `ops/` self-tests.
-   About a minute.
+   checks, `pnpm run verify` (lint, typecheck, build, `dist/` audit), the visitor journey
+   (`pnpm run journey`, Playwright at phone and desktop width on the built `dist/`) and the `ops/`
+   self-tests.
 2. Merge to `main` → `.github/workflows/deploy.yml`, in about two minutes:
    - `build` re-runs `pnpm run verify` on the merged commit (a merge can produce a tree no pull
      request tested; there is no separate CI run on `main`), then builds with the Sentry DSN and
      `PUBLIC_SENTRY_RELEASE=$GITHUB_SHA` and uploads the Pages artifact;
    - `deploy` publishes it with `actions/deploy-pages`, then runs
      `ops/verify-production.sh --expected-revision "$GITHUB_SHA" https://automancer.uk`
-     against production itself. A red verify is a red release.
+     against production itself. A red verify is a red release;
+   - the `journey` job then runs the same Playwright visitor journey against `https://automancer.uk`
+     (read-only: the enquiry endpoint and Turnstile are stubbed, nothing is sent).
 3. Record the production verification with estate-watch (`deploy-verify` skill in Executor):
    `deploy.start({ product: "site", url: "https://automancer.uk", commit })` before the merge,
    `deploy.verify({ run })` after the deploy run is green, `deploy.get({ run })` for the verdict.
