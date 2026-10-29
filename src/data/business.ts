@@ -10,33 +10,11 @@
  */
 
 export interface ServiceOffering {
-  /**
-   * Stable public identifier, published in /api/services.json and used as the
-   * JSON-LD offer @id.
-   *
-   * Declared explicitly rather than derived from `name`. It used to be a slug
-   * of the name, which made it a POINTER TO A MUTABLE FIELD dressed as an
-   * identifier: renaming a service silently changed its published id, and any
-   * consumer holding the old one would find it simply gone, with nothing to
-   * notice. These values are the ones already published, so pinning them here
-   * changes no output today and stops the drift tomorrow.
-   *
-   * Changing an id is a breaking change to a public API. Renaming a service is
-   * not.
-   */
   id: string;
   name: string;
   description: string;
-  /**
-   * The "What's included" bullets the /services page shows, in that order.
-   * /api/services.json and the Markdown twin read this same list, so a machine
-   * quotes the scope a person reads. These sentences are already published on
-   * the page; this field does not add a claim.
-   */
   includes: readonly string[];
-  /** GBP, numeric, no currency symbol. */
   priceFrom: number;
-  /** e.g. "project" or "month" */
   priceUnit: 'project' | 'month';
 }
 
@@ -44,15 +22,11 @@ export const business = {
   legalName: 'Automancer Ltd',
   tradingName: 'Automancer',
   companyNumber: '17060907',
-  /** Part of the UK where the company is registered — a Companies Act trading disclosure. */
   placeOfRegistration: 'England and Wales',
-  /** ICO (Information Commissioner's Office) data-protection registration. */
   icoRegistration: 'ZC180569',
   url: 'https://automancer.uk',
   email: 'waseem@automancer.uk',
-  /** Voicemail line (Vonage) that feeds the intake pipeline. */
   phone: '+44 7451 261333',
-  /** E.164, no spaces — for tel: links. */
   phoneTel: '+447451261333',
   address: {
     streetAddress: '62 Beckfield Road',
@@ -75,12 +49,12 @@ export const services: ServiceOffering[] = [
     id: 'automation-opportunity-audit',
     name: 'Automation Opportunity Audit',
     description:
-      'A focused review of your workflows to identify where automation will have the biggest impact.',
+      'A focused review of your workflows to find where automation saves the most time and money.',
     includes: [
-      'A working session where we map how your business actually runs — the tools, the handoffs, the bottlenecks.',
-      'A ranked list of automation opportunities, each with an estimate of the time or money it’s costing you now.',
-      'A costed, plain-English plan: what to do first, what it’ll take, and what it’ll cost.',
-      'No obligation to do any of it with us. It’s your plan to keep.',
+      'A working session where we map how your team works: the tools, the handoffs, and the bottlenecks.',
+      'A ranked list of automation opportunities, each with an estimate of the time or money it costs you today.',
+      'A costed, plain-English plan showing what to tackle first, how long it takes, and what it costs.',
+      'No obligation to build any of it with us. The plan is yours to keep.',
     ],
     priceFrom: 450,
     priceUnit: 'project',
@@ -90,10 +64,10 @@ export const services: ServiceOffering[] = [
     name: 'Workflow Sprint',
     description: 'Build and deploy automation for 1–3 selected workflows.',
     includes: [
-      'We take 1–3 specific, well-defined workflows and automate them end to end.',
-      'Built on tools you already use where we can; new pieces added only where they earn their place.',
-      'Live in production in around two weeks, with you testing it as we go.',
-      'Handover so your team knows how it works — and how to trust the numbers coming out of it.',
+      'We take 1–3 specific workflows and automate them end to end.',
+      'Built on the tools you already use wherever possible, adding new software only when needed.',
+      'Live in production in around two weeks, with your team testing it before launch.',
+      'Clear handover so your staff know how it works and can trust the figures it produces.',
     ],
     priceFrom: 1950,
     priceUnit: 'project',
@@ -102,12 +76,12 @@ export const services: ServiceOffering[] = [
     id: 'system-agent-build',
     name: 'System / Agent Build',
     description:
-      'From task-specific assistants to full AI employees that draw on your organisational knowledge.',
+      'Custom software, portals, and AI agents built around how your business runs.',
     includes: [
-      'Custom software designed around how you actually work.',
-      'Built the way we build our own company: audited, monitored, backed up, and tested — not a prototype that falls over the first busy Monday.',
-      'AI agents where they add value, with a human kept firmly in control of anything that matters.',
-      'Delivered in governed stages so you see it working before it goes live, and you’re never staring at a big-bang launch.',
+      'Custom software designed around your team’s daily work.',
+      'Monitored, backed up, and tested to the same standard we use for our own systems.',
+      'AI agents that handle repetitive tasks while a person approves the decisions that matter.',
+      'Delivered in stages so you see each part working in a test environment before it goes live.',
     ],
     priceFrom: 4500,
     priceUnit: 'project',
@@ -116,12 +90,12 @@ export const services: ServiceOffering[] = [
     id: 'ai-ops-partner',
     name: 'AI Ops Partner',
     description:
-      'Ongoing optimisation and support as your automation footprint grows.',
+      'Ongoing monitoring, maintenance, and new automation each month.',
     includes: [
-      'We monitor and maintain everything we’ve built for you, so it keeps working while you don’t think about it.',
-      'A steady drip of new automation — we keep finding and removing the next bottleneck.',
-      'A human (Waseem) who knows your setup and answers when you need something.',
-      'Cancel anytime. No twelve-month lock-in, no exit fee, no hostage situation. If it’s not earning its keep, you stop.',
+      'We monitor and maintain everything we build for you so it keeps running smoothly.',
+      'Continuous improvements: we keep finding and automating the next bottleneck.',
+      'Direct access to Waseem, who knows your systems and answers when you need help.',
+      'Cancel anytime. No 12-month lock-in and no exit fee.',
     ],
     priceFrom: 495,
     priceUnit: 'month',

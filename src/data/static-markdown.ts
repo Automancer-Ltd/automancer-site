@@ -1,18 +1,6 @@
 /**
  * Markdown renditions of the HAND-AUTHORED pages (/, /about, /services,
  * /contact, /work index, /field-notes index).
- *
- * Content-collection pages (/work/<slug>, /field-notes/<slug>) do NOT go
- * through here — their twins are derived straight from the collection entry
- * via site-content.ts, so they cannot drift from the article HTML.
- *
- * These pages are prose rendered from .astro templates; their twins are
- * curated renditions assembled from the SAME shared data modules the pages
- * render (business facts, services/pricing, collection listings) plus a
- * faithful condensed narrative. Facts (names, prices, contact details,
- * promises) always come from business.ts — never retyped. The one known
- * limitation is stated in docs/AGENT-READINESS.md: page prose here is a
- * rendition, not a scrape of the rendered HTML.
  */
 import { business, services, formatGBP, serviceById } from './business';
 import { abs } from './urls';
@@ -25,37 +13,35 @@ const unit = (s: (typeof services)[number]) => (s.priceUnit === 'month' ? '/mont
 const priceLine = () =>
   services.map((s) => `- **${s.name}** — from ${formatGBP(s.priceFrom)}${unit(s)}: ${s.description}`).join('\n');
 
-/* ── Page bodies ─────────────────────────────────────────────────────── */
-
 async function homeBody(): Promise<string> {
   const studies = await getStudies();
   return `# Your admin, automated into oblivion.
 
 We make small businesses run like magic. It's not magic. It's very good engineering.
 
-Automancer builds the software and AI agents that do the boring, expensive, error-prone work your team shouldn't be doing by hand. Real systems, sensible prices, and a human who answers.
+Automancer builds the software and AI agents that handle the repetitive, error-prone admin your team shouldn't be doing by hand. Real systems, published prices, and a human who answers.
 
 ## This whole company is run by AI. On purpose.
 
-Most consultancies will tell you AI is the future. We handed ours the keys — the finance ops, the project tracking, this website, the field notes. We don't demo automation in a slide deck; we live inside it. A human — Waseem — makes every decision and takes every call.
+Our own finance tracking, project management, website, and field notes run on AI agents. Waseem makes every decision and takes every call.
 
-- **Finance, monitored not automated** — Agents monitor software spend and prepare invoices. Waseem approves and issues them. Bookkeeping remains manual.
-- **Self-tracking delivery** — every project lane is governed and monitored by agents, board-gated before anything touches a client.
-- **This site & blog** — written, built and maintained by the same agents we'd put to work in your business.
-- **One human in the loop** — every decision. Every call. No call centre, no "your ticket is important to us".
+- **Finance, monitored not automated** — Agents monitor software spend and draft invoices. Waseem approves and sends them. Bookkeeping stays manual.
+- **Tracked end to end** — Agents track every project and check each release before Waseem signs it off for a client.
+- **This site & blog** — written, built, and maintained by the same agents we put to work in your business.
+- **One human in the loop** — every decision and every call goes through Waseem. No call centre and no ticket queue.
 
 ## What we do
 
-If a person on your team spends hours copying data between systems, re-keying spreadsheets, chasing approvals, or answering the same question for the hundredth time — that's a job for a machine.
+If someone on your team spends hours copying figures between systems, updating spreadsheets, chasing approvals, or answering the same question every day, a computer can do that job for them.
 
-1. **Workflow automation** — the repetitive, multi-step admin between your tools, stitched into one clean flow.
-2. **Custom systems & portals** — proper software built for how you actually work, not an off-the-shelf box you bend yourself around.
-3. **AI agents** — software that reads, decides, drafts and acts, with a human keeping control of anything that matters.
-4. **AI Ops partnership** — we stay on, keep it running, and automate the next thing. Cancel anytime.
+1. **Workflow automation** — repetitive admin across your existing tools, connected into one reliable flow.
+2. **Custom systems & portals** — software built around how your team works, rather than forcing you into an off-the-shelf template.
+3. **AI agents** — software that reads, drafts, and acts while a person stays in control of every important decision.
+4. **AI Ops partnership** — we stay on, keep your systems running, and automate the next job. Cancel anytime.
 
 ## Sensible prices, published
 
-Enterprise automation firms quote enterprise numbers. We don't:
+We publish our starting prices so you know what to expect before you get in touch:
 
 ${priceLine()}
 
@@ -80,7 +66,7 @@ function servicesBody(): string {
       name: audit.name,
       amt: formatGBP(audit.priceFrom),
       note: 'from · credited in full against any project you go on to do',
-      one: 'We find where your time and money are leaking — and hand you a costed plan to plug it.',
+      one: 'We find where your time and money are leaking and hand you a costed plan to fix it.',
       includes: audit.includes.map((item) => '- ' + item).join('\n'),
     },
     {
@@ -94,34 +80,34 @@ function servicesBody(): string {
       name: systemBuild.name,
       amt: formatGBP(systemBuild.priceFrom),
       note: 'from',
-      one: 'A proper custom system or AI agent, built to run your business — not bent around someone else\u2019s.',
+      one: 'A custom system or AI agent built around how your business runs.',
       includes: systemBuild.includes.map((item) => '- ' + item).join('\n'),
     },
     {
       name: ops.name,
       amt: `${formatGBP(ops.priceFrom)}/mo`,
       note: 'from · cancel anytime',
-      one: 'We don\u2019t build it and vanish. We stay on, keep it running, and automate the next thing.',
+      one: 'We stay on, keep your systems running, and automate the next bottleneck.',
       includes: ops.includes.map((item) => '- ' + item).join('\n'),
     },
   ];
 
   const faqs = [
-    ['Is it really this cheap?', 'Yes — we run our own company on AI agents (finance ops, project tracking, even this website), which makes us fast and lean, and we price accordingly. These are real published from prices, not bait.'],
-    ['What if it breaks?', 'We build properly — audited, monitored, backed up, tested. On an AI Ops Partner retainer, keeping it running is literally our job. And if something goes wrong, a human answers — not a ticket queue.'],
-    ['Do I need to understand AI?', 'Not even slightly. You need to understand your business; we handle the AI, the engineering and the jargon, in plain English.'],
-    ['Will a human actually answer?', 'Always. Agents do the work, but Waseem makes every decision and takes every call. We promise a meeting within one week of first contact.'],
+    ['Is it really this cheap?', 'Yes. We run our own finance tracking, project management, and website on AI agents, which keeps our overheads low. The prices on this page are real starting prices for published work.'],
+    ['What if it breaks?', 'Every system we ship is monitored, backed up, and tested. On an AI Ops Partner plan, we watch it day to day and fix issues as they arise. When you need help, you speak directly with Waseem rather than a ticket queue.'],
+    ['Do I need to understand AI?', 'No. You know your business and where time is being lost; we handle the software and explain every step in plain English.'],
+    ['Will a human actually answer?', 'Always. Agents do the background work, while Waseem makes every decision and takes every call. We promise a meeting within one week of first contact.'],
     ['Where are you, and do you work remotely?', `Based in ${business.areasServed[0]}, working with businesses in ${business.areasServed.slice(1).join(', ')}. Remote-first.`],
-    ['What if I just want a website?', 'We do those too — fast, affordable, compliant landing sites with no monthly platform fees.'],
+    ['What if I just want a website?', 'We build those too: fast, compliant websites with no monthly platform fees.'],
   ];
 
   return `# Services & pricing
 
 Four ways in. All of them start with a price you can actually see.
 
-Every price below is a *from* price for real, published work — not a teaser rate. Where your job is bigger, we'll tell you before we start, not after.
+Every price below is a *from* price for real work. Where your project is larger, we tell you the full price upfront before we start.
 
-Most people start with an Audit, act on a Sprint or a Build, and — if it's working — keep us on as their AI Ops Partner. You can jump on at any rung.
+Most clients start with an Audit, move to a Sprint or a Build, and keep us on as their AI Ops Partner. You can start at any rung.
 
 ${ladder
   .map(
@@ -143,35 +129,35 @@ ${faqs.map(([q, a]) => `### ${q}\n\n${a}`).join('\n\n')}
 
 function aboutBody(): string {
   const principles = [
-    ['Sensible prices, published', 'No enterprise mark-up, no "let\'s get you on a call" before we\'ll say a number. Our prices are on the website.'],
+    ['Sensible prices, published', 'Our starting prices are on the website so you can see them before you get in touch.'],
     ['A human in the loop, always', 'Agents do the work; Waseem makes the decisions and takes the calls. We promise a meeting within one week of first contact.'],
-    ['Built properly, not prototyped', 'Audited, monitored, backed up, tested. The same standard we hold our own infrastructure to.'],
-    ['Governed, staged delivery', 'You see it working before it goes live. No big-bang launches, no nasty surprises.'],
-    ['Remote-first, Bradford-rooted', 'Based in Bradford, serving Leeds, Manchester and the UK. Where you are is not a problem we\u2019ve ever had.'],
+    ['Built properly, not prototyped', 'Audited, monitored, backed up, and tested to the same standard as our own systems.'],
+    ['Staged, checked delivery', 'You see each part working in a test environment before it goes live.'],
+    ['Remote-first, Bradford-rooted', 'Based in Bradford and working with businesses in Leeds, Manchester, and across the UK.'],
   ];
   return `# An AI-run business, with a human at the helm.
 
-Most consultancies talk about AI. Automancer is one. The finance, the project tracking, the website you're reading — all run by agents. Every decision and every call — run by Waseem.
+Automancer runs its own finance tracking, project management, and website on AI agents. Waseem makes every decision and takes every call.
 
 ## Why "Automancer"?
 
-An automancer works magic through machines. That's the joke, and it's also the honest job description. We make small businesses run like they're enchanted — admin that does itself, systems that talk to each other, work that just quietly happens overnight — and then we tell you plainly that it isn't magic at all. It's very good engineering, pointed at the boring problems that cost you the most.
+An automancer works magic through machines. That's the joke, and it's also the job description. When systems talk to each other and repetitive admin happens overnight, it feels like magic. In practice, it is careful software engineering pointed at the dullest, most expensive jobs in your week.
 
-Small businesses have been priced out of proper automation for years. We think that's daft. The technology to fix it is here, it's cheaper than ever, and there's no reason a care provider in Bradford or a manufacturer in Manchester shouldn't have systems as sharp as anyone's.
+For years, custom automation required a six-figure budget and an internal IT department. Smaller businesses had to make do with disconnected apps and spreadsheets. Better tools now make it affordable for a care provider in Bradford or a manufacturer in Manchester to have software built around their exact workflow.
 
-So we built a consultancy to prove it — by running the consultancy itself on exactly the tools we sell.
+We built Automancer to deliver that — and we run our own consultancy on the same tools we build for clients.
 
 ## The business is the demo
 
-Automancer's own back office is run by AI agents: finance operations, project tracking, this website, the field notes. And then there's the line we will never cross: **a human makes every decision and takes every call.** That human is Waseem. The agents draft, calculate, monitor and propose. Waseem decides.
+AI agents monitor software spend and draft invoices. Waseem checks, approves, and sends them. Bookkeeping stays manual. Agents track every project, run automated checks on every change, and maintain this website and its field notes.
 
-We're this open for two reasons. One, honesty: you deserve to know what's automated and what isn't. Two, it *is* the pitch — we already ran the experiment on ourselves.
+One rule never changes: **a human makes every decision and takes every call.** The agents draft, calculate, monitor, and test. Waseem decides what ships, approves every invoice, and speaks directly with every client.
 
 ## Meet Waseem
 
-Automancer is founded and run by Waseem Ilyas — an engineer who got tired of watching good small businesses drown in admin that a machine could do in seconds. Before Automancer, he spun out and ran a live SaaS product business, so he has shipped real software that real people pay for and depend on.
+Automancer is founded and run by Waseem Ilyas, an engineer who builds software that takes repetitive admin off small teams. Before starting Automancer, he founded and ran a SaaS product company from scratch, shipping and operating software that businesses relied on every day.
 
-He works with clients across social care, manufacturing, professional services and travel — from a ~600-person care provider's digital transformation to a one-page website for a brand-new travel agency. When you work with Automancer, you work with Waseem.
+He works with clients across social care, manufacturing, professional services, and travel — from a ~600-person care provider's operations platform to a single-page website for a new travel agency. When you work with Automancer, you work directly with Waseem.
 
 ## Five rules we actually keep
 
@@ -194,14 +180,14 @@ Based in ${business.areasServed[0]} · Leeds · Manchester · UK-wide, remote-fi
 
 ## The one-week promise
 
-One week to a meeting, from first contact. Not a number in the diary three weeks out, not an automated "someone will be in touch" — an actual conversation with an actual human, within seven days.
+We promise a meeting within one week of first contact. You speak directly with Waseem within seven days.
 
 ## What happens after you hit send
 
-1. **Your message enters our pipeline** — it lands in the same project system our AI agents run. Nothing gets lost, nothing sits ignored in an inbox.
-2. **Waseem reads it. Personally.** No auto-responder pretending to be a person.
-3. **You get a personal email back** — to arrange a proper conversation within one week of first contact.
-4. **We take it from there** — usually an Automation Audit, but if a quick pointer is all you need, we'll happily give you that too.
+1. **Your message enters our pipeline** — it lands in the same project system our AI agents run. Nothing gets lost in an inbox.
+2. **Waseem reads it personally.** No auto-responder pretending to be a person.
+3. **You get a personal email back** — to arrange a conversation within one week of first contact.
+4. **We take it from there** — usually starting with an Automation Audit, or a quick pointer if that is all you need.
 
 Agents — use email. The form needs a browser; a plain email reaches the same human.
 `;
@@ -250,12 +236,7 @@ async function releasesBody(): Promise<string> {
   ].join('\n');
 }
 
-/* ── Registry ────────────────────────────────────────────────────────── */
-
-type BodyFn = () => Promise<string> | string;
-
-/** path → body generator, for the static .md twin routes AND llms-full.txt. */
-export const staticBodies: Record<string, BodyFn> = {
+export const staticBodies: Record<string, () => string | Promise<string>> = {
   '/': homeBody,
   '/services/': servicesBody,
   '/about/': aboutBody,
@@ -265,30 +246,25 @@ export const staticBodies: Record<string, BodyFn> = {
   '/releases/': releasesBody,
 };
 
-function metaFor(path: string): PageMeta {
-  const meta = staticPages.find((p) => p.path === path);
-  if (!meta) throw new Error(`No PageMeta registered for ${path}`);
-  return meta;
-}
-
-/**
- * Full Markdown twin of one hand-authored page: YAML front matter
- * (title, description, url, canonical, type) + body. Legal/compliance pages
- * have NO twin by design — see site-content.ts legalNoMirror.
- */
-export function staticTwinMarkdown(path: string, body: string): string {
-  const meta = metaFor(path);
-  const url = abs(path);
-  return frontMatter({ title: meta.title, description: meta.description, url, canonical: url, type: meta.type }) + body;
-}
-
-export async function serveStaticTwin(path: string): Promise<Response> {
+export async function renderStaticTwin(path: string): Promise<string> {
+  const meta: PageMeta | undefined = staticPages.find((p) => p.path === path);
   const bodyFn = staticBodies[path];
-  if (!bodyFn) return new Response('Not found', { status: 404 });
-  return mdResponse(staticTwinMarkdown(path, await bodyFn()));
+  if (!meta || !bodyFn || meta.legalNoMirror) {
+    throw new Error(`No Markdown twin registered for static path "${path}"`);
+  }
+  const url = abs(path === '/' ? '/' : path.replace(/\/$/, ''));
+  return (
+    frontMatter({
+      title: meta.title,
+      description: meta.description,
+      url,
+      canonical: url,
+      type: meta.type,
+      lastUpdated: meta.lastUpdated,
+    }) + (await bodyFn())
+  );
 }
 
-/** Convenience factory so each twin route file stays three lines long. */
 export function twinRoute(path: string): APIRoute {
-  return () => serveStaticTwin(path);
+  return async () => mdResponse(await renderStaticTwin(path));
 }

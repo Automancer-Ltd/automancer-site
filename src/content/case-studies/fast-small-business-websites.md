@@ -1,7 +1,7 @@
 ---
 title: From zero to live, in days, for near-zero running cost
-description: Fast, affordable, properly-built landing sites for small businesses that needed a proper web presence yesterday — with no monthly platform fees.
-summary: Fast, affordable, properly-built landing sites for small businesses that needed a proper web presence yesterday — with no monthly platform fees. The light end of what we do.
+description: Fast, affordable landing sites for small businesses that need a credible website quickly, with no monthly platform fees.
+summary: Fast, affordable landing sites for small businesses that need a credible website quickly, with no monthly platform fees.
 statline: "live in days · no monthly platform fees · SEO + compliance built in"
 date: 2026-03-10
 sector: Small business / web
@@ -10,32 +10,32 @@ anonymised: true
 order: 4
 status: Live
 headline: A proper web presence, live in days, with no monthly fees.
-subhead: Not every job needs an eighteen-workstream transformation. Sometimes a business just needs to exist online — properly, quickly, and cheaply. This is the light end of what we do, and often the first taste of working with us.
+subhead: When a business just needs a clear, fast website without a monthly subscription, we build and launch it in days.
 stats:
-  - { v: "Live in days", l: "not months" }
-  - { v: "Near-zero", l: "running cost — no monthly platform fees" }
-  - { v: "Thorough", l: "trading disclosures done right, out of the box" }
-  - { v: "Findable", l: "SEO basics and structured data in place" }
+  - { v: "Live in days", l: "from first brief to launch" }
+  - { v: "Near-zero", l: "running cost, with no monthly platform fees" }
+  - { v: "Thorough", l: "UK company and regulatory disclosures included" }
+  - { v: "Findable", l: "search engine setup and structured data in place" }
 ---
 
-## New business, no web presence, no budget for a big agency
+## Getting online without agency prices or monthly fees
 
-A brand-new company can't sell what nobody can find. But the traditional options are grim: a web agency with a five-figure quote and a three-month timeline, or a drag-and-drop builder that charges you rent forever and still looks like everyone else's. Small businesses — a new travel agency, a local credit-hire firm — need a middle path: a real, credible, properly-built site, live fast, without a monthly bill hanging over it.
+A new business needs a credible website people can find. Traditional web agencies quote thousands of pounds and take months, while website builders charge a monthly subscription forever. Small businesses often just need a fast, well-built site they own outright.
 
-## Two businesses, from nothing to live
+## Two businesses launched from scratch
 
-**A new UK travel agency.** We took the client from zero web presence to a live marketing site: services sections, a tested working enquiry form, WhatsApp and phone contact wiring, and the trading-disclosure footer. We handled the lot end to end — domain purchase, DNS, HTTPS hosting, and interim email routing — so they had a working front door and a working inbox from day one.
+**A new UK travel agency.** We took the client from having no website to a live site with service pages, a tested enquiry form, WhatsApp and phone links, and UK company disclosures. We also set up their domain, DNS, secure hosting, and email forwarding so they could take enquiries from day one.
 
-**A local credit-hire firm.** A sharp single-page marketing site with the technical fundamentals baked in: structured data so search engines understand the business, plus the SEO basics — sitemap, robots and the rest — done properly. Live, fast, and findable.
+**A local credit-hire firm.** We built a fast single-page site with search engine metadata, structured business data, a sitemap, and regulatory footer disclosures in place from launch.
 
-Both are hand-built and hosted for essentially nothing to run — no monthly platform fee quietly draining the account every month.
+Both sites run on static hosting with no monthly platform fees.
 
-## Fast, cheap, and still done right
+## Built with the same care as our larger systems
 
-Cheap and fast usually means cut corners. Not here. These sites are hand-built (so there's no bloated platform tax), thorough (the footer disclosures new businesses forget), and technically sound (structured data and SEO basics that a template rarely gets right). It's the same standard we bring to a six-figure system — just scaled to what the job actually needs.
+Each site is hand-built rather than loaded with slow template plugins. We include the legal and regulatory footer disclosures new businesses often miss, plus the search engine basics that help local customers find them.
 
-## Online, done properly, and cheap to keep
+## Results
 
-- Both businesses went from **no web presence to live sites.**
-- **Near-zero running cost** — no monthly platform fees.
-- Trading disclosures and SEO fundamentals in place from launch.
+- Both businesses went from **no website to live in days.**
+- **No monthly platform fees.**
+- UK company disclosures and search engine fundamentals included from day one.

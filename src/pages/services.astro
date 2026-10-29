@@ -23,10 +23,10 @@ const offers = [
     name: audit.name,
     amt: formatGBP(audit.priceFrom),
     note: 'from · credited in full against any project you go on to do',
-    one: 'We find where your time and money are leaking — and hand you a costed plan to plug it.',
-    who: "You know something's inefficient — the double-entry, the spreadsheet gymnastics, the “can you just chase that again” — but you're not sure what's worth fixing first, or whether AI is hype or help for your business. Start here.",
+    one: 'We find where your time and money are leaking and hand you a costed plan to fix it.',
+    who: "You know time is being lost to double-entry, spreadsheet updates, and chasing tasks, but you want to know what is worth fixing first. Start here.",
     includes: audit.includes,
-    catch: `The catch (there isn’t one): if you go on to do a Sprint or a Build with us, the audit fee comes straight off the price. So at worst you’ve bought a clear plan for ${formatGBP(audit.priceFrom)}. At best it’s free.`,
+    catch: `If you go on to book a Sprint or a Build with us, the audit fee is deducted in full from the project price. Otherwise, you keep a clear plan for ${formatGBP(audit.priceFrom)}.`,
     cta: 'Book an Audit',
   },
   {
@@ -35,9 +35,9 @@ const offers = [
     amt: formatGBP(sprint.priceFrom),
     note: 'from',
     one: '1–3 automations, live and working, in roughly two weeks.',
-    who: 'You already know what’s broken — the repetitive multi-step admin that never ends — and you want it gone. Fast, focused, no year-long “transformation programme”.',
+    who: 'You already know which repetitive admin jobs are slowing your team down and you want them automated quickly.',
     includes: sprint.includes,
-    catch: 'Good examples: enquiry-to-quote handling, invoice and reconciliation prep, data synced between two systems that refuse to talk, approval routing, repeat-order processing, report generation that currently eats a person’s Friday.',
+    catch: 'Typical jobs: turning enquiries into quotes, preparing invoices and reconciliations, syncing data between two systems, routing approvals, and generating weekly reports automatically.',
     cta: 'Start a Sprint',
   },
   {
@@ -45,10 +45,10 @@ const offers = [
     name: systemBuild.name,
     amt: formatGBP(systemBuild.priceFrom),
     note: 'from',
-    one: 'A proper custom system or AI agent, built to run your business — not bent around someone else’s.',
-    who: 'You’ve outgrown spreadsheets and the off-the-shelf box that almost-but-not-quite fits. You need real software: a portal, an internal platform, a compliance system, or an AI agent that reads, decides and acts on your behalf.',
+    one: 'A custom system or AI agent built around how your business runs.',
+    who: 'You have outgrown spreadsheets or off-the-shelf tools that do not fit your process. You need a customer portal, an internal operations system, or an AI agent with human sign-off.',
     includes: systemBuild.includes,
-    catch: 'What this looks like in the wild: a customer trade portal that replaced phone-and-memory ordering. A care provider’s core platform that turned messy CSVs into 294 clean carer records and auto-scheduled 588 supervisions. A self-service AI product that did a £300–400 consultant job for £10–80. (See the work.)',
+    catch: 'Recent builds: a customer trade portal that replaced phone-and-memory ordering, a care provider’s operations platform with 294 carer records and 588 scheduled supervisions, and a self-service AI product that runs a £300–400 consultant review for £10–80.',
     cta: 'Scope a Build',
   },
   {
@@ -57,21 +57,21 @@ const offers = [
     amt: formatGBP(ops.priceFrom),
     per: '/mo',
     note: 'from · cancel anytime',
-    one: 'We don’t build it and vanish. We stay on, keep it running, and automate the next thing.',
-    who: 'You’ve got automation live and you want it to stay live, watched, and improving — without hiring an in-house engineer or a full-time ops person.',
+    one: 'We stay on, keep your systems running, and automate the next bottleneck.',
+    who: 'You have live automation and want it monitored, maintained, and steadily improved without hiring an in-house engineer.',
     includes: ops.includes,
-    catch: 'Why it’s priced like this: because we run our own finance, project and content ops on agents, the cost of watching yours is low — and we pass that on. This is the same infrastructure we bet our own business on.',
+    catch: 'Because our own monitoring and operations run on AI agents, we can watch and maintain your systems at a low monthly cost.',
     cta: 'Become a Partner',
   },
 ];
 
 const faqs = [
-  { q: 'Is it really this cheap?', a: 'Yes — and there’s a reason it can be. We run our own company on AI agents: our finance ops, our project tracking, even this website. That makes us fast and lean, and we price accordingly. Big consultancies charge enterprise rates because they carry enterprise overheads. We don’t, so you don’t. The prices on this page are real published from prices, not bait.' },
-  { q: 'What if it breaks?', a: 'Two answers. First, we build things properly — audited, monitored, backed up and tested — because we run our own business on the same infrastructure and can’t afford it to fall over either. Second, if you’re on an AI Ops Partner retainer, keeping it running is literally our job; we’re watching it so you don’t have to. And if something does go wrong, a human answers — not a ticket queue.' },
-  { q: 'Do I need to understand AI?', a: 'Not even slightly. That’s our job. You need to understand your business — where the time goes, what the boring jobs are, what “good” looks like. We handle the AI, the engineering and the jargon. You’ll always get plain English and a human explaining what we’ve done and why.' },
-  { q: 'Will a human actually answer?', a: 'Always. This is the promise the whole business is built on: agents do the work, but a human — Waseem — makes every decision and takes every call. When you get in touch, he reads it himself and replies personally. We promise a meeting within one week of first contact. No chatbot, no call centre, no “your query is important to us”.' },
-  { q: 'Where are you, and do you work remotely?', a: 'We’re based in Bradford and work with businesses in Leeds, Manchester and across the UK. We’re remote-first, so where you are isn’t a problem — we’ve built and shipped live systems for clients without needing to be in the room.' },
-  { q: 'What if I just want a website?', a: 'We do those too — fast, affordable, compliant landing sites with no monthly platform fees. It’s the light end of what we offer, and a good first taste of working with us.' },
+  { q: 'Is it really this cheap?', a: 'Yes. We run our own finance tracking, project management, and website on AI agents, which keeps our overheads low. The prices on this page are real starting prices for published work.' },
+  { q: 'What if it breaks?', a: 'Every system we ship is monitored, backed up, and tested. On an AI Ops Partner plan, we watch it day to day and fix issues as they arise. When you need help, you speak directly with Waseem rather than a ticket queue.' },
+  { q: 'Do I need to understand AI?', a: 'No. You know your business and where time is being lost; we handle the software and explain every step in plain English.' },
+  { q: 'Will a human actually answer?', a: 'Always. Agents do the background work, while Waseem makes every decision and takes every call. When you get in touch, he reads it himself and replies personally. We promise a meeting within one week of first contact.' },
+  { q: 'Where are you, and do you work remotely?', a: 'We are based in Bradford and work with businesses in Leeds, Manchester, and across the UK. Most of our work runs remotely.' },
+  { q: 'What if I just want a website?', a: 'We build those too: fast, compliant websites with no monthly platform fees.' },
 ];
 ---
 
@@ -87,12 +87,12 @@ const faqs = [
       <p class="eyebrow">Services &amp; pricing</p>
       <h1 class="page-hero__title">Four ways in. All of them start with a price you can actually see.</h1>
       <p class="page-hero__sub">
-        Most automation firms make you sit through a discovery call before they'll admit a number.
-        We publish ours. Here's exactly what we do, who it's for, and what it costs to start.
+        We publish our starting prices so you can check whether we fit your budget before booking a call.
+        Here is what we do, who each service is for, and what it costs to start.
       </p>
       <p class="form__micro" style="margin-top: var(--sp-6); max-width: 60ch;">
-        Every price below is a <em>from</em> price for real, published work — not a teaser rate.
-        Where your job is bigger, we'll tell you before we start, not after.
+        Every price below is a <em>from</em> price for real work. Where your project is larger, we
+        tell you the full price upfront before we start.
       </p>
     </div>
   </section>
@@ -103,8 +103,8 @@ const faqs = [
       <div class="section-head" style="max-width: 46ch;">
         <h2>Think of these as rungs.</h2>
         <p>
-          Most people start with an Audit, act on a Sprint or a Build, and — if it's working — keep us
-          on as their AI Ops Partner. You can jump on at any rung.
+          Most clients start with an Audit, move to a Sprint or a Build, and keep us on as their AI
+          Ops Partner. You can start at any rung.
         </p>
       </div>
       <div class="overview-list reveal">
@@ -178,8 +178,8 @@ const faqs = [
     <div class="wrap">
       <h2 class="cta__head">Start where it makes sense for you.</h2>
       <p class="cta__body">
-        Not sure which rung you're on? Start with an Audit — it's designed to answer exactly that,
-        and the fee comes back to you if you go further.
+        Not sure which service fits? Start with an Audit to get a costed plan, and we deduct the
+        audit fee in full if you go ahead with a project.
       </p>
       <div class="cta__ctas">
         <a href="/contact/" class="btn"><span>Book an Audit — from {formatGBP(audit.priceFrom)}</span></a>

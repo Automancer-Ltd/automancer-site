@@ -22,15 +22,15 @@ const rest = studies.filter((e) => e.id !== feature?.id).slice(0, 2);
 const ladder = [
   { name: audit.name, desc: "We map where your time and money are leaking, and hand you a costed plan. Fee credited against any project you go on to do.", amt: formatGBP(audit.priceFrom), unit: 'from' },
   { name: sprint.name, desc: '1–3 automations live in roughly two weeks.', amt: formatGBP(sprint.priceFrom), unit: 'from' },
-  { name: systemBuild.name, desc: 'A proper custom system or AI agent, built to last.', amt: formatGBP(systemBuild.priceFrom), unit: 'from' },
+  { name: systemBuild.name, desc: 'A custom system or AI agent, built to last.', amt: formatGBP(systemBuild.priceFrom), unit: 'from' },
   { name: ops.name, desc: 'We run it, watch it, and keep automating. Cancel anytime.', amt: formatGBP(ops.priceFrom), unit: 'from', per: '/mo' },
 ];
 
 const caps = [
-  { name: 'Workflow automation', desc: 'The repetitive, multi-step admin between your tools, stitched into one clean flow.' },
-  { name: 'Custom systems & portals', desc: 'Proper software built for how you actually work — not an off-the-shelf box you bend yourself around.' },
-  { name: 'AI agents', desc: 'Software that reads, decides, drafts and acts — with a human keeping control of anything that matters.' },
-  { name: 'AI Ops partnership', desc: 'We stay on, keep it running, and automate the next thing. Cancel anytime.' },
+  { name: 'Workflow automation', desc: 'Repetitive admin across your existing tools, connected into one reliable flow.' },
+  { name: 'Custom systems & portals', desc: 'Software built around how your team works, rather than forcing you into an off-the-shelf template.' },
+  { name: 'AI agents', desc: 'Software that reads, drafts, and acts while a person stays in control of every important decision.' },
+  { name: 'AI Ops partnership', desc: 'We stay on, keep your systems running, and automate the next job. Cancel anytime.' },
 ];
 ---
 
@@ -50,8 +50,8 @@ const caps = [
       <h1 class="hero__headline">Your admin, automated into <span class="spectral-text">oblivion</span>.</h1>
       <p class="hero__reveal">We make small businesses run like magic.</p>
       <p class="hero__body">
-        Automancer builds the software and AI agents that do the boring, expensive, error-prone
-        work your team shouldn't be doing by hand. Real systems, sensible prices, and a human who answers.
+        Automancer builds the software and AI agents that handle the repetitive, error-prone admin
+        your team shouldn't be doing by hand. Real systems, published prices, and a human who answers.
       </p>
       <p class="hero__typed">
         <span class="sr-only">It's not magic. It's very good engineering.</span>
@@ -75,19 +75,18 @@ const caps = [
         </div>
         <h2>This whole company is run by AI. On purpose.</h2>
         <p>
-          Most consultancies will tell you AI is the future. We just handed ours the keys — the
-          finance ops, the project tracking, this website, the field notes. We don't demo automation
-          in a slide deck. We live inside it. And a human — Waseem — makes every decision and takes
-          every call. The agents do the work. The judgement stays human.
+          Our own finance tracking, project management, website, and field notes run on AI agents.
+          Waseem makes every decision and takes every call. The agents handle the routine work;
+          the judgement stays human.
         </p>
       </div>
 
       <div class="proof-grid reveal-stagger">
         {[
-          { n: '01', tag: 'finance', h: 'Monitored, not automated', p: 'Agents monitor software spend and prepare invoices. Waseem approves and issues them. Bookkeeping remains manual.' },
-          { n: '02', tag: 'delivery', h: 'Self-tracking', p: 'Every project lane is governed and monitored by agents, board-gated before anything touches a client.' },
-          { n: '03', tag: 'content', h: 'This site & blog', p: "Written, built and maintained by the same agents we'd put to work in your business." },
-          { n: '04', tag: 'control', h: 'One human in the loop', p: 'Every decision. Every call. No call centre, no "your ticket is important to us".' },
+          { n: '01', tag: 'finance', h: 'Monitored, not automated', p: 'Agents monitor software spend and draft invoices. Waseem approves and sends them. Bookkeeping stays manual.' },
+          { n: '02', tag: 'delivery', h: 'Tracked end to end', p: 'Agents track every project and check each release before Waseem signs it off for a client.' },
+          { n: '03', tag: 'content', h: 'This site & blog', p: "Written, built, and maintained by the same agents we put to work in your business." },
+          { n: '04', tag: 'control', h: 'One human in the loop', p: 'Every decision and every call goes through Waseem. No call centre and no ticket queue.' },
         ].map((c) => (
           <div class="proof-cell" data-spot>
             <span class="ghost-num" aria-hidden="true">{c.n}</span>
@@ -99,7 +98,7 @@ const caps = [
       </div>
 
       <blockquote class="pullquote reveal" style="margin-top: clamp(3rem, 6vw, 5rem);">
-        We're not selling you a tool we read about. We're selling you <span class="spectral-text">the thing we run our own company on</span>.
+        We build your systems using <span class="spectral-text">the same tools we run our own company on</span>.
       </blockquote>
     </div>
   </section>
@@ -112,11 +111,10 @@ const caps = [
           <p class="eyebrow">What we do</p>
           <span class="section-head__log">// capabilities: 4</span>
         </div>
-        <h2>We automate the stuff that's eating your week.</h2>
+        <h2>We automate the work that's eating your week.</h2>
         <p>
-          If a person on your team spends hours copying data between systems, re-keying spreadsheets,
-          chasing approvals, or answering the same question for the hundredth time — that's a job for
-          a machine. We find those jobs, and we make them disappear.
+          If someone on your team spends hours copying figures between systems, updating spreadsheets,
+          chasing approvals, or answering the same question every day, a computer can do that job for them.
         </p>
       </div>
       <ol class="cap-list reveal">
@@ -129,7 +127,7 @@ const caps = [
         ))}
       </ol>
       <p style="margin-top: var(--sp-10)">
-        <a href="/services/" class="arrow-link">Not sure what's automatable? That's literally the audit <span class="btn__arrow">→</span></a>
+        <a href="/services/" class="arrow-link">Not sure what to automate first? Start with an Audit <span class="btn__arrow">→</span></a>
       </p>
     </div>
   </section>
@@ -142,10 +140,9 @@ const caps = [
           <p class="eyebrow">Sensible prices, published</p>
           <span class="section-head__log">// no_funnel = true</span>
         </div>
-        <h2>Not "let's get you on a call".</h2>
+        <h2>Clear starting prices, upfront.</h2>
         <p>
-          Enterprise automation firms quote enterprise numbers. We don't. Here's where things start —
-          no funnel, no "it depends", no mystery.
+          We publish our starting prices so you know what to expect before you get in touch.
         </p>
       </div>
       <div class="ladder reveal-stagger">

@@ -5,11 +5,11 @@ import { formatGBP, serviceById } from '../data/business';
 const auditFrom = formatGBP(serviceById('automation-opportunity-audit').priceFrom);
 
 const principles = [
-  { name: 'Sensible prices, published', desc: 'No enterprise mark-up, no "let\'s get you on a call" before we\'ll say a number. Our prices are on the website.' },
+  { name: 'Sensible prices, published', desc: 'Our starting prices are on the website so you can see them before you get in touch.' },
   { name: 'A human in the loop, always', desc: 'Agents do the work; Waseem makes the decisions and takes the calls. We promise a meeting within one week of first contact.' },
-  { name: 'Built properly, not prototyped', desc: 'Audited, monitored, backed up, tested. The same standard we hold our own infrastructure to.' },
-  { name: 'Governed, staged delivery', desc: 'You see it working before it goes live. No big-bang launches, no nasty surprises.' },
-  { name: 'Remote-first, Bradford-rooted', desc: 'Based in Bradford, serving Leeds, Manchester and the UK. Where you are is not a problem we\'ve ever had.' },
+  { name: 'Built properly, not prototyped', desc: 'Audited, monitored, backed up, and tested to the same standard as our own systems.' },
+  { name: 'Staged, checked delivery', desc: 'You see each part working in a test environment before it goes live.' },
+  { name: 'Remote-first, Bradford-rooted', desc: 'Based in Bradford and working with businesses in Leeds, Manchester, and across the UK.' },
 ];
 ---
 
@@ -23,8 +23,8 @@ const principles = [
       <p class="eyebrow">About Automancer</p>
       <h1 class="page-hero__title">An AI-run business, with a human at the helm.</h1>
       <p class="page-hero__sub">
-        Most consultancies talk about AI. Automancer is one. The finance, the project tracking, the
-        website you're reading — all run by agents. Every decision and every call — run by Waseem.
+        Automancer runs its own finance tracking, project management, and website on AI agents.
+        Waseem makes every decision and takes every call.
       </p>
     </div>
   </section>
@@ -36,20 +36,18 @@ const principles = [
         <div class="story__aside"><span class="story__tag">01 · the name</span><h2>Why "Automancer"?</h2></div>
         <div class="story__body">
           <p>
-            An automancer works magic through machines. That's the joke, and it's also the honest job
-            description. We make small businesses run like they're enchanted — admin that does itself,
-            systems that talk to each other, work that just quietly happens overnight — and then we tell
-            you plainly that it isn't magic at all. It's very good engineering, pointed at the boring
-            problems that cost you the most.
+            An automancer works magic through machines. That's the joke, and it's also the job
+            description. When systems talk to each other and repetitive admin happens overnight, it
+            feels like magic. In practice, it is careful software engineering pointed at the dullest,
+            most expensive jobs in your week.
           </p>
           <p>
-            Small businesses have been priced out of proper automation for years. The good stuff went to
-            companies with six-figure budgets and an IT department; everyone else got a shelf of apps that
-            don't quite fit and a spreadsheet holding it all together. We think that's daft. The technology
-            to fix it is here, it's cheaper than ever, and there's no reason a care provider in Bradford or
-            a manufacturer in Manchester shouldn't have systems as sharp as anyone's.
+            For years, custom automation required a six-figure budget and an internal IT department.
+            Smaller businesses had to make do with disconnected apps and spreadsheets. Better tools
+            now make it affordable for a care provider in Bradford or a manufacturer in Manchester to
+            have software built around their exact workflow.
           </p>
-          <p>So we built a consultancy to prove it — by running the consultancy itself on exactly the tools we sell.</p>
+          <p>We built Automancer to deliver that — and we run our own consultancy on the same tools we build for clients.</p>
         </div>
       </div>
     </div>
@@ -61,25 +59,20 @@ const principles = [
       <div class="story">
         <div class="story__aside"><span class="story__tag">02 · the demo</span><h2>The business is the demo.</h2></div>
         <div class="story__body">
-          <p>Here's the part other firms won't show you: how we actually run.</p>
+          <p>Here is how Automancer runs day to day.</p>
           <p>
-            Automancer's own back office is run by AI agents. Agents monitor software spend and prepare
-            invoices. Waseem approves and issues them. Bookkeeping remains manual. We'd rather say that
-            than claim otherwise. They track every project, lane by lane, and flag anything that needs a
-            human before it moves. They wrote and maintain this website. They write the field notes on
-            it. They work through the night without complaint or overtime.
+            AI agents monitor software spend and draft invoices. Waseem checks, approves, and sends
+            them. Bookkeeping stays manual. Agents track every project, run automated checks on every
+            change, and maintain this website and its field notes.
           </p>
           <p>
-            And then there's the line we will never cross: <strong>a human makes every decision and takes
-            every call.</strong> That human is Waseem. The agents draft, calculate, monitor and propose.
-            Waseem decides. Every invoice that goes out, every recommendation that reaches you, every
-            judgement call — a person made it, on purpose. The agents are the hands. The head stays human.
+            One rule never changes: <strong>a human makes every decision and takes every call.</strong>
+            The agents draft, calculate, monitor, and test. Waseem decides what ships, approves every
+            invoice, and speaks directly with every client.
           </p>
           <p>
-            We're this open about it for two reasons. One, honesty: you deserve to know what's automated
-            and what isn't. Two, it <em>is</em> the pitch — if we can run a whole consultancy this way, we
-            can absolutely take the weight off your business. We're not experimenting on you. We already
-            ran the experiment on ourselves.
+            Running our own back office this way keeps our overheads low and proves our tools in
+            daily use before we put them to work for you.
           </p>
         </div>
       </div>
@@ -93,23 +86,22 @@ const principles = [
         <div class="story__aside"><span class="story__tag">03 · the human</span><h2>Meet Waseem.</h2></div>
         <div class="story__body">
           <p>
-            Automancer is founded and run by Waseem Ilyas — an engineer who got tired of watching good
-            small businesses drown in admin that a machine could do in seconds.
+            Automancer is founded and run by Waseem Ilyas, an engineer who builds software that takes
+            repetitive admin off small teams.
           </p>
           <p>
-            Before Automancer, he spun out a SaaS company from the ground up — building and operating a
-            live product business, not just advising on one. That's the difference you'll feel working with
-            him: he's shipped real software that real people pay for and depend on, and he brings that same
-            standard to your project. Nothing here is a slide deck. It's built, monitored, backed up and running.
+            Before starting Automancer, he founded and ran a SaaS product company from scratch. He
+            brings that production discipline — automated testing, monitoring, and verified backups —
+            to every client project.
           </p>
           <p>
-            He works with clients across social care, manufacturing, professional services and travel —
-            from a ~600-person care provider's whole digital transformation to a one-page website for a
-            brand-new travel agency. Same care, whatever the size.
+            He works with businesses across social care, manufacturing, professional services, and
+            travel, from a ~600-person care provider's operations platform to a single-page site for a
+            new travel agency.
           </p>
           <p>
-            When you work with Automancer, you work with Waseem. He reads your enquiry himself. He scopes
-            your project himself. And when there's a decision to make or a call to take, that's him too.
+            When you contact Automancer, you deal directly with Waseem. He reads your enquiry, scopes
+            your project, and takes every call.
           </p>
         </div>
       </div>
@@ -143,8 +135,8 @@ const principles = [
     <div class="wrap">
       <h2 class="cta__head">Want a business that runs a bit more like ours?</h2>
       <p class="cta__body">
-        Start with an Audit and we'll show you exactly where AI and automation would earn their keep in
-        your business — with real numbers and a plain plan.
+        Start with an Audit and we'll show you where AI and automation will save time and money in
+        your business, with clear numbers and a practical plan.
       </p>
       <div class="cta__ctas">
         <a href="/contact/" class="btn"><span>Book an Audit — from {auditFrom}</span></a>
