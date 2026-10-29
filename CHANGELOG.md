@@ -1,5 +1,10 @@
 # Release notes
 
+## v2026.10.29.1 — 29 October 2026
+
+The public website now explains what Automancer does in clearer, simpler language.
+
+
 ## v2026.10.23.5 — 23 October 2026
 
 The services page now lists what each service includes, so visitors can see its scope alongside the starting price.
