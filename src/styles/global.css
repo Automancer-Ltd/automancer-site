@@ -122,7 +122,7 @@ h1, h2, h3, h4, h5, h6 { overflow-wrap: break-word; }
   --w-content: 72rem;
   --w-text:    48rem;
   --w-read:    44rem;   /* long-form measure ~68ch at Outfit */
-  --ghost-paper: #c4c4cc;   /* outlined-numeral stroke on paper sections */
+  --ghost-paper: #c4c4cc;   /* ghost-numeral colour on paper sections */
 
   --radius: 3px;
   --radius-lg: 6px;
@@ -170,14 +170,14 @@ strong { font-weight: 600; color: inherit; }
   background: var(--spectrum); background-size: 300% 100%; flex: none;
   animation: spectral-pan 7s linear infinite, live-pulse 2.2s ease-in-out infinite;
 }
-/* Ghost numeral — big outlined Syne figure behind a card/row */
+/* Ghost numeral — big dim Syne figure behind a card/row. Filled, not
+   -webkit-text-stroke: the variable font's overlapping contours stroke as stray inner lines. */
 .ghost-num {
   display: block; font-family: var(--font-display); font-weight: 800;
-  line-height: 1; color: transparent;
-  -webkit-text-stroke: 1px var(--border-strong);
-  transition: -webkit-text-stroke-color var(--dur-2);
+  line-height: 1; color: var(--border-strong);
+  transition: color var(--dur-2);
 }
-.on-paper .ghost-num, .on-paper-2 .ghost-num { -webkit-text-stroke-color: var(--ghost-paper); }
+.on-paper .ghost-num, .on-paper-2 .ghost-num { color: var(--ghost-paper); }
 /* Pointer spotlight — a soft radial that tracks var(--mx)/var(--my) */
 [data-spot] { --mx: 50%; --my: 50%; }
 
@@ -598,7 +598,7 @@ strong { font-weight: 600; color: inherit; }
   transition: background-color var(--dur-2); position: relative;
 }
 .proof-cell:hover { background-color: var(--g-900); }
-.proof-cell:hover .ghost-num { -webkit-text-stroke-color: var(--g-400); }
+.proof-cell:hover .ghost-num { color: var(--g-400); }
 .proof-cell .ghost-num { font-size: clamp(2.6rem, 2rem + 2vw, 4rem); }
 .proof-cell__n { font-family: var(--font-mono); font-size: 0.72rem; color: var(--faint); letter-spacing: 0.1em; }
 .proof-cell h3 { font-family: var(--font-display); font-size: var(--t-1); font-weight: 700; }
@@ -614,9 +614,8 @@ strong { font-weight: 600; color: inherit; }
 }
 .on-dark .cap-row, .on-near .cap-row { border-bottom-color: var(--border); }
 .cap-row__n { font-family: var(--font-display); font-weight: 800; line-height: 1;
-  font-size: clamp(1.6rem, 1.3rem + 1vw, 2.2rem); color: transparent;
-  -webkit-text-stroke: 1px var(--ghost-paper); flex: 0 0 2.3em; }
-.on-dark .cap-row__n, .on-near .cap-row__n { -webkit-text-stroke-color: var(--border-strong); }
+  font-size: clamp(1.6rem, 1.3rem + 1vw, 2.2rem); color: var(--ghost-paper); flex: 0 0 2.3em; }
+.on-dark .cap-row__n, .on-near .cap-row__n { color: var(--border-strong); }
 .cap-row__name { font-family: var(--font-display); font-size: var(--t-2); font-weight: 700; letter-spacing: -0.03em;
   flex: 0 1 22ch; min-width: min(100%, 16rem); }
 .cap-row__desc { color: var(--muted-dark); font-size: var(--t-0); flex: 1 1 20rem; line-height: 1.6; }
@@ -642,8 +641,7 @@ strong { font-weight: 600; color: inherit; }
 .rung:hover { transform: translateX(4px); border-color: var(--border-strong); }
 .rung:hover::before { opacity: 1; animation: spectral-pan-v 6s linear infinite; }
 .rung__step { font-family: var(--font-display); font-weight: 800; line-height: 1;
-  font-size: clamp(2rem, 1.6rem + 1.4vw, 3rem); color: transparent;
-  -webkit-text-stroke: 1px var(--border-strong); min-width: 2.3em; }
+  font-size: clamp(2rem, 1.6rem + 1.4vw, 3rem); color: var(--border-strong); min-width: 2.3em; }
 .rung__step::before { counter-increment: rung; content: "0" counter(rung); }
 .rung__main { min-width: 0; }
 .rung__name { font-family: var(--font-display); font-size: var(--t-2); font-weight: 700; letter-spacing: -0.03em; }
@@ -667,9 +665,8 @@ strong { font-weight: 600; color: inherit; }
 .offer--reverse .offer__lede { order: 2; }
 .offer__stepline { display: flex; align-items: baseline; gap: var(--sp-4); margin-bottom: var(--sp-4); }
 .offer__num { font-family: var(--font-display); font-weight: 800; line-height: 1;
-  font-size: clamp(2.4rem, 2rem + 1.6vw, 3.6rem); color: transparent;
-  -webkit-text-stroke: 1px var(--border-strong); }
-.on-paper .offer__num, .on-paper-2 .offer__num { -webkit-text-stroke-color: var(--ghost-paper); }
+  font-size: clamp(2.4rem, 2rem + 1.6vw, 3.6rem); color: var(--border-strong); }
+.on-paper .offer__num, .on-paper-2 .offer__num { color: var(--ghost-paper); }
 .offer__step { font-family: var(--font-mono); font-size: 0.78rem; letter-spacing: 0.08em; color: var(--faint); }
 .on-paper .offer__step, .on-paper-2 .offer__step { color: var(--faint-dark); }
 .offer__name { font-size: var(--t-section); line-height: 1.08; }
@@ -889,11 +886,10 @@ strong { font-weight: 600; color: inherit; }
   padding: clamp(1.5rem, 3vw, 2.25rem); transition: background-color var(--dur-2);
 }
 .principle:hover { background-color: var(--g-900); }
-.principle:hover .ghost-num { -webkit-text-stroke-color: var(--g-400); }
+.principle:hover .ghost-num { color: var(--g-400); }
 .principle__n { font-family: var(--font-display); font-weight: 800; line-height: 1;
-  font-size: clamp(2.2rem, 1.8rem + 1.4vw, 3.2rem); color: transparent;
-  -webkit-text-stroke: 1px var(--border-strong);
-  transition: -webkit-text-stroke-color var(--dur-2); }
+  font-size: clamp(2.2rem, 1.8rem + 1.4vw, 3.2rem); color: var(--border-strong);
+  transition: color var(--dur-2); }
 .principle h3 { font-size: var(--t-1); margin-top: var(--sp-4); }
 .principle p { color: var(--muted); margin-top: var(--sp-3); font-size: var(--t-0); }
 
