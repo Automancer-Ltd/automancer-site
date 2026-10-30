@@ -1,5 +1,10 @@
 # Release notes
 
+## v2026.10.30.1 — 30 October 2026
+
+Outlined numerals on the home and services pages now display without stray inner lines.
+
+
 ## v2026.10.29.1 — 29 October 2026
 
 The public website now explains what Automancer does in clearer, simpler language.
