@@ -15,12 +15,10 @@ red='\033[0;31m'; green='\033[0;32m'; nc='\033[0m'
 
 # THIS HOOK SCANS THE COMMITS A PUSH ADDS (t12242, 1 Nov 2026).
 #
-# `.githooks/pre-commit` scans staged changes, but `git commit --no-verify`
-# skips it. On 1 Nov 2026 no estate repository's CI scanned a branch pushed
-# without a pull request: most scanned pull requests only, some pushes to main
-# only, a few nothing (t12083, t12242). So the scan runs here, before the
-# commits leave the machine, in every repository, whatever its CI does. It
-# costs about a second. Do not drop it because a repository's CI also scans.
+# There is no repository pre-commit hook. ci.yml scans pull requests and
+# deploy.yml scans main before publishing; neither scans a branch pushed
+# without a pull request. This hook scans those commits before they leave
+# the machine (t12242). Do not drop it because the repository's CI also scans.
 #
 # It scans only the commits the destination does not already have, never full
 # history (CI does that where it is configured). `-m` includes merge diffs, so a
