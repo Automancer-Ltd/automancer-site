@@ -1,5 +1,20 @@
 # Release notes
 
+## v2026.11.01.2 — 1 November 2026
+
+The site responds more consistently, and the new field note is ready for a future release.
+
+### Improvements
+
+- Every site response, including error pages and redirects, now includes security headers.
+
+### Coming soon
+
+- A field note on checking a supplier’s restore evidence is in preparation and is not published on the site yet.
+
+### Behind the scenes
+
+- Internal plumbing maintenance; no user-facing behaviour changed. <!-- commits: 2 -->
 ## v2026.10.30.1 — 30 October 2026
 
 Outlined numerals on the home and services pages now display without stray inner lines.
