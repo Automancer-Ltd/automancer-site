@@ -1,5 +1,10 @@
 # Release notes
 
+## v2026.11.01.3 — 1 November 2026
+
+A new field note on supplier restore evidence is now available to read.
+
+
 ## v2026.11.01.2 — 1 November 2026
 
 The site responds more consistently, and the new field note is ready for a future release.
