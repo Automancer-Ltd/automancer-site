@@ -47,6 +47,11 @@ never a working checkout:
 | UptimeRobot monitor `803613943` "site automancer.uk" | the public URL answers, independent of auto-vps | Executor `uptimerobot-guarded` `list-monitors` |
 | Sentry project `automancer-site` (id `4511769898647632`, org `automancer`), events tagged with the release SHA | browser errors on the live site | Executor `sentry-guarded.events.listAProjectSIssues` |
 
+To record a deploy check in estate-watch, call `deploy.start {product: "site", commit: "<sha>"}`
+before the deploy and `deploy.verify {run: "<run id>"}` after it. Calling `deploy.verify` with only
+`product` still reads production, but it warns that it has no baseline and no commit to compare
+against, so it cannot prove the served revision.
+
 The timer runs from a pinned clone at `/opt/automancer/auto/automancer-detectors/site`; merging does
 not move it. After changing `ops/verify-production.sh` or `ops/systemd/user/`, deploy the merge:
 
@@ -78,6 +83,11 @@ ops/preview/deploy-preview.sh <ref> --verify # verify, build, publish, read the 
 `deploy-preview.sh` prints its own undo. It resets its build clone, so under the estate git guard run
 it with `GIT_GUARD_ALLOW=1 GIT_GUARD_REASON='<why>'`. To show several drafts at once, merge them into
 one review branch on top of `main` and publish that.
+
+The preview target runs a production build, so a `draft: true` entry is never built there either.
+To review one, set `draft: false` on a throwaway review branch, publish that branch, and never merge
+it; the merged entry stays `draft: true` and publishes only after Waseem approves its wording. A
+draft with no page to link can be reviewed from its file in the repository instead.
 
 ## The edge Worker in front of GitHub Pages
 
