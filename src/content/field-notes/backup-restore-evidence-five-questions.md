@@ -26,12 +26,13 @@ from 03:30 this morning" is a fact, and it is the one that tells you how much
 work a bad afternoon would cost you. The technical name for that is the
 recovery point objective, or how much data you are willing to lose.
 
-The gap matters more than it sounds. On our own estate, a hard reset at 03:17
-on 1 November 2026 damaged eleven live session transcripts. The nightly backup
-runs at 03:30. Those records existed only in memory, so they were never copied
-anywhere and could not be recovered. Thirteen minutes was all the exposure
-there was, and it still cost data that cannot be recreated. A weekly backup, or
-a nightly job that quietly stopped three weeks ago, would have cost far more.
+The gap matters more than it sounds. On our own systems, a power cycle at 03:17
+on 1 November 2026 damaged eleven transcripts of work in progress. The nightly
+backup runs at 03:30. Those records existed only in memory, so they were never
+copied anywhere and could not be recovered. Thirteen minutes was all the
+exposure there was, and it still cost data that cannot be recreated. A weekly
+backup, or a nightly job that quietly stopped three weeks ago, would have cost
+far more.
 
 So ask two things: when did the newest copy finish, and what would make the
 schedule stop without anyone noticing? A backup that fails silently is worse
@@ -145,7 +146,7 @@ never been drilled, and managed database services where the restore window and
 the restore itself had not been tested. That review says unverified, not
 passed, and we have left it that way.
 
-Two estate-wide gaps are also still open. The first drill against our new
+Two wider gaps are also still open. The first drill against our new
 offsite backup repository was due at 04:01 UTC on 1 November 2026, and we are
 not counting that copy as proven until its result is recorded. And as of the
 same 8 October review, one weekly drill's last result could not be found in the
