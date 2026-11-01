@@ -5,7 +5,7 @@ date: 2026-11-01
 sector: "General"
 category: "Buying software"
 tags: ["backup", "disaster-recovery", "vendor-selection", "small-business", "software-buying"]
-draft: true
+draft: false
 author: "Waseem Ilyas"
 ---
 
