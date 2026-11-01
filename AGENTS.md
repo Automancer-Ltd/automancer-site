@@ -75,3 +75,11 @@ ops/preview/                the non-production preview target
 - The contact form never shows a raw API error code (`tests/contact-errors.test.ts`).
 - Page-weight and contrast budgets (`tests/performance.test.ts`, `tests/contrast.test.ts`,
   method in `docs/PERFORMANCE.md`).
+
+## Stack choices (t13220)
+
+The Blueprint (Subscriptions / Tech Stack) asks TypeScript work to look for Effect, XState and TanStack. Decisions for this repository, read 1 Nov 2026:
+
+- Effect (TS): does not fit. The site is static Astro output with no server or runtime logic.
+- XState: does not fit. No page holds multi-step state.
+- TanStack: does not fit. Pages are static HTML with no client data fetching, tables or client routing.
