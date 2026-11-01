@@ -121,5 +121,5 @@ starting tree served byte-identical, the candidate-only file back to 404).
 - A bare `/services` answers 301 first: GitHub Pages adds the trailing slash. The verifier follows
   redirects and checks the final status.
 - A 301 body mentioning nginx is GitHub's error template; the `Server:` header is `GitHub.com`.
-- CI runs Node 22 (the `engines` floor); auto-vps runs a newer Node. A local green is a pre-filter,
+- CI runs Node 24 (the `engines` floor); auto-vps runs Node 24. A local green is a pre-filter,
   CI's verdict is the one that counts.
