@@ -15,10 +15,15 @@ export default function globalSetup(): void {
   if (process.env.SKIP_BUILD === '1') {
     return;
   }
+  // Vitest sets NODE_ENV=test, and Astro derives `import.meta.env.PROD` from
+  // it. Left inherited, the audited dist/ would be a non-production build:
+  // `draft: true` entries would leak into it and PROD-gated code would differ
+  // from the artifact the deploy job ships. Build the bytes production serves.
   const result = spawnSync('pnpm', ['run', 'build'], {
     cwd: ROOT,
     stdio: 'inherit',
     shell: process.platform === 'win32',
+    env: { ...process.env, NODE_ENV: 'production' },
   });
   if (result.status !== 0) {
     throw new Error(
