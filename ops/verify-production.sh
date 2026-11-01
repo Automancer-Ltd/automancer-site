@@ -326,18 +326,22 @@ fetch_body() {
 # poll_check <label> <function> [args...] — retry one check until it passes
 # or DEADLINE_SECS elapse. Every WAIT line carries the current diagnosis so
 # "still deploying" never looks like a hard failure, and the final FAIL line
-# repeats the last observed state verbatim.
+# repeats the last observed state verbatim. A check always gets a second
+# attempt: check_api_surface makes ~10 sequential requests, so one attempt
+# stalled on 15s timeouts could spend the whole budget and fail unretried
+# (t7527, 30 Oct 2026, while auto-vps itself was starved).
 poll_check() {
   local label=$1 fn=$2
   shift 2
-  local detail='' deadline=$((SECONDS + DEADLINE_SECS))
+  local detail='' deadline=$((SECONDS + DEADLINE_SECS)) attempts=0
   while true; do
+    attempts=$((attempts + 1))
     if detail=$("$fn" "$@"); then
       log "PASS  $label"
       log "      $detail"
       return 0
     fi
-    if (( SECONDS >= deadline )); then
+    if (( SECONDS >= deadline && attempts >= 2 )); then
       log "FAIL  $label — gave up after ${DEADLINE_SECS}s of retries. Last observed state:"
       log "      $detail"
       FAILED_CHECKS+=("$label")
@@ -1375,6 +1379,13 @@ main() {
     for c in "${FAILED_CHECKS[@]}"; do
       log "  - $c"
     done
+    # Timeouts and DNS failures are often the checking host, not the site:
+    # record its pressure so the alert can be told apart (t7527).
+    local res
+    for res in cpu memory io; do
+      [[ -r /proc/pressure/$res ]] && log "  host pressure ${res}: $(head -1 "/proc/pressure/$res")"
+    done
+    [[ -r /proc/loadavg ]] && log "  host loadavg: $(cat /proc/loadavg)"
     exit 1
   fi
   log "RESULT: all checks passed against ${BASE_URL}"
