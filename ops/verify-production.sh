@@ -36,6 +36,15 @@ readonly SECURITY_TXT_PATH="/security.txt"
 # Standard-location copies. The Pages upload dropped dot-paths until 22 Oct 2026,
 # so production checks they are really served (a dist/ test cannot see that).
 readonly WELL_KNOWN_PATHS=("/.well-known/security.txt" "/.well-known/agent.json" "/.well-known/ard.json" "/.well-known/api-catalog")
+# Sent by the edge Worker (ops/edge/worker.js SECURITY_HEADERS) on every
+# response. Read back on a page, its Markdown twin and a 404, exact values.
+readonly SECURITY_HEADERS=(
+  "Strict-Transport-Security: max-age=31536000; includeSubDomains"
+  "X-Content-Type-Options: nosniff"
+  "Referrer-Policy: strict-origin-when-cross-origin"
+  "Content-Security-Policy: frame-ancestors 'none'; base-uri 'self'; object-src 'none'"
+  "Permissions-Policy: camera=(), microphone=(), geolocation=()"
+)
 # The stability & deprecation policy. Checked for SHAPE, not just for a 200:
 # a promise an agent cannot trust is worse than no promise, and any old JSON
 # would pass a parse-only check.
@@ -133,7 +142,8 @@ Verify that a deployed Automancer site serves correctly: page statuses,
 real 404s, llms.txt, sitemap XML, agent.json + security.txt at their
 non-dot paths, the published stability & deprecation policy
 (/api/stability.json), homepage footer anchor, TLS certificate, Sentry DSN
-for the expected project (not merely "a" Sentry project).
+for the expected project (not merely "a" Sentry project), and the edge
+Worker's security headers on a page, its Markdown twin and a 404.
 
 --expected-revision is for the post-deploy gate. It also requires the
 homepage proof strip to serve the first seven characters of the supplied
@@ -587,6 +597,40 @@ check_well_known() {
   printf '%s -> 200\n' "${WELL_KNOWN_PATHS[*]}"
 }
 
+# security_headers_verdict <header-dump> — every SECURITY_HEADERS entry is
+# present with exactly its value; prints the ones that are not.
+security_headers_verdict() {
+  local dump=$1 entry name want got bad=()
+  for entry in "${SECURITY_HEADERS[@]}"; do
+    name=${entry%%: *} want=${entry#*: }
+    got=$(tr -d '\r' <"$dump" | grep -i -m1 "^${name}:" | sed 's/^[^:]*:[[:space:]]*//' || true)
+    [[ $got == "$want" ]] || bad+=("${name} is \"${got:-absent}\"")
+  done
+  (( ${#bad[@]} == 0 )) || { local IFS=';'; printf '%s' "${bad[*]}"; return 1; }
+}
+
+check_security_headers() {
+  local dump err rc verdict probe url accept
+  local probes=("${BASE_URL}/|text/html" "${BASE_URL}/|text/markdown" "${BASE_URL}/this-route-must-not-exist-$$-${RANDOM}|text/html")
+  for probe in "${probes[@]}"; do
+    url=${probe%|*} accept=${probe##*|}
+    dump=$(need_tmp) err=$(need_tmp) rc=0
+    curl -sS --max-time "$HTTP_TIMEOUT_SECS" -H "Accept: ${accept}" -o /dev/null -D "$dump" "$url" 2>"$err" || rc=$?
+    if (( rc != 0 )); then
+      printf 'GET %s did not complete: %s (%s)\n' "$url" "$(tr -d '\n' <"$err")" "$(curl_exit_hint "$rc")"
+      rm -f "$dump" "$err"
+      return 1
+    fi
+    if ! verdict=$(security_headers_verdict "$dump"); then
+      printf 'GET %s (Accept: %s) does not send the expected security headers: %s\n' "$url" "$accept" "$verdict"
+      rm -f "$dump" "$err"
+      return 1
+    fi
+    rm -f "$dump" "$err"
+  done
+  printf 'the page, its Markdown twin and a 404 all send the %d security headers\n' "${#SECURITY_HEADERS[@]}"
+}
+
 check_security_txt() {
   local url="${BASE_URL}${SECURITY_TXT_PATH}" verdict expected_canonical=''
   fetch_body "$url" || return 1
@@ -964,6 +1008,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.send_response(int(entry.get("status", 200)))
         self.send_header("Content-Type", "text/plain; charset=utf-8")
         self.send_header("Content-Length", str(entry.get("declared_length", len(body))))
+        for name, value in entry.get("headers", {}).items():
+            self.send_header(name, value)
         self.end_headers()
         self.wfile.write(body)
         if "declared_length" in entry:
@@ -1114,6 +1160,18 @@ self_test() {
   printf '{"routes":{%s},"default":{"status":404,"body":""}}\n' \
     "$(printf '"%s":{"status":200,"body":"x"},' "${WELL_KNOWN_PATHS[@]}" | sed 's/,$//')" >"$SELFTEST_SCENARIO"
   self_test_expect pass "the /.well-known/ copies are all served" check_well_known
+
+  local secure
+  secure=$(python3 -c 'import json, sys; print(json.dumps(dict(e.split(": ", 1) for e in sys.argv[1:])))' "${SECURITY_HEADERS[@]}")
+  self_test_scenario '{"routes":{"/":{"status":200,"body":"ok"}},"default":{"status":404,"body":""}}'
+  self_test_expect fail "security headers are sent on pages and on 404s" check_security_headers
+  self_test_scenario "{\"routes\":{\"/\":{\"status\":200,\"body\":\"ok\",\"headers\":${secure}}},\"default\":{\"status\":404,\"body\":\"\"}}"
+  self_test_expect fail "security headers are sent on pages and on 404s" check_security_headers
+  self_test_scenario "{\"routes\":{\"/\":{\"status\":200,\"body\":\"ok\",\"headers\":${secure/max-age=31536000/max-age=0}}},\"default\":{\"status\":404,\"body\":\"\",\"headers\":${secure}}}"
+  self_test_expect fail "security header values match exactly" check_security_headers
+  self_test_scenario "{\"routes\":{\"/\":{\"status\":200,\"body\":\"ok\",\"headers\":${secure}}},\"default\":{\"status\":404,\"body\":\"\",\"headers\":${secure}}}"
+  self_test_expect pass "security headers are sent on pages and on 404s" check_security_headers
+  self_test_expect pass "security header values match exactly" check_security_headers
 
   self_test_route_scenario "/agent.json" 200 "{ not json"
   self_test_expect fail "agent manifest is valid JSON" check_agent_manifest
@@ -1360,6 +1418,8 @@ main() {
   # Production only: the preview server is not the Pages upload this guards.
   if (( ! PREVIEW_MODE )); then
     if ! poll_check "the /.well-known/ copies are served" check_well_known; then :; fi
+    # The edge Worker sends these; the preview server has no Worker in front.
+    if ! poll_check "the edge Worker's security headers are sent on pages, twins and 404s" check_security_headers; then :; fi
   fi
   if ! poll_check "homepage contains structural anchor \"${HOMEPAGE_ANCHOR}\"" check_homepage_anchor; then :; fi
   if [[ -n $EXPECTED_REVISION ]]; then

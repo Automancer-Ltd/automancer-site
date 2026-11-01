@@ -96,12 +96,18 @@ draft with no page to link can be reviewed from its file in the repository inste
 the origin. The Worker answers what a static host cannot: `Accept: text/markdown` gets the Markdown
 twin, Markdown 404 bodies, `application/problem+json` errors under `/api/`, the RFC 9727 media type
 for `/.well-known/api-catalog`, HTTP → HTTPS, and one 301 from each legacy `*.html` URL in
-`astro.config.mjs` `redirects` to its page. Everything else passes through.
+`astro.config.mjs` `redirects` to its page. Every response it returns carries the same security
+headers (`SECURITY_HEADERS`: HSTS, `nosniff`, Referrer-Policy, a framing/base/object CSP and
+Permissions-Policy), which `ops/verify-production.sh` reads back on a page, its Markdown twin and
+a 404. Everything else passes through.
 
 - **Deploy it:** `ops/edge/deploy.sh` (Executor `cloudflare-full-access`, account "Waseem
   Cloudflare", the Automancer account, which has held the zone since 23 Oct 2026). A merged change to `worker.js`
   is not live until this runs. Try it first with
   `ops/edge/deploy.sh automancer-site-edge-probe` (workers.dev, real origin).
+- **Changing `SECURITY_HEADERS`:** deploy the Worker from the pull request's branch before you
+  merge it. The merge's `deploy` job runs the verifier, which reads the new values back, so a
+  Worker deployed after the merge turns that release red.
 - **Zone settings it relies on:** `email_obfuscation` off (it rewrites mailto links),
   `browser_check` off (it challenges agents), `browser_cache_ttl` 0 (respect GitHub's
   `max-age=600`). SSL is "Full (strict)" against GitHub's certificate; if GitHub cannot renew it

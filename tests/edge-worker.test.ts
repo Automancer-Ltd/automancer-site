@@ -102,4 +102,29 @@ describe('edge Worker in front of GitHub Pages', () => {
     expect(legacyRedirect('/contact.html')).toBeNull();
     expect(legacyRedirect('/services/')).toBeNull();
   });
+
+  it('sends the same security headers on pages, twins, errors and redirects', async () => {
+    vi.stubGlobal('fetch', vi.fn(serve));
+    const expected = {
+      'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+      'X-Content-Type-Options': 'nosniff',
+      'Referrer-Policy': 'strict-origin-when-cross-origin',
+      'Content-Security-Policy': "frame-ancestors 'none'; base-uri 'self'; object-src 'none'",
+      'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+    };
+    const responses: [string, Response][] = [
+      ['HTML page', await get('/')],
+      ['Markdown twin', await get('/', 'text/markdown')],
+      ['HTML 404', await get('/nope', 'text/html')],
+      ['Markdown 404', await get('/nope', 'text/markdown')],
+      ['API 404', await get('/api/nope.json')],
+      ['API 405', await get('/api/services.json', undefined, 'POST')],
+      ['API success', await get('/api/services.json')],
+      ['legacy 301', await get('/about.html')],
+      ['HTTPS 301', (await worker.fetch(new Request('http://automancer.uk/about/'))) as Response],
+    ];
+    for (const [label, res] of responses) {
+      for (const [name, value] of Object.entries(expected)) expect(res.headers.get(name), `${label}: ${name}`).toBe(value);
+    }
+  });
 });

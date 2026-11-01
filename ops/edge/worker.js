@@ -9,6 +9,8 @@
 //   - /.well-known/api-catalog gets its RFC 9727 media type.
 //   - Plain HTTP is redirected to HTTPS, as GitHub Pages did before the proxy.
 //   - A legacy *.html URL gets one real 301 to its page.
+//   - Every response, HTML, Markdown, JSON, error or redirect, carries the
+//     same SECURITY_HEADERS, so people and machines get the same answers.
 // Everything else passes through untouched. Deploy and undo: docs/DEPLOYMENT.md.
 
 const ORIGIN = 'https://automancer.uk';
@@ -21,6 +23,16 @@ const PAGE_LINKS = [
   '</openapi.json>; rel="service-desc"; type="application/vnd.oai.openapi+json"',
   '</.well-known/api-catalog>; rel="api-catalog"',
 ].join(', ');
+
+// Sent on every response. ops/verify-production.sh reads these back from
+// production, so a change here changes the check there too.
+const SECURITY_HEADERS = {
+  'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+  'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'Content-Security-Policy': "frame-ancestors 'none'; base-uri 'self'; object-src 'none'",
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+};
 
 // The `redirects` in astro.config.mjs. Pages can only serve them as a 301 to
 // /x.html/ and then a meta-refresh stub, which a crawler or agent that follows
@@ -92,57 +104,68 @@ function withVary(response) {
   return out;
 }
 
+/** A mutable copy of a response with SECURITY_HEADERS set on it. */
+function secured(response) {
+  const out = new Response(response.body, response);
+  for (const [name, value] of Object.entries(SECURITY_HEADERS)) out.headers.set(name, value);
+  return out;
+}
+
 export default {
   async fetch(request) {
-    const url = new URL(request.url);
-    if (url.protocol === 'http:') {
-      url.protocol = 'https:';
-      return Response.redirect(url.toString(), 301);
-    }
-    const moved = legacyRedirect(url.pathname);
-    if (moved) return Response.redirect(new URL(moved + url.search, ORIGIN).toString(), 301);
-    const accept = request.headers.get('Accept') ?? '';
-    const isApi = url.pathname.startsWith('/api/');
-    const readOnly = request.method === 'GET' || request.method === 'HEAD';
-
-    if (isApi && !readOnly) {
-      const res = problem(405, 'Method Not Allowed', 'This API is read-only: only GET and HEAD exist.', url.pathname);
-      res.headers.set('Allow', 'GET, HEAD');
-      return res;
-    }
-
-    const originUrl = new URL(url.pathname + url.search, ORIGIN);
-
-    if (readOnly && prefers(accept, 'text/markdown', 'text/html')) {
-      const twin = twinPath(url.pathname);
-      if (twin) {
-        const res = await fetch(new URL(twin, ORIGIN), { method: request.method });
-        if (res.ok) {
-          const out = withVary(res);
-          out.headers.set('Content-Type', MARKDOWN);
-          out.headers.set('Content-Location', twin);
-          return out;
-        }
-      }
-    }
-
-    const res = await fetch(new Request(originUrl, request), { redirect: 'manual' });
-
-    if (res.status >= 400 && (isApi || prefers(accept, 'application/json', 'text/html'))) {
-      return res.status === 404
-        ? problem(404, 'Not Found', `No resource at ${url.pathname}. Every endpoint is listed at ${ORIGIN}/api/index.json.`, url.pathname)
-        : problem(res.status >= 500 ? 502 : res.status, 'Upstream error', `The static host answered HTTP ${res.status}. Try again shortly.`, url.pathname);
-    }
-    if (res.status === 404 && prefers(accept, 'text/markdown', 'text/html')) return markdownNotFound(url.pathname);
-
-    const out = withVary(res);
-    if ((out.headers.get('Content-Type') ?? '').startsWith('text/html') && res.ok) {
-      const twin = url.pathname === '/' ? ', </index.md>; rel="alternate"; type="text/markdown"' : '';
-      out.headers.set('Link', PAGE_LINKS + twin);
-    }
-    if (url.pathname === '/.well-known/api-catalog') {
-      out.headers.set('Content-Type', 'application/linkset+json; profile="https://www.rfc-editor.org/info/rfc9727"');
-    }
-    return out;
+    return secured(await respond(request));
   },
 };
+
+async function respond(request) {
+  const url = new URL(request.url);
+  if (url.protocol === 'http:') {
+    url.protocol = 'https:';
+    return Response.redirect(url.toString(), 301);
+  }
+  const moved = legacyRedirect(url.pathname);
+  if (moved) return Response.redirect(new URL(moved + url.search, ORIGIN).toString(), 301);
+  const accept = request.headers.get('Accept') ?? '';
+  const isApi = url.pathname.startsWith('/api/');
+  const readOnly = request.method === 'GET' || request.method === 'HEAD';
+
+  if (isApi && !readOnly) {
+    const res = problem(405, 'Method Not Allowed', 'This API is read-only: only GET and HEAD exist.', url.pathname);
+    res.headers.set('Allow', 'GET, HEAD');
+    return res;
+  }
+
+  const originUrl = new URL(url.pathname + url.search, ORIGIN);
+
+  if (readOnly && prefers(accept, 'text/markdown', 'text/html')) {
+    const twin = twinPath(url.pathname);
+    if (twin) {
+      const res = await fetch(new URL(twin, ORIGIN), { method: request.method });
+      if (res.ok) {
+        const out = withVary(res);
+        out.headers.set('Content-Type', MARKDOWN);
+        out.headers.set('Content-Location', twin);
+        return out;
+      }
+    }
+  }
+
+  const res = await fetch(new Request(originUrl, request), { redirect: 'manual' });
+
+  if (res.status >= 400 && (isApi || prefers(accept, 'application/json', 'text/html'))) {
+    return res.status === 404
+      ? problem(404, 'Not Found', `No resource at ${url.pathname}. Every endpoint is listed at ${ORIGIN}/api/index.json.`, url.pathname)
+      : problem(res.status >= 500 ? 502 : res.status, 'Upstream error', `The static host answered HTTP ${res.status}. Try again shortly.`, url.pathname);
+  }
+  if (res.status === 404 && prefers(accept, 'text/markdown', 'text/html')) return markdownNotFound(url.pathname);
+
+  const out = withVary(res);
+  if ((out.headers.get('Content-Type') ?? '').startsWith('text/html') && res.ok) {
+    const twin = url.pathname === '/' ? ', </index.md>; rel="alternate"; type="text/markdown"' : '';
+    out.headers.set('Link', PAGE_LINKS + twin);
+  }
+  if (url.pathname === '/.well-known/api-catalog') {
+    out.headers.set('Content-Type', 'application/linkset+json; profile="https://www.rfc-editor.org/info/rfc9727"');
+  }
+  return out;
+}
