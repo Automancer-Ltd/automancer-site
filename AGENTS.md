@@ -13,7 +13,7 @@ Pages on every merge to `main`, behind a Cloudflare edge Worker.
 
 ## Commands
 
-Run builds, tests and typechecks through `checkq` on auto-vps (`heavy -- …` for a browser walk).
+Run builds, tests and typechecks through `checkq` on auto-vps.
 
 ```bash
 checkq -- pnpm install --frozen-lockfile   # also runs `astro sync` (LSP types in .astro/)
