@@ -42,8 +42,8 @@ never a working checkout:
 
 | Signal | What it proves | How an agent reads it |
 |---|---|---|
-| `ops/verify-production.sh` | every route, a real 404, machine surfaces, legal anchor, served revision, Sentry project id in the bundle, TLS > 21 days | run it; also the host timer below |
-| Host timer `automancer-site-production-verify.timer` (every 30 min, `OnFailure=alert-email@`) | the same checks between deploys | `journalctl --user -u automancer-site-production-verify.service -n 50` |
+| `ops/verify-production.sh` | every route, a real 404, machine surfaces, legal anchor, served revision, Sentry project id in the bundle, TLS > 21 days | run it; also the hosted schedule below |
+| estate-watch schedule `siteVerify` (Executor, :04 and :34 UTC) | the same checks between deploys, read from this script at the revision production serves; a failure files one Gandalf task in automancer/site | Executor `estate-watch` `scheduleRuns {name:"siteVerify"}`; run one now with `siteVerify.run {}` |
 | UptimeRobot monitor `803613943` "site automancer.uk" | the public URL answers, independent of auto-vps | Executor `uptimerobot-guarded` `list-monitors` |
 | Sentry project `automancer-site` (id `4511769898647632`, org `automancer`), events tagged with the release SHA | browser errors on the live site | Executor `sentry-guarded.events.listAProjectSIssues` |
 
@@ -52,12 +52,15 @@ before the deploy and `deploy.verify {run: "<run id>"}` after it. Calling `deplo
 `product` still reads production, but it warns that it has no baseline and no commit to compare
 against, so it cannot prove the served revision.
 
-The timer runs from a pinned clone at `/opt/automancer/auto/automancer-detectors/site`; merging does
-not move it. After changing `ops/verify-production.sh` or `ops/systemd/user/`, deploy the merge:
+The auto-vps timer `automancer-site-production-verify.timer` that ran this script every 30 minutes was disabled on
+6 Nov 2026, after two clean runs of the hosted schedule (t15155). Its units and its pinned clone at
+`/opt/automancer/auto/automancer-detectors/site` are kept. To bring it back as-is:
+`systemctl --user enable --now automancer-site-production-verify.timer`. `ops/deploy-production-monitor.sh
+<full-main-sha>` moves the pin to a reviewed commit and also re-enables the timer, so run it only to bring it back.
 
-```bash
-ops/deploy-production-monitor.sh <full-main-sha>
-```
+The hosted schedule needs no deploy: it reads `ops/verify-production.sh` from GitHub each run. It parses the
+`readonly` constants at the top of the script, so keep their shape (one `readonly NAME=` per line, quoted values). A
+shape it cannot read fails its run and names the constant.
 
 **Sentry fails silently by design of the guard.** `src/scripts/sentry.ts` initialises only when
 `PROD && dsn`, so an unset or wrong `PUBLIC_AUT_SENTRY_WEB_DSN` repository variable builds and

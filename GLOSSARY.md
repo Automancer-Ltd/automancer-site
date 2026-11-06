@@ -65,7 +65,7 @@
 
 ## Production Verifier
 **Definition:** The shell verification script that checks live `https://automancer.uk` (or a preview URL) for HTTP 200 across all routes, real HTTP 404 on unknown paths, `.proof-strip` commit SHA match, Sentry bundle project ID (`4511769898647632`), legal footer anchor, and TLS certificate expiry (`>= 21` days).
-**In code:** `ops/verify-production.sh`, invoked post-deploy by `.github/workflows/deploy.yml` and every 30 minutes by `ops/systemd/user/automancer-site-production-verify.{service,timer}`.
+**In code:** `ops/verify-production.sh`, invoked post-deploy by `.github/workflows/deploy.yml`; estate-watch's `siteVerify` schedule runs its production checks every 30 minutes (the old `ops/systemd/user/automancer-site-production-verify.{service,timer}` host timer is disabled, t15155).
 
 ## Redirect Stub
 **Definition:** A small (`<= 1024 B`) HTML meta-refresh page emitted at legacy `.html` URLs (`/about.html`, `/book.html`, `/privacy.html`, `/services.html`, `/terms.html`) so pre-Astro inbound links continue to resolve.
