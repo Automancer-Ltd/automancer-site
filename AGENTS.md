@@ -53,7 +53,7 @@ src/content/                case-studies/*.md and field-notes/*.md (schema: src/
 src/pages/                  .astro HTML routes; .md.ts / .json.ts / .txt.ts / .xml.ts endpoints
 src/layouts/BaseLayout.astro shared shell, SEO, JSON-LD, nav, footer, Sentry bootstrap
 tests/                      Vitest against the built dist/ (tests/README.md)
-ops/verify-production.sh    production verifier (deploy job and 30-minute host timer)
+ops/verify-production.sh    production verifier (deploy job; estate-watch siteVerify every 30 min)
 ops/edge/                   Cloudflare Worker in front of Pages
 ops/preview/                the non-production preview target
 ```
