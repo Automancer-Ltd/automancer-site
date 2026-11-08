@@ -25,9 +25,11 @@ const PAGE_LINKS = [
 ].join(', ');
 
 // Sent on every response. ops/verify-production.sh reads these back from
-// production, so a change here changes the check there too.
+// production, so a change here changes the check there too. HSTS matches the
+// automancer.uk zone security_header setting (t15574: 6 months, no
+// includeSubDomains), which Cloudflare's edge applies over Worker headers.
 const SECURITY_HEADERS = {
-  'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+  'Strict-Transport-Security': 'max-age=15552000',
   'X-Content-Type-Options': 'nosniff',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'Content-Security-Policy': "frame-ancestors 'none'; base-uri 'self'; object-src 'none'",

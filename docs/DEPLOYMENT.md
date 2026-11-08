@@ -113,8 +113,10 @@ a 404. Everything else passes through.
   Worker deployed after the merge turns that release red.
 - **Zone settings it relies on:** `email_obfuscation` off (it rewrites mailto links),
   `browser_check` off (it challenges agents), `browser_cache_ttl` 0 (respect GitHub's
-  `max-age=600`). SSL is "Full (strict)" against GitHub's certificate; if GitHub cannot renew it
-  behind the proxy every page answers 526 and the verifier fails.
+  `max-age=600`), `security_header` HSTS `max-age=15552000` with `include_subdomains` off and
+  `nosniff` on (t15574; Cloudflare's edge applies the zone's HSTS value over Worker headers, so
+  `SECURITY_HEADERS` matches it). SSL is "Full (strict)" against GitHub's certificate; if GitHub
+  cannot renew it behind the proxy every page answers 526 and the verifier fails.
 - **Undo, fastest first:** set the four apex `A` records to DNS-only; or delete the Worker route.
 
 ## Rollback
