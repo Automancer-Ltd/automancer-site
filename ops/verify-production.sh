@@ -37,9 +37,10 @@ readonly SECURITY_TXT_PATH="/security.txt"
 # so production checks they are really served (a dist/ test cannot see that).
 readonly WELL_KNOWN_PATHS=("/.well-known/security.txt" "/.well-known/agent.json" "/.well-known/ard.json" "/.well-known/api-catalog")
 # Sent by the edge Worker (ops/edge/worker.js SECURITY_HEADERS) on every
-# response. Read back on a page, its Markdown twin and a 404, exact values.
+# response; HSTS matches the automancer.uk zone security_header setting
+# (t15574). Read back on a page, its Markdown twin and a 404, exact values.
 readonly SECURITY_HEADERS=(
-  "Strict-Transport-Security: max-age=31536000; includeSubDomains"
+  "Strict-Transport-Security: max-age=15552000"
   "X-Content-Type-Options: nosniff"
   "Referrer-Policy: strict-origin-when-cross-origin"
   "Content-Security-Policy: frame-ancestors 'none'; base-uri 'self'; object-src 'none'"
@@ -1167,7 +1168,7 @@ self_test() {
   self_test_expect fail "security headers are sent on pages and on 404s" check_security_headers
   self_test_scenario "{\"routes\":{\"/\":{\"status\":200,\"body\":\"ok\",\"headers\":${secure}}},\"default\":{\"status\":404,\"body\":\"\"}}"
   self_test_expect fail "security headers are sent on pages and on 404s" check_security_headers
-  self_test_scenario "{\"routes\":{\"/\":{\"status\":200,\"body\":\"ok\",\"headers\":${secure/max-age=31536000/max-age=0}}},\"default\":{\"status\":404,\"body\":\"\",\"headers\":${secure}}}"
+  self_test_scenario "{\"routes\":{\"/\":{\"status\":200,\"body\":\"ok\",\"headers\":${secure/max-age=15552000/max-age=0}}},\"default\":{\"status\":404,\"body\":\"\",\"headers\":${secure}}}"
   self_test_expect fail "security header values match exactly" check_security_headers
   self_test_scenario "{\"routes\":{\"/\":{\"status\":200,\"body\":\"ok\",\"headers\":${secure}}},\"default\":{\"status\":404,\"body\":\"\",\"headers\":${secure}}}"
   self_test_expect pass "security headers are sent on pages and on 404s" check_security_headers

@@ -106,7 +106,7 @@ describe('edge Worker in front of GitHub Pages', () => {
   it('sends the same security headers on pages, twins, errors and redirects', async () => {
     vi.stubGlobal('fetch', vi.fn(serve));
     const expected = {
-      'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+      'Strict-Transport-Security': 'max-age=15552000',
       'X-Content-Type-Options': 'nosniff',
       'Referrer-Policy': 'strict-origin-when-cross-origin',
       'Content-Security-Policy': "frame-ancestors 'none'; base-uri 'self'; object-src 'none'",
