@@ -75,6 +75,9 @@ ops/preview/                the non-production preview target
 - `/privacy/` and `/terms/` are `legalNoMirror` and hash-pinned (`tests/legal-integrity.test.ts`);
   their wording changes only on Waseem's instruction.
 - The contact form never shows a raw API error code (`tests/contact-errors.test.ts`).
+- Page dates: `lastModified` in `/api/pages.json` and the sitemap is when a page's words last
+  changed live, carried forward from production by the deploy (`src/integrations/page-dates.ts`,
+  `tests/page-dates.test.ts`). Keep build-varying text (the deploy clock, the commit) out of `<main>`.
 - Page-weight and contrast budgets (`tests/performance.test.ts`, `tests/contrast.test.ts`,
   method in `docs/PERFORMANCE.md`).
 - The web fonts carry only the characters in `ops/fonts/charset.txt` (`tests/fonts.test.ts`). A

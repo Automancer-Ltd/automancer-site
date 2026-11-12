@@ -2,23 +2,24 @@
 import { defineConfig } from 'astro/config';
 import { readFileSync } from 'node:fs';
 import sitemap from '@astrojs/sitemap';
+import { pageDates } from './src/integrations/page-dates';
 
 /**
  * Sitemap <lastmod>, read from the built /api/pages.json so the two cannot
- * disagree. Only case studies and field notes carry a real date; any other
- * page would get the build time, which is not when it changed, so it gets no
- * lastmod at all. The sitemap is written after every page, so the file exists.
+ * disagree. Every page there carries a real date: when its words last changed
+ * on the live site (src/integrations/page-dates.ts dates the file first). The
+ * sitemap is written after every page and after that hook, so the file exists.
  */
 /** @type {Map<string, string> | undefined} */
-let entryDates;
+let pageDatesByUrl;
 /** @param {import('@astrojs/sitemap').SitemapItem} item */
 function withLastmod(item) {
-  entryDates ??= new Map(
-    JSON.parse(readFileSync(new URL('./dist/api/pages.json', import.meta.url), 'utf8'))
-      .pages.filter((/** @type {{type: string}} */ p) => p.type === 'CaseStudy' || p.type === 'BlogPosting')
-      .map((/** @type {{url: string, lastModified: string}} */ p) => [p.url, p.lastModified])
+  pageDatesByUrl ??= new Map(
+    JSON.parse(readFileSync(new URL('./dist/api/pages.json', import.meta.url), 'utf8')).pages.map(
+      (/** @type {{url: string, lastModified: string}} */ p) => [p.url, p.lastModified]
+    )
   );
-  const lastmod = entryDates.get(item.url);
+  const lastmod = pageDatesByUrl.get(item.url);
   return lastmod ? { ...item, lastmod } : item;
 }
 
@@ -103,5 +104,7 @@ export default defineConfig({
   // production build at page-generation time (see getStaticPaths in
   // work/[slug].astro + field-notes/[slug].astro and both index pages), so a
   // draft is never emitted as a page and therefore never enters the sitemap.
-  integrations: [sitemap({ serialize: withLastmod }), wellKnownRoutes],
+  // pageDates must come before sitemap: its build:done hook dates
+  // dist/api/pages.json, which the sitemap's build:done hook then reads.
+  integrations: [pageDates(), sitemap({ serialize: withLastmod }), wellKnownRoutes],
 });

@@ -58,7 +58,7 @@ What the new list changed:
 - **Moved from fail to partial:** the versioning / deprecation policy (`/api/stability.json`). The
   scanner wants it in the OpenAPI document as well.
 - **Fixed:** `<lastmod>` on every case study and field note in the sitemap (read from
-  `/api/pages.json`; other pages have no real modification date, so they carry none), `llms.txt`
+  `/api/pages.json`; since t19631 every page there has a real date: when its words last changed live), `llms.txt`
   lists as `[name](url)` Markdown links, and a `sameAs` from the Organization node to the
   Companies House record.
 - **Not pursued:** MCP, WebMCP, OAuth, payments, CLI and SDKs, rate-limit headers and JSON error

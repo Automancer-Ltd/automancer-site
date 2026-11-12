@@ -7,7 +7,7 @@ It does not outrank anything: `VISION.md` is authority 0 and `SPEC.md` describes
 When this file and `SPEC.md` disagree about what exists, `SPEC.md` and the code are right and this
 file is out of date.
 
-Last updated: 12 November 2026 (home and service prices reflow at enlarged text).
+Last updated: 12 November 2026 (page dates: a deploy that changes no words changes no date).
 
 ## Where the site stands against the vision
 
@@ -116,9 +116,9 @@ form's fields, limits and what happens after sending were not data an agent coul
 2. **Mark "Business name" optional on /contact/.** The intake API and the form treat it as
    optional (and `/api/enquiry.json` says `required: false`), but it is the only optional field
    without the "(optional)" marker. Change it only in a task authorizing visible wording.
-3. **Give static pages truthful modification dates.** `/api/pages.json` currently uses build
-   time when a static page has no `lastUpdated`, so every deploy claims those pages changed.
-   Set real dates or omit the optional field.
+3. **Let siteVerify read the page dates.** Production now publishes when each page's words last
+   changed (`contentSha256`, t19631). estate-watch could alert when a page's hash changes without a
+   deploy, or when a deploy re-dates pages whose words did not change.
 
 The former cache and release-note slices shipped in PRs #164 and #165 respectively.
 
@@ -167,6 +167,24 @@ columns shrink to their container instead of stretching to the longest word. All
   320px, 390px and desktop. A document-width check alone missed the old clipped content.
 - The shared hero fix also covers /developers/; its long code and URL examples remain a next slice.
 - Undo: revert this slice's merge commit and merge the revert; Pages restores the prior CSS.
+
+## Codebase slice: truthful page dates (12 November 2026, t19631)
+
+`/api/pages.json` dated every static page without a hand-written date to the build, so each
+deploy told agents and search engines that `/`, `/services/`, `/about/`, `/contact/` and three
+more pages had just changed; the sitemap gave 10 of its 30 URLs no `<lastmod>` at all. Now the
+build hashes each page's words (title, description, visible `<main>` text) into `contentSha256`,
+and the deploy's Build step reads production's index (`SERVED_PAGES_URL`): unchanged words keep
+the date production publishes, changed words take this deploy's time, and a page never dated
+keeps its own (`src/integrations/page-dates.ts`). Every page in the index now has a sitemap
+`<lastmod>`, the same date. Nothing is kept by hand, and an unreachable production falls back
+to the old dates rather than failing the deploy.
+
+- Tests: `tests/page-dates.test.ts` (the carry-forward rule, a redeploy keeps every date, chrome and
+  scripts do not count, sitemap and index agree).
+- The first deploy dates the seven static pages once (production published no hashes yet);
+  from then on, only real word changes move a date.
+- Undo: revert the merge; the index loses `contentSha256` (additive) and dates return to build time.
 
 ## Open questions
 

@@ -295,10 +295,18 @@ const schemas: Record<string, JsonSchema> = {
               description: 'Markdown twin URL, or null where none is published.',
             },
             type: str('schema.org-flavoured page type (WebPage, CollectionPage, CaseStudy, …).'),
-            lastModified: dateTime(),
+            lastModified: dateTime(
+              'When the words on this page last changed on the live site. A deploy that changes no words keeps the date.'
+            ),
+            contentSha256: {
+              type: 'string',
+              pattern: '^[0-9a-f]{64}$',
+              description:
+                "SHA-256 (hex) of the page's title, description and visible main text. It changes exactly when lastModified moves, so an agent can tell whether a page it read before has changed.",
+            },
           },
           {
-            required: ['url', 'title', 'description', 'markdownUrl', 'type', 'lastModified'],
+            required: ['url', 'title', 'description', 'markdownUrl', 'type', 'lastModified', 'contentSha256'],
           }
         ),
       },

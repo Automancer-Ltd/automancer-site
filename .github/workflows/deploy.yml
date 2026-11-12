@@ -78,9 +78,15 @@ jobs:
         # browser bundle, so this makes production Pages builds observable
         # without placing a DSN in the repository or local dotenv files.
         # The release tags each Sentry event with the commit that served it.
+        #
+        # SERVED_PAGES_URL is the page index production serves now: a page
+        # whose words this build leaves unchanged keeps the date it publishes
+        # (src/integrations/page-dates.ts). The query only defeats caches. If
+        # production cannot be read, pages keep their built dates.
         env:
           PUBLIC_AUT_SENTRY_WEB_DSN: ${{ vars.PUBLIC_AUT_SENTRY_WEB_DSN }}
           PUBLIC_SENTRY_RELEASE: ${{ github.sha }}
+          SERVED_PAGES_URL: https://automancer.uk/api/pages.json?for=${{ github.sha }}
 
       - name: Setup Pages
         uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
