@@ -99,7 +99,11 @@ draft with no page to link can be reviewed from its file in the repository inste
 the origin. The Worker answers what a static host cannot: `Accept: text/markdown` gets the Markdown
 twin, Markdown 404 bodies, `application/problem+json` errors under `/api/`, the RFC 9727 media type
 for `/.well-known/api-catalog`, HTTP → HTTPS, and one 301 from each legacy `*.html` URL in
-`astro.config.mjs` `redirects` to its page. Every response it returns carries the same security
+`astro.config.mjs` `redirects` to its page. It sets how long browsers and the edge keep files
+(`cachePolicy`, t18923): `/_astro/*` and `main.js?v=<commit>` for a year as `immutable`, unversioned
+fonts, images and `fonts.css` for a day with a week of `stale-while-revalidate`; pages, twins, JSON
+and unversioned scripts keep GitHub's ten minutes. Change a file under `/assets/` under a new name
+if visitors must see it at once. Every response it returns carries the same security
 headers (`SECURITY_HEADERS`: HSTS, `nosniff`, Referrer-Policy, a framing/base/object CSP and
 Permissions-Policy), which `ops/verify-production.sh` reads back on a page, its Markdown twin and
 a 404. Everything else passes through.
@@ -107,7 +111,9 @@ a 404. Everything else passes through.
 - **Deploy it:** `ops/edge/deploy.sh` (Executor `cloudflare-full-access`, account "Waseem
   Cloudflare", the Automancer account, which has held the zone since 23 Oct 2026). A merged change to `worker.js`
   is not live until this runs. Try it first with
-  `ops/edge/deploy.sh automancer-site-edge-probe` (workers.dev, real origin).
+  `ops/edge/deploy.sh automancer-site-edge-probe` (workers.dev, real origin). Its workers.dev
+  address (`https://automancer-site-edge-probe.waseem-d97.workers.dev`) is off between uses: turn it
+  on with `api.workerScript.workerScriptPostSubdomain` `{enabled: true}`, and off again afterwards.
 - **Changing `SECURITY_HEADERS`:** deploy the Worker from the pull request's branch before you
   merge it. The merge's `deploy` job runs the verifier, which reads the new values back, so a
   Worker deployed after the merge turns that release red.
