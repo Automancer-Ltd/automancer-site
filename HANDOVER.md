@@ -7,7 +7,7 @@ It does not outrank anything: `VISION.md` is authority 0 and `SPEC.md` describes
 When this file and `SPEC.md` disagree about what exists, `SPEC.md` and the code are right and this
 file is out of date.
 
-Last updated: 12 November 2026 (the enquiry form now starts on the first screen of /contact/).
+Last updated: 12 November 2026 (home and service prices reflow at enlarged text).
 
 ## Where the site stands against the vision
 
@@ -110,11 +110,9 @@ form's fields, limits and what happens after sending were not data an agent coul
 
 ## Next slices, in order
 
-1. **Let the home and services pages reflow at 200% text.** /contact/ and the header now do
-   (t19493). At 390px with text at 200%, the home hero headline (697px wide), the home rung rows and
-   the /services/ offer headings overflow their boxes and are clipped. The cause is single-column
-   grids on `1fr` (use `minmax(0, 1fr)`) and very large display type that needs a smaller cap at
-   enlarged text sizes. Screenshot-compare at 100% to keep the normal design unchanged.
+1. **Make the developer reference reflow at enlarged text.** The home and service buying pages
+   now do (t19571). At 320px and at 200% text, long example URLs, email and inline code on
+   /developers/ still escape their columns. Preserve code usability and the normal design.
 2. **Mark "Business name" optional on /contact/.** The intake API and the form treat it as
    optional (and `/api/enquiry.json` says `required: false`), but it is the only optional field
    without the "(optional)" marker. Change it only in a task authorizing visible wording.
@@ -156,6 +154,19 @@ and the footer no longer stretch past the screen (`minmax(0, 1fr)`, a wrapping e
 - The browser journey checks the first field is on the first screen, comes before the phone route in
   the page, and that at 200% text /contact/ does not scroll sideways and the phone menu opens.
 - Undo: revert this slice's merge commit; Pages redeploys the previous layout.
+
+## Frontend slice: readable prices and headings at enlarged text (12 November 2026, t19571)
+
+At 200% text on a 390px phone, the home headline reached x=697 and every home service card
+cut off names, descriptions and prices. The first /services/ heading extended past the screen.
+The headline now stays inside its container, the home cards wrap their price row when necessary,
+decorative card padding keeps its drawn size, and display amounts fit the available width. Offer
+columns shrink to their container instead of stretching to the longest word. All wording stays.
+
+- The browser journey checks the actual text rectangles against their panel at 200% text on
+  320px, 390px and desktop. A document-width check alone missed the old clipped content.
+- The shared hero fix also covers /developers/; its long code and URL examples remain a next slice.
+- Undo: revert this slice's merge commit and merge the revert; Pages restores the prior CSS.
 
 ## Open questions
 

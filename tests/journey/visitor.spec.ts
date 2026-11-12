@@ -88,6 +88,37 @@ test('visitor can compare starting prices immediately and jump to each offer', a
   await expectNoSidewaysScroll(page);
 });
 
+test('enlarged text keeps the headline, service names and prices inside their panels', async ({ page }, info) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  for (const width of info.project.name === 'mobile' ? [320, 390] : [1280]) {
+    await page.setViewportSize({ width, height: 844 });
+    for (const path of ['/', '/services/']) {
+      await page.goto(path);
+      await page.evaluate(() => document.documentElement.style.setProperty('font-size', '200%'));
+      await page.evaluate(() => document.fonts.ready);
+      // A page can hide horizontal overflow while clipping the words and prices.
+      // Check the painted text against its panel, not only the document width.
+      const clipped = await page.evaluate(() => {
+        const failures: string[] = [];
+        for (const el of document.querySelectorAll('.hero__headline, .rung__name, .rung__price, .offer__name, .offer__price')) {
+          const panel = el.closest('.hero__inner, .rung, .offer')!.getBoundingClientRect();
+          const range = document.createRange();
+          range.selectNodeContents(el);
+          for (const rect of range.getClientRects()) {
+            if (rect.right > Math.min(panel.right, innerWidth) + 1 || rect.left < Math.max(panel.left, 0) - 1) {
+              failures.push(el.textContent!.trim());
+              break;
+            }
+          }
+        }
+        return failures;
+      });
+      expect(clipped, `${path} at ${width}px clips enlarged buying information`).toEqual([]);
+      await expectNoSidewaysScroll(page);
+    }
+  }
+});
+
 test('the enquiry form starts on the first screen, and still works with text at 200%', async ({ page }, info) => {
   await stubIntake(page, { status: 200, body: { ok: true } });
   await page.emulateMedia({ reducedMotion: 'reduce' });
