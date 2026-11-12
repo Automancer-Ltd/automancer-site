@@ -1,0 +1,43 @@
+/* Automancer's self-hosted web fonts: Syne, Space Grotesk, Outfit and JetBrains Mono
+   (SIL OFL 1.1). Served from our own origin, so no request leaves the visitor's
+   browser for a third-party font host.
+
+   Each file is one variable font covering the weight range below (the weights the
+   design uses; a heavier request renders at the top of the range), cut down to the
+   characters in ops/fonts/charset.txt by ops/fonts/subset.py (t19380). Vite gives
+   each a content-hashed /_astro/ URL, cached for a year. A character a font lacks
+   falls through to the next family in the stack, so Syne's tilde (left out: it
+   reads "~600" as "·600") renders in Space Grotesk. tests/fonts.test.ts fails the
+   build if a page shows a character the fonts lack. */
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 400 600;
+  font-display: swap;
+  src: url('../assets/fonts/jetbrains-mono.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Outfit';
+  font-style: normal;
+  font-weight: 400 600;
+  font-display: swap;
+  src: url('../assets/fonts/outfit.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('../assets/fonts/space-grotesk.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Syne';
+  font-style: normal;
+  font-weight: 600 800;
+  font-display: swap;
+  src: url('../assets/fonts/syne.woff2') format('woff2');
+}

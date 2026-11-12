@@ -77,6 +77,9 @@ ops/preview/                the non-production preview target
 - The contact form never shows a raw API error code (`tests/contact-errors.test.ts`).
 - Page-weight and contrast budgets (`tests/performance.test.ts`, `tests/contrast.test.ts`,
   method in `docs/PERFORMANCE.md`).
+- The web fonts carry only the characters in `ops/fonts/charset.txt` (`tests/fonts.test.ts`). A
+  page showing a new character (an accented letter, a fraction) fails it: add the character to
+  `charset.txt`, run `python3 -I ops/fonts/subset.py`, commit both.
 
 ## Stack choices (t13220)
 

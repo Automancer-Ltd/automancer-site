@@ -2,7 +2,7 @@
  * Page-weight budgets — the gate that makes regressions impossible to miss.
  *
  * Every layout page ships the same shared payload (CSS, main.js, four variable
- * woff2 fonts, favicons: 186,314 B on 2026-11-12) plus its own HTML, so one
+ * woff2 fonts, favicons: 145,928 B on 2026-11-12) plus its own HTML, so one
  * default total budget covers them all. The population is whatever the build
  * emits: a new page is budgeted the moment it exists, with no entry to add.
  *
@@ -20,8 +20,8 @@
 import { describe, expect, it } from 'vitest';
 import { measureAllPages } from './support/perf';
 
-/** Measured 2026-11-12: heaviest layout page (/contact/, 214,010 B), after speculation rules joined the shared head. */
-const LAYOUT_MEASURED = 214010;
+/** Measured 2026-11-12: heaviest layout page (/contact/, 174,317 B), after the fonts were cut to the characters the site shows (t19380). */
+const LAYOUT_MEASURED = 174317;
 
 /**
  * Layout pages that genuinely need more than the default, each with its own
@@ -38,9 +38,9 @@ const GROWS_WITH_CONTENT: Record<string, string> = {
   '/releases/': 'the whole of CHANGELOG.md, about 1 KB of HTML per release',
 };
 
-/** JS measured 2026-11-12 (main.js, waits for a prerendered page to open); fonts 2026-08-31. Identical on every layout page. */
+/** JS measured 2026-11-12 (main.js, waits for a prerendered page to open); fonts 2026-11-12. Identical on every layout page. */
 const MEASURED_JS = 5841; // dist/assets/js/main.js — the only external script
-const MEASURED_FONTS = 120620; // 4 variable woff2 files reachable from fonts.css
+const MEASURED_FONTS = 83044; // 4 variable woff2 subsets (ops/fonts/subset.py) reachable from the page CSS
 
 /**
  * Redirect stubs (e.g. /services.html/) are meta-refresh pages with no
@@ -98,13 +98,13 @@ describe('page-weight budgets', () => {
   });
 
   it('keeps font payload within budget on every layout page', () => {
-    const budget = MEASURED_FONTS + headroom(MEASURED_FONTS); // 123033 B from 120620 B @ 2026-08-31
+    const budget = MEASURED_FONTS + headroom(MEASURED_FONTS); // 84705 B from 83044 B @ 2026-11-12
     for (const p of layoutPages) {
       expect(
         p.fontBytes,
-        `${p.route}: fonts ${p.fontBytes} B > budget ${budget} B (measured 120620 B on 2026-08-31). ` +
-          'A new font file or @font-face rule crept in — four variable woff2 files serve ' +
-          'every family and weight today.',
+        `${p.route}: fonts ${p.fontBytes} B > budget ${budget} B (measured ${MEASURED_FONTS} B on 2026-11-12). ` +
+          'A new font file or @font-face rule crept in, or the subsets grew — four variable woff2 ' +
+          'files serve every family and weight today (ops/fonts/subset.py).',
       ).toBeLessThanOrEqual(budget);
     }
   });

@@ -1,0 +1,9 @@
+# Characters the web fonts keep (ops/fonts/subset.py). Space and no-break space are always kept.
+# A character missing here renders in a fallback font; tests/fonts.test.ts fails the build first.
+# To add one: append it below, run `python3 -I ops/fonts/subset.py`, commit both.
+!"#$%&'()*+,-./0123456789:;<=>?@
+ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`
+abcdefghijklmnopqrstuvwxyz{|}~
+£€©®™°·×−
+–—‘’“”…•
+←↑→↓
