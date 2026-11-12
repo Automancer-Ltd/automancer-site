@@ -16,6 +16,7 @@ import { business } from './business';
 import { build } from './build';
 import { abs } from './urls';
 import { API_ENDPOINTS } from './api';
+import { RESPONSE_PROMISE } from './enquiry';
 
 const api = (path: string, description: string) => ({
   path,
@@ -37,7 +38,12 @@ const agentManifestBody = {
     webForm: abs('/contact'),
     formNote:
       'The form requires JavaScript and a browser security check; agents should prefer email.',
-    responseTime: 'We promise a meeting within one week of first contact.',
+    responseTime: RESPONSE_PROMISE,
+    enquiryContract: {
+      url: `${business.url}/api/enquiry.json`,
+      description:
+        'Every route to Waseem, which one an agent can complete (email), the fields the form asks for with their limits, and an email template that asks the same questions.',
+    },
   },
   // Everything an agent can fetch without JavaScript or credentials.
   machineReadable: {

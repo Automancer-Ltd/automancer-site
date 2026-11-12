@@ -23,13 +23,10 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import { ENDPOINT_URL, TURNSTILE_SITE_KEY, FIELD_LIMITS, LEAD_ERROR_COPY, LEAD_ERROR_FALLBACK } from '../config/site';
 import { business } from '../data/business';
+import { AFTER_SEND_STEPS, enquiryField } from '../data/enquiry';
 
-const steps = [
-  { h: 'Your message enters our pipeline', p: 'It lands in the same project system our AI agents run — the one we built and use every day. Nothing gets lost, nothing sits ignored in an inbox.' },
-  { h: 'Waseem reads it. Personally.', p: 'No auto-responder pretending to be a person. An actual human reads what you wrote and works out how we can help.' },
-  { h: 'You get a personal email back', p: 'From Waseem, to arrange a proper conversation — and we\'ll have that meeting within one week of you getting in touch.' },
-  { h: 'We take it from there', p: 'Usually that means an Automation Audit, but if a quick pointer is all you need, we\'ll happily give you that too.' },
-];
+const steps = AFTER_SEND_STEPS;
+const f = enquiryField;
 ---
 
 <BaseLayout
@@ -96,29 +93,29 @@ const steps = [
 
           <form id="contact-form" class="form" method="POST" novalidate data-endpoint={ENDPOINT_URL}>
             <div class="field">
-              <label for="name">Your name</label>
-              <input type="text" id="name" name="name" required autocomplete="name" maxlength={FIELD_LIMITS.name} />
+              <label for="name">{f('name').label}</label>
+              <input type="text" id="name" name="name" required autocomplete="name" maxlength={f('name').maxLength} />
             </div>
             <div class="field">
-              <label for="company">Business name</label>
-              <input type="text" id="company" name="company" autocomplete="organization" maxlength={FIELD_LIMITS.company} />
+              <label for="company">{f('company').label}</label>
+              <input type="text" id="company" name="company" autocomplete="organization" maxlength={f('company').maxLength} />
             </div>
             <div class="field">
-              <label for="email">Email</label>
-              <input type="email" id="email" name="email" required autocomplete="email" maxlength={FIELD_LIMITS.email} />
+              <label for="email">{f('email').label}</label>
+              <input type="email" id="email" name="email" required autocomplete="email" maxlength={f('email').maxLength} />
             </div>
             <div class="field">
-              <label for="time-sink">What's eating your week?</label>
-              <textarea id="time-sink" name="time_sink" required maxlength={FIELD_LIMITS.message}
-                placeholder="The boring, repetitive, expensive stuff. What takes up too much of your team's time?"></textarea>
+              <label for="time-sink">{f('time_sink').label}</label>
+              <textarea id="time-sink" name="time_sink" required maxlength={f('time_sink').maxLength}
+                placeholder={f('time_sink').example}></textarea>
             </div>
             <div class="field">
-              <label for="team-size">Roughly how big is your team? <span class="opt">(optional)</span></label>
-              <input type="text" id="team-size" name="team_size" autocomplete="off" maxlength="80" placeholder="e.g. just me, 12, ~500" />
+              <label for="team-size">{f('team_size').label} <span class="opt">(optional)</span></label>
+              <input type="text" id="team-size" name="team_size" autocomplete="off" maxlength={f('team_size').maxLength} placeholder={f('team_size').example} />
             </div>
             <div class="field">
-              <label for="extra">Anything else we should know? <span class="opt">(optional)</span></label>
-              <textarea id="extra" name="extra" maxlength="2000"></textarea>
+              <label for="extra">{f('extra').label} <span class="opt">(optional)</span></label>
+              <textarea id="extra" name="extra" maxlength={f('extra').maxLength}></textarea>
             </div>
 
             <!-- Honeypot: must submit empty. Off-screen + aria-hidden + no autofill/tab. -->

@@ -44,6 +44,13 @@ export const API_ENDPOINTS: ApiEndpoint[] = [
       'Service offerings with published from-prices (GBP), billing units, stable ids, and the same included list the /services page shows. Who an offer is for, and the FAQ, stay on the page.',
   },
   {
+    path: '/api/enquiry.json',
+    operationId: 'getEnquiryContract',
+    summary: 'How to send an enquiry, and which route an agent can complete',
+    description:
+      'The enquiry contract as data: every route to Waseem (email, the web form, phone), which of them an agent can complete on its own (email), what the web form needs, the fields it asks for with their limits, an email template that asks the same questions, the response promise and what happens next. The /contact page reads the same module.',
+  },
+  {
     path: '/api/case-studies.json',
     operationId: 'getCaseStudies',
     summary: 'All case studies with full text',

@@ -386,6 +386,94 @@ const schemas: Record<string, JsonSchema> = {
     }
   ),
 
+  // The enquiry contract. agentCanComplete is the field an agent acts on:
+  // only email is true, because the form needs a person to pass a browser
+  // security check and the site will not describe a route it cannot honour.
+  EnquiryContract: obj(
+    {
+      schemaVersion: str('Semver-ish version of this payload shape.'),
+      generatedAt: dateTime('Build time — payloads change only at deploy.'),
+      url: uri('Where this document is served.'),
+      page: uri('The contact page a person uses.'),
+      summary: str(),
+      preferredRouteForAgents: str('The id of the route an agent should use.', { enum: ['email'] }),
+      routes: {
+        type: 'array',
+        description: 'Every way to reach Waseem. Each reaches the same person.',
+        items: obj(
+          {
+            id: oneOf('email', 'web-form', 'phone'),
+            channel: oneOf('email', 'web-form', 'phone'),
+            address: emailSchema(),
+            number: str('The phone number, as a person dials it.'),
+            url: str('A mailto:, tel: or https: URL for this route.'),
+            agentCanComplete: { type: 'boolean', description: 'True only where an agent can finish the enquiry without a person.' },
+            requires: strArray('What the route needs that an agent may not have.'),
+            detail: str(),
+          },
+          { required: ['id', 'channel', 'url', 'agentCanComplete', 'detail'] }
+        ),
+      },
+      fields: {
+        type: 'array',
+        description: 'What the /contact form asks for, in its order, with the same labels and limits.',
+        items: obj(
+          {
+            id: str('The form control name; stable.'),
+            label: str('The label a person reads on /contact.'),
+            required: { type: 'boolean' },
+            maxLength: { type: 'integer', description: 'The most characters the form accepts in this field.' },
+            kind: oneOf('text', 'email', 'long-text'),
+            example: str('The example the form shows in the empty field.'),
+          },
+          { required: ['id', 'label', 'required', 'maxLength', 'kind'] }
+        ),
+      },
+      combinedMessage: obj(
+        {
+          fields: strArray('Field ids the form joins into one message.'),
+          maxLength: { type: 'integer', description: 'The limit on the joined message.' },
+          detail: str(),
+        },
+        { required: ['fields', 'maxLength', 'detail'] }
+      ),
+      email: obj(
+        {
+          to: emailSchema(),
+          subject: str(),
+          body: str('A plain-text body that asks the same questions as the form.'),
+          mailto: str('The same email as a mailto: URL.'),
+          detail: str(),
+        },
+        { required: ['to', 'subject', 'body', 'mailto', 'detail'] }
+      ),
+      responsePromise: str('The promise the contact page makes.'),
+      whatHappensNext: {
+        type: 'array',
+        description: 'The steps /contact shows under “What happens next”, in order.',
+        items: obj({ step: str(), detail: str() }, { required: ['step', 'detail'] }),
+      },
+      privacy: uri('The privacy notice that covers an enquiry.'),
+    },
+    {
+      required: [
+        ...PROVENANCE_REQUIRED,
+        'url',
+        'page',
+        'summary',
+        'preferredRouteForAgents',
+        'routes',
+        'fields',
+        'combinedMessage',
+        'email',
+        'responsePromise',
+        'whatHappensNext',
+        'privacy',
+      ],
+      description: 'The /api/enquiry.json payload.',
+    }
+  ),
+
   ReleasesResponse: obj(
     {
       schemaVersion: str('Semver-ish version of this payload shape.'),
@@ -426,6 +514,7 @@ const RESPONSE_SCHEMA_BY_OPERATION: Record<string, string> = {
   getPageInventory: 'PageInventoryResponse',
   getStabilityPolicy: 'StabilityPolicy',
   getReleases: 'ReleasesResponse',
+  getEnquiryContract: 'EnquiryContract',
 };
 
 /** RFC 9457 problem details, as ops/edge/worker.js returns them. */

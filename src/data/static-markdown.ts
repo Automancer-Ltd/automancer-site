@@ -190,6 +190,7 @@ We promise a meeting within one week of first contact. You speak directly with W
 4. **We take it from there** — usually starting with an Automation Audit, or a quick pointer if that is all you need.
 
 Agents — use email. The form needs a browser; a plain email reaches the same human.
+The routes, the form's fields and limits, and an email template that asks the same questions are published as data at ${business.url}/api/enquiry.json.
 `;
 }
 
