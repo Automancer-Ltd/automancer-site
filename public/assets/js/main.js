@@ -9,7 +9,13 @@
 
   var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+  /* A prerendered page (BaseLayout.astro) starts when it is opened. */
   document.addEventListener('DOMContentLoaded', function () {
+    if (document.prerendering) document.addEventListener('prerenderingchange', init, { once: true });
+    else init();
+  });
+
+  function init() {
     /* ── Scroll reveal ── */
     var revealEls = document.querySelectorAll('.reveal, .reveal-stagger');
     if (revealEls.length) {
@@ -128,5 +134,5 @@
         el.style.setProperty('--my', ((e.clientY - r.top) / r.height * 100) + '%');
       });
     });
-  });
+  }
 })();

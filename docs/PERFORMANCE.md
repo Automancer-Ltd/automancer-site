@@ -31,5 +31,18 @@ only the Sentry bootstrap described below.
 - **Internal links carry their trailing slash.** GitHub Pages answers `/contact` with a 301 to
   `/contact/`, one round trip per click. `tests/links.test.ts` ("internal page links") fails on
   any slashless internal `href`.
+- **Page-to-page clicks are instant in Chromium browsers (t18679, 12 Nov 2026).** `BaseLayout.astro`
+  publishes Speculation Rules: a page's HTML is fetched when the pointer first touches a link to it
+  (`eager`: on desktop a short hover), and the page is prerendered after a 200 ms hover or a press
+  (`moderate`), reusing that fetch. Same origin only: no request goes anywhere a click would not.
+  `/contact/` is fetched but never prerendered, because rendering it would load the third-party
+  security check before the visitor chose the form. Files (`*.md`, `*.json`, `*.txt`, `*.xml`,
+  images) are never speculated. `main.js` waits for `prerenderingchange`, so reveals and the typed
+  line play when the page is seen, as on a normal load. Firefox and Safari ignore the rules.
+  Measured in headed Chromium with no DevTools attached (DevTools disables prerendering, so a
+  Playwright or CDP-driven test never sees it), on a local copy with a 200 ms first-byte delay as
+  production showed: five-click journey, 300 ms hover, 25 clicks a side, median perceived LCP
+  344 ms → 96 ms (p75 368 → 142 ms); with a 400 ms delay 532 → 202 ms. Every click was served
+  from a prerendered page, and only hovered pages were fetched.
 - **Images cannot shift layout:** the only `<img>` elements are the nav and footer logos, both
   with explicit dimensions.
