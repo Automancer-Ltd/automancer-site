@@ -21,12 +21,14 @@
 //   submissions only succeed from production. Local dev/preview will hit a
 //   CORS wall and fall through to the mailto fallback (expected).
 import BaseLayout from '../layouts/BaseLayout.astro';
+import InlineScript from '../components/InlineScript.astro';
 import { ENDPOINT_URL, TURNSTILE_SITE_KEY, FIELD_LIMITS, LEAD_ERROR_COPY, LEAD_ERROR_FALLBACK } from '../config/site';
 import { business } from '../data/business';
 import { AFTER_SEND_STEPS, enquiryField } from '../data/enquiry';
 
 const steps = AFTER_SEND_STEPS;
 const f = enquiryField;
+Astro.csp.insertScriptResource('https://challenges.cloudflare.com');
 ---
 
 <BaseLayout
@@ -178,7 +180,7 @@ const f = enquiryField;
     </div>
   </section>
 
-  <script is:inline define:vars={{ endpoint: ENDPOINT_URL, limits: FIELD_LIMITS, email: business.email, errorCopy: LEAD_ERROR_COPY, errorFallback: LEAD_ERROR_FALLBACK }}>
+  <InlineScript><script is:inline define:vars={{ endpoint: ENDPOINT_URL, limits: FIELD_LIMITS, email: business.email, errorCopy: LEAD_ERROR_COPY, errorFallback: LEAD_ERROR_FALLBACK }}>
     (function () {
       var form = document.getElementById('contact-form');
       if (!form) return;
@@ -360,5 +362,5 @@ const f = enquiryField;
       });
       submitBtn.disabled = false;
     })();
-  </script>
+  </script></InlineScript>
 </BaseLayout>

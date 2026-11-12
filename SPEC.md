@@ -74,6 +74,12 @@ Provide a truthful public front door for Automancer. Give people and machines th
 - State: built
 - Shaped by: `package.json`, `vitest.config.ts`, `tests/`, `.github/workflows/ci.yml`, `.github/workflows/deploy.yml`, and `ops/verify-production.sh`.
 
+### Browser script protection
+
+- What it does: Astro generates a Content Security Policy in each HTML page, including the recovery page. Approved inline scripts get build-time hashes; external scripts load only from the site's own origin or Cloudflare Turnstile. Unapproved inline scripts, event-handler attributes and eval are blocked. Inline style attributes remain allowed for the existing layout and animations; style elements require a hash or same-origin source. The edge Worker's existing policy separately restricts framing, base URLs and objects. This is defence in depth, not a claim that the site had an exploitable injection path.
+- State: built
+- Shaped by: `astro.config.mjs`, `src/components/InlineScript.astro` (hashes trusted template scripts, including `define:vars`, through Astro's CSP API), `tests/journey/security.spec.ts`, and `tests/journey/visitor.spec.ts`.
+
 ### Runtime health signals
 
 - What it does: Reports production browser errors to the configured Sentry project, tagged with the deployed commit as the release. The Sentry SDK is fetched only when the first error happens, so a visit with no error never downloads it. UptimeRobot independently checks public URL availability. The production verifier checks every published page and Markdown twin, the machine surfaces and TLS after every deploy; estate-watch's `siteVerify` schedule runs its checks every 30 minutes and files a Gandalf task on failure.

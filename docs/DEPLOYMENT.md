@@ -94,6 +94,16 @@ draft with no page to link can be reviewed from its file in the repository inste
 
 ## The edge Worker in front of GitHub Pages
 
+HTML pages also carry Astro's build-generated Content Security Policy in a meta tag. It blocks
+unapproved inline JavaScript, event-handler attributes and eval; same-origin scripts and modules
+remain allowed. Only `/contact/` adds the Turnstile script origin. Wrap trusted `is:inline`
+scripts in `src/components/InlineScript.astro`: Astro does not hash those bodies itself, so the
+wrapper renders them once and registers their exact hash through `Astro.csp`. Existing inline
+style attributes remain allowed. The visitor journey checks real browser refusal and that the
+normal navigation and contact flow run without CSP errors, locally and after every deploy.
+The periodic HTTP verifier does not test script execution. The Worker's framing/base/object policy
+below applies alongside this policy; no Worker deploy is needed for a page-policy change.
+
 `automancer.uk` is proxied by Cloudflare (zone `automancer.uk`) through the Worker
 `automancer-site-edge` (`ops/edge/worker.js`, route `automancer.uk/*`, fail-open). GitHub Pages stays
 the origin. The Worker answers what a static host cannot: `Accept: text/markdown` gets the Markdown
