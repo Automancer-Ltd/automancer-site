@@ -7,7 +7,7 @@ It does not outrank anything: `VISION.md` is authority 0 and `SPEC.md` describes
 When this file and `SPEC.md` disagree about what exists, `SPEC.md` and the code are right and this
 file is out of date.
 
-Last updated: 12 November 2026 (prices and service navigation now lead /services/).
+Last updated: 12 November 2026 (the enquiry form now starts on the first screen of /contact/).
 
 ## Where the site stands against the vision
 
@@ -110,10 +110,11 @@ form's fields, limits and what happens after sending were not data an agent coul
 
 ## Next slices, in order
 
-1. **Bring the enquiry form forward on phones.** On /contact/, the full promise and contact
-   explanation stack before the form. A visitor who has already chosen an offer must scroll
-   through them before typing. Preserve the promise and contact routes, but make the form
-   easier to reach at 390px. This is the next useful frontend slice.
+1. **Let the home and services pages reflow at 200% text.** /contact/ and the header now do
+   (t19493). At 390px with text at 200%, the home hero headline (697px wide), the home rung rows and
+   the /services/ offer headings overflow their boxes and are clipped. The cause is single-column
+   grids on `1fr` (use `minmax(0, 1fr)`) and very large display type that needs a smaller cap at
+   enlarged text sizes. Screenshot-compare at 100% to keep the normal design unchanged.
 2. **Mark "Business name" optional on /contact/.** The intake API and the form treat it as
    optional (and `/api/enquiry.json` says `required: false`), but it is the only optional field
    without the "(optional)" marker. Change it only in a task authorizing visible wording.
@@ -135,6 +136,26 @@ The rung explanation is a compact band after the comparison. All existing prose 
 - No added JavaScript or browser storage; navigation also works with scripts disabled.
 - The browser journey checks prices on arrival and keyboard navigation to every offer.
 - Undo: revert this slice's merge commit and push; the normal Pages deploy restores the previous layout.
+
+## Frontend slice: the enquiry form on arrival (12 November 2026, t19493)
+
+/contact/ exists to take an enquiry, but its first field sat at 1558px on a 390×844 phone (after the
+hero, the one-week promise and three notes) and at 943px on a 1280×800 desktop, below the fold on
+both. The page now opens with a compact introduction (the /services/ pattern), a shorter gap, and
+the form first in the page: first field at 683px on the phone and 644px on desktop, both on the first
+screen. On desktop the promise stays beside the form; on phones it, the phone line and the notes
+follow the form. All wording is unchanged.
+
+Found on the way: with text enlarged to 200% on a phone, the "Automancer" wordmark pushed the menu
+button to x=517 on a 390px screen on every page, so the menu could not be opened. Both wordmarks are
+now held at their drawn size (logotypes), the menu button never shrinks, and /contact/'s form column
+and the footer no longer stretch past the screen (`minmax(0, 1fr)`, a wrapping email and legal row).
+
+- 59 of 62 full-page screenshots (31 pages × 1280/390, normal text) are pixel-identical before and
+  after; the others are /contact/ itself and one-unit anti-aliasing on a button edge.
+- The browser journey checks the first field is on the first screen, comes before the phone route in
+  the page, and that at 200% text /contact/ does not scroll sideways and the phone menu opens.
+- Undo: revert this slice's merge commit; Pages redeploys the previous layout.
 
 ## Open questions
 

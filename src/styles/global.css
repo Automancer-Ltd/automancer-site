@@ -278,10 +278,12 @@ strong { font-weight: 600; color: inherit; }
   border-bottom-color: var(--border);
   padding-block: var(--sp-3);
 }
-.nav__brand { display: inline-flex; align-items: center; gap: var(--sp-3); z-index: 2; }
-.nav__mark { width: 30px; height: 34px; filter: brightness(0) invert(1); }
+.nav__brand { display: inline-flex; align-items: center; gap: min(var(--sp-3), 12px); z-index: 2; min-width: 0; }
+.nav__mark { width: 30px; height: 34px; flex-shrink: 0; filter: brightness(0) invert(1); }
+/* The wordmark is the logotype: it keeps its drawn size when a visitor enlarges
+   text, so at 200% on a phone it cannot push the menu button off the screen. */
 .nav__wordmark {
-  font-family: var(--font-display); font-weight: 800; font-size: 1.15rem;
+  font-family: var(--font-display); font-weight: 800; font-size: min(1.15rem, 18.4px);
   letter-spacing: -0.03em; color: var(--white);
 }
 .nav__links { display: flex; align-items: center; gap: clamp(1rem, 2.4vw, 2rem); }
@@ -303,7 +305,7 @@ strong { font-weight: 600; color: inherit; }
 
 /* Hit target is 44×44 (Apple HIG). WCAG 2.2 AA's floor is 24px — this is
    comfort, not a contrast/AA violation. The three bars stay 26×2. */
-.hamburger { display: none; flex-direction: column; justify-content: center; align-items: center; gap: 6px; padding: var(--sp-2); min-width: 44px; min-height: 44px; z-index: 2; }
+.hamburger { display: none; flex-direction: column; justify-content: center; align-items: center; gap: 6px; padding: var(--sp-2); min-width: 44px; min-height: 44px; flex-shrink: 0; z-index: 2; }
 .hamburger span { display: block; width: 26px; height: 2px; background: var(--white);
   transition: transform var(--dur-2) var(--ease-out-expo), opacity var(--dur-1); }
 .hamburger[aria-expanded="true"] span:nth-child(1) { transform: translateY(8px) rotate(45deg); }
@@ -941,8 +943,21 @@ strong { font-weight: 600; color: inherit; }
 .principle p { color: var(--muted); margin-top: var(--sp-3); font-size: var(--t-0); }
 
 /* ─────────────────────── Contact / form ─────────────────────── */
+/* The form is the page's job, so its first field is on the first screen at
+   1280×800 and 390×844: a compact introduction, a shorter gap before the form,
+   and the form first in source order (after the promise only visually, on
+   desktop). The promise and the phone route follow it on phones. */
+.contact-hero { padding-block: clamp(6.5rem, 9vw, 8rem) var(--sp-8); }
+.contact-hero .page-hero__title { font-size: var(--t-4); }
+.contact-hero .page-hero__sub { font-size: var(--t-0); margin-top: var(--sp-4); }
+.contact-section { padding-block-start: clamp(2rem, 4vw, 3.5rem); }
 .contact-grid { display: grid; grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr); gap: clamp(2.5rem, 6vw, 5rem); align-items: start; }
-@media (max-width: 860px) { .contact-grid { grid-template-columns: 1fr; } }
+.contact-grid__aside { grid-column: 1; grid-row: 1; }
+.contact-grid__form { grid-column: 2; grid-row: 1; }
+@media (max-width: 860px) {
+  .contact-grid { grid-template-columns: minmax(0, 1fr); }
+  .contact-grid__aside, .contact-grid__form { grid-column: auto; grid-row: auto; }
+}
 
 .promise { border: 1px solid var(--border); border-radius: var(--radius-lg); padding: clamp(1.5rem, 3vw, 2.25rem);
   background: linear-gradient(180deg, var(--near), var(--g-975)); }
@@ -1026,7 +1041,8 @@ strong { font-weight: 600; color: inherit; }
   padding-block: clamp(3rem, 6vw, 5rem); }
 .footer__brand { display: flex; align-items: center; gap: var(--sp-3); margin-bottom: var(--sp-5); }
 .footer__mark { width: 34px; filter: brightness(0) invert(1); }
-.footer__word { font-family: var(--font-display); font-weight: 800; font-size: 1.2rem; letter-spacing: -0.03em; }
+/* A logotype, like .nav__wordmark: it keeps its drawn size when text is enlarged. */
+.footer__word { font-family: var(--font-display); font-weight: 800; font-size: min(1.2rem, 19.2px); letter-spacing: -0.03em; }
 .footer__addr { color: var(--muted); font-size: var(--t--1); line-height: 1.8; max-width: 32ch; }
 .footer__addr a {
   display: inline-flex; align-items: center;
@@ -1037,17 +1053,18 @@ strong { font-weight: 600; color: inherit; }
 .footer__col h3 { font-family: var(--font-mono); font-size: 0.68rem; letter-spacing: 0.12em; text-transform: uppercase;
   color: var(--faint); margin-bottom: var(--sp-5); }
 .footer__col nav { display: flex; flex-direction: column; gap: var(--sp-3); }
+.footer__col a, .footer__addr a { overflow-wrap: anywhere; }
 .footer__col a { color: var(--g-300); font-size: var(--t-0); transition: color var(--dur-1); }
 .footer__col a:hover { color: var(--white); }
 .footer__bottom { display: flex; flex-wrap: wrap; gap: var(--sp-4); justify-content: space-between; align-items: center;
   padding-block: var(--sp-6); border-top: 1px solid var(--border); font-family: var(--font-mono); font-size: 0.72rem; color: var(--faint); }
-.footer__legal { display: flex; gap: var(--sp-6); }
+.footer__legal { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-6); }
 .footer__legal a {
   display: inline-flex; align-items: center;
   min-height: 24px; min-width: 24px;
 }
 .footer__legal a:hover { color: var(--g-200); }
-@media (max-width: 720px) { .footer__top { grid-template-columns: 1fr; gap: var(--sp-8); }
+@media (max-width: 720px) { .footer__top { grid-template-columns: minmax(0, 1fr); gap: var(--sp-8); }
   .footer__bottom { flex-direction: column; align-items: flex-start; } }
 
 /* ─────────────────────── Reveal motion ─────────────────────── */

@@ -42,7 +42,7 @@ Astro.csp.insertScriptResource('https://challenges.cloudflare.com');
     async
     defer></script>
 
-  <section class="page-hero hatch">
+  <section class="page-hero contact-hero hatch">
     <div class="page-hero__glow" aria-hidden="true" data-px="26"></div>
     <div class="page-hero__inner">
       <p class="eyebrow">Get in touch</p>
@@ -54,36 +54,12 @@ Astro.csp.insertScriptResource('https://challenges.cloudflare.com');
     </div>
   </section>
 
-  <section class="section on-near">
+  <section class="section contact-section on-near">
     <div class="wrap">
       <div class="contact-grid">
-        <!-- Left: the promise -->
-        <div>
-          <div class="promise reveal">
-            <p class="sys sys--spectral" style="margin-bottom: var(--sp-4)">the one-week promise</p>
-            <p class="promise__big">1 week<span class="u">to a meeting, from first contact</span></p>
-            <p>
-              Not a number in the diary three weeks out, not an automated "someone will be in touch" —
-              an actual conversation with an actual human, within seven days. Agents do the heavy lifting
-              behind the scenes, but a human makes every decision and takes every call.
-            </p>
-          </div>
-          <p class="form__micro" style="margin-top: var(--sp-8); max-width: 40ch;">
-            Prefer to just ask a question? Use the form for anything — a quick query, a "could you even
-            do this?", a proper project. It all reaches the same place: Waseem.
-          </p>
-          <p class="form__micro" style="margin-top: var(--sp-6); max-width: 40ch;">
-            Rather talk? Call <a href={`tel:${business.phoneTel}`}>{business.phone}</a>. It's a
-            voicemail line — leave a message and it reaches Waseem, same as the form. No switchboard,
-            no hold music, no bot.
-          </p>
-          <p class="form__micro" style="margin-top: var(--sp-6);">
-            Based in Bradford · Leeds · Manchester · UK-wide, remote-first.
-          </p>
-        </div>
-
-        <!-- Right: the form -->
-        <div>
+        <!-- The form comes first in the page, so on phones it is the first thing after the
+             introduction and the first stop for keyboard and screen-reader users. -->
+        <div class="contact-grid__form">
           <div class="section-head" style="margin-bottom: var(--sp-8); max-width:100%;">
             <h2 style="font-size:var(--t-3)">Start here.</h2>
             <p style="font-size:var(--t-0)">
@@ -151,6 +127,31 @@ Astro.csp.insertScriptResource('https://challenges.cloudflare.com');
             </p>
           </div>
         </div>
+        <!-- The promise and the other routes: beside the form on desktop, after it on phones. -->
+        <div class="contact-grid__aside">
+          <div class="promise reveal">
+            <p class="sys sys--spectral" style="margin-bottom: var(--sp-4)">the one-week promise</p>
+            <p class="promise__big">1 week<span class="u">to a meeting, from first contact</span></p>
+            <p>
+              Not a number in the diary three weeks out, not an automated "someone will be in touch" —
+              an actual conversation with an actual human, within seven days. Agents do the heavy lifting
+              behind the scenes, but a human makes every decision and takes every call.
+            </p>
+          </div>
+          <p class="form__micro" style="margin-top: var(--sp-8); max-width: 40ch;">
+            Prefer to just ask a question? Use the form for anything — a quick query, a "could you even
+            do this?", a proper project. It all reaches the same place: Waseem.
+          </p>
+          <p class="form__micro" style="margin-top: var(--sp-6); max-width: 40ch;">
+            Rather talk? Call <a href={`tel:${business.phoneTel}`}>{business.phone}</a>. It's a
+            voicemail line — leave a message and it reaches Waseem, same as the form. No switchboard,
+            no hold music, no bot.
+          </p>
+          <p class="form__micro" style="margin-top: var(--sp-6);">
+            Based in Bradford · Leeds · Manchester · UK-wide, remote-first.
+          </p>
+        </div>
+
       </div>
     </div>
   </section>
