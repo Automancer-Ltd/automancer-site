@@ -1,5 +1,19 @@
 # Release notes
 
+## v2026.11.12.4 — 12 November 2026
+
+This release makes the site’s information easier to find and read.
+
+### Finding information
+
+- Search listings can use the date each page’s wording last changed, rather than the date of every deployment.
+
+### Readability and contact
+
+- Headings and prices remain readable when you enlarge text.
+- The enquiry form starts on the first screen on phones and desktops, and the menu stays reachable without sideways scrolling on phones at 200% text size.
+
+
 ## v2026.11.12.3 — 12 November 2026
 
 The enquiry page and site controls fit better on small screens, while page update dates follow changes to the words visitors see.
