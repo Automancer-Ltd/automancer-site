@@ -1,5 +1,20 @@
 # Release notes
 
+## v2026.11.12.3 — 12 November 2026
+
+The enquiry page and site controls fit better on small screens, while page update dates follow changes to the words visitors see.
+
+### Improvements
+
+- The enquiry form is visible sooner on phones and desktop, so visitors can start their enquiry without scrolling as far.
+- The menu stays within reach on phones when text is enlarged to 200%, and contact details and legal links wrap without sideways scrolling.
+- Headings and prices remain readable with enlarged text.
+
+### Page information
+
+- Page update dates reflect when the words on each page last changed, giving visitors and search tools a more useful indication of freshness.
+
+
 ## v2026.11.12.2 — 12 November 2026
 
 Pricing on the services page is clearer and easier to read.
