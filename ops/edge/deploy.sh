@@ -23,5 +23,5 @@ print(json.dumps({"accountId": sys.argv[1], "input": {
   "path": {"account_id": sys.argv[2], "script_name": sys.argv[3]},
   "contentType": "application/javascript", "body": os.environ["CODE"]}}))
 ' "$EXECUTOR_ACCOUNT" "$CF_ACCOUNT" "$script" |
-  executor-tool call 'tools["cloudflare-full-access"].workerScript.workerScriptUploadWorkerModule' - |
+  executor-tool call 'tools["cloudflare-full-access"].api.workerScript.workerScriptUploadWorkerModule' - |
   python3 -c 'import json,sys; r=json.load(sys.stdin); ok=r.get("success"); print("uploaded" if ok else r); sys.exit(0 if ok else 1)'

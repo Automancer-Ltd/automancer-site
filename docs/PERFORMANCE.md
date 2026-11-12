@@ -45,5 +45,15 @@ only the Sentry bootstrap described below.
   344 ms → 96 ms (p75 368 → 142 ms); with a 400 ms delay 532 → 202 ms. Every click was served
   from a prerendered page, and only hovered pages were fetched. Re-measure with
   `ops/perf/nav-journey.mjs` (usage in its header), never with a Playwright test.
+- **Returning visitors paint from their own cache (t18923, 12 Nov 2026).** GitHub Pages sends
+  `max-age=600` on every file, so a visit more than ten minutes after the last one re-asked for all
+  eight files the home page loads (stylesheets, fonts, scripts, logo) before painting. The edge
+  Worker's `cachePolicy` keeps content-addressed files (`/_astro/*`, `main.js?v=<commit>`) for a year
+  as `immutable` and unversioned fonts, images and `fonts.css` for a day with a week of
+  `stale-while-revalidate`, in browsers and at the Cloudflare edge; pages keep ten minutes.
+  Measured on production with `ops/perf/repeat-visit.mjs` (headless Chromium, 390 px, 7 rounds,
+  second visit 11 minutes after the first): requests on the repeat visit 8 → 0; median first
+  paint 192 → 112 ms direct from auto-bee, and 404 → 208 ms with 150 ms added per request (a phone
+  on mobile data), where the load event moved 547 → 197 ms.
 - **Images cannot shift layout:** the only `<img>` elements are the nav and footer logos, both
   with explicit dimensions.
