@@ -1,5 +1,10 @@
 # Release notes
 
+## v2026.11.12.1 — 12 November 2026
+
+The enquiry form and its agent guidance now share one source, so visitors and automated agents get consistent information about how to contact Automancer.
+
+
 ## v2026.11.01.3 — 1 November 2026
 
 A new field note on supplier restore evidence is now available to read.
