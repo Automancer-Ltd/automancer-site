@@ -17,10 +17,23 @@ only the Sentry bootstrap described below.
 
 ## Decisions behind the numbers
 
-- **Fonts are four variable woff2 files**, one per family, reachable from
-  `public/assets/css/fonts.css`. In August 2026 26 static files cost ~87% of every page;
+- **Fonts are four variable woff2 files**, one per family, declared in `src/styles/fonts.css`
+  and bundled into the page stylesheet. In August 2026 26 static files cost ~87% of every page;
   collapsing them cut a cold visit by ~450 KB. `BaseLayout.astro` preloads exactly the two used
-  above the fold on every page (Space Grotesk 400, Syne 800).
+  above the fold on every page (Space Grotesk, Syne).
+- **The fonts carry only the characters the site shows (t19380, 12 Nov 2026).** The Google Fonts
+  latin files held ~225 characters each, mostly accented letters no page uses.
+  `ops/fonts/subset.py` cuts the full files in `ops/fonts/source/` down to
+  `ops/fonts/charset.txt` (printable ASCII plus the punctuation, currency and symbols the pages
+  use), keeping every weight (still variable), hinting, kerning, ligatures and the numeral forms the
+  CSS asks for. The four files went 120,620 → 83,044 B; heaviest page 214,010 → 174,317 B.
+  They are Vite assets now, so each has a content-hashed `/_astro/` URL kept for a year, and the
+  separate render-blocking `fonts.css` request is gone. Full-page screenshots of all 31 pages at
+  1280 and 390 px were pixel-identical before and after, apart from the footer's live deploy clock.
+  `tests/fonts.test.ts` reads each built font's character map and fails when a page shows a
+  character the full font has but the subset dropped (a field note with "é", say): add it to
+  `charset.txt`, rerun the script, commit both. Measured on a cold phone visit with
+  `ops/perf/cold-visit.mjs` (Slow 4G profile): see the t19380 numbers below.
 - **Sentry loads on the first error, not on page load.** `src/scripts/sentry.ts` registers two
   listeners and imports `@sentry/browser` (~30 KB gzip) only when an uncaught error or rejection
   happens, queueing errors while it loads. Page-load scripts went from 32 KB to 3 KB gzip. The DSN
