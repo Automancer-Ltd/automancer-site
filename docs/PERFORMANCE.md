@@ -43,6 +43,7 @@ only the Sentry bootstrap described below.
   Playwright or CDP-driven test never sees it), on a local copy with a 200 ms first-byte delay as
   production showed: five-click journey, 300 ms hover, 25 clicks a side, median perceived LCP
   344 ms → 96 ms (p75 368 → 142 ms); with a 400 ms delay 532 → 202 ms. Every click was served
-  from a prerendered page, and only hovered pages were fetched.
+  from a prerendered page, and only hovered pages were fetched. Re-measure with
+  `ops/perf/nav-journey.mjs` (usage in its header), never with a Playwright test.
 - **Images cannot shift layout:** the only `<img>` elements are the nav and footer logos, both
   with explicit dimensions.
