@@ -82,9 +82,9 @@ Provide a truthful public front door for Automancer. Give people and machines th
 
 ### Runtime health signals
 
-- What it does: Reports production browser errors to the configured Sentry project, tagged with the deployed commit as the release. The Sentry SDK is fetched only when the first error happens, so a visit with no error never downloads it. UptimeRobot independently checks public URL availability. The production verifier checks every published page and Markdown twin, the machine surfaces and TLS after every deploy; estate-watch's `siteVerify` schedule runs its checks every 30 minutes and files a Gandalf task on failure.
+- What it does: Reports production browser errors to the configured Sentry project, tagged with the deployed commit as the release. Reports exclude activity breadcrumbs (console arguments, clicks, network requests and navigation history) and query strings and fragments from page and stack-frame locations. Error messages, stacks, line numbers, browser details and release IDs remain; arbitrary error text can still incidentally contain personal data. The Sentry SDK is fetched only when the first error happens, so a visit with no error never downloads it. UptimeRobot independently checks public URL availability. The production verifier checks every published page and Markdown twin, the machine surfaces and TLS after every deploy; estate-watch's `siteVerify` schedule runs its checks every 30 minutes and files a Gandalf task on failure.
 - State: built
-- Shaped by: `src/scripts/sentry.ts` and `ops/verify-production.sh` (`ops/systemd/user/` holds the disabled fallback timer).
+- Shaped by: `src/scripts/sentry.ts`, `tests/journey/telemetry.spec.ts` (intercepts real SDK envelopes before delivery) and `ops/verify-production.sh` (`ops/systemd/user/` holds the disabled fallback timer).
 
 ### Provider-independent availability monitoring
 

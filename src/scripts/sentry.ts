@@ -14,9 +14,6 @@
  */
 const dsn = import.meta.env.PUBLIC_AUT_SENTRY_WEB_DSN;
 
-// Preserve v10's IP-revealing query-key filters. Cookies and headers are off.
-const IP_KEY_TERMS = ['forwarded', '-ip', 'remote-', 'via', '-user'];
-
 if (import.meta.env.PROD && dsn) {
   const pending: unknown[] = [];
   const onError = (event: ErrorEvent) => report(event.error ?? event.message);
@@ -40,12 +37,28 @@ if (import.meta.env.PROD && dsn) {
             cookies: false,
             httpHeaders: false,
             httpBodies: [],
-            urlQueryParams: { deny: IP_KEY_TERMS },
+            urlQueryParams: false,
             genAI: { inputs: false, outputs: false },
             databaseQueryData: false,
           },
           // This project is for error detection. Performance telemetry remains off.
           tracesSampleRate: 0,
+          // An error needs its stack, not a visitor's console arguments,
+          // clicked elements, request URLs or navigation history.
+          maxBreadcrumbs: 0,
+          beforeSend(event) {
+            // SDK query filtering does not remove fragments or sanitize stack
+            // filenames. Strip both from location metadata before transport.
+            const locationOnly = (url: string) => url.split(/[?#]/, 1)[0];
+            if (event.request?.url) event.request.url = locationOnly(event.request.url);
+            for (const exception of event.exception?.values ?? []) {
+              for (const frame of exception.stacktrace?.frames ?? []) {
+                if (frame.filename) frame.filename = locationOnly(frame.filename);
+                if (frame.abs_path) frame.abs_path = locationOnly(frame.abs_path);
+              }
+            }
+            return event;
+          },
           // Sentry 11 removed enableLogs; logs are always on and only ship when
           // something calls Sentry.logger.* or adds a log-forwarding integration.
           // Nothing here does, but the privacy page tells visitors exactly what
