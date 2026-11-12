@@ -7,11 +7,13 @@ overrides:
 # last 24 hours is refused, which is the window in which a compromised release
 # is normally caught and pulled. Exact-version exceptions go in
 # minimumReleaseAgeExclude below, after an audit.
-# Strict is set explicitly rather than left to pnpm's default. pnpm 11 turns it
-# on by default once minimumReleaseAge is set, but a setting the estate depends
-# on should say so in the file rather than rely on a default that can change.
+# Strict is set explicitly rather than left to pnpm's default. pnpm 11 and
+# later turn it on by default once minimumReleaseAge is set, but a setting the
+# estate depends on should say so in the file rather than rely on a default
+# that can change.
 # Strict means: in CI, or any non-interactive run, an immature package is a hard
-# error instead of a prompt. Must live here, not in .npmrc — pnpm 11 ignores
-# these keys there.
+# error instead of a prompt. Must live here, not in .npmrc — pnpm 11 and later
+# ignore these keys there. pnpm 12 fails an install on a key it does not
+# recognise here, so a misspelt setting can no longer drop a policy in silence.
 minimumReleaseAge: 1440
 minimumReleaseAgeStrict: true
