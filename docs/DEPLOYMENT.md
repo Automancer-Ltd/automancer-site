@@ -104,6 +104,14 @@ normal navigation and contact flow run without CSP errors, locally and after eve
 The periodic HTTP verifier does not test script execution. The Worker's framing/base/object policy
 below applies alongside this policy; no Worker deploy is needed for a page-policy change.
 
+Cloudflare Web Analytics must stay **disabled** for `automancer.uk` (Automancer account →
+Web Analytics → Manage site → Real User Measurements → Disable). Its automatic setup injects
+`static.cloudflareinsights.com` scripts, which conflict with the site's no-analytics commitment
+and are refused by CSP. The previous “Enable, excluding visitor data in the EU” setting hid the
+injection from some regions; the hosted production journey exposed it. After changing this
+setting, reopen Manage site to read it back and rerun the production journey. Restoring that
+radio option reverses the provider change, but also restores the unwanted analytics injection.
+
 `automancer.uk` is proxied by Cloudflare (zone `automancer.uk`) through the Worker
 `automancer-site-edge` (`ops/edge/worker.js`, route `automancer.uk/*`, fail-open). GitHub Pages stays
 the origin. The Worker answers what a static host cannot: `Accept: text/markdown` gets the Markdown
