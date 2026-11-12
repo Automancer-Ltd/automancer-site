@@ -2,7 +2,7 @@
  * Page-weight budgets — the gate that makes regressions impossible to miss.
  *
  * Every layout page ships the same shared payload (CSS, main.js, four variable
- * woff2 fonts, favicons: 184,676 B on 2026-09-24) plus its own HTML, so one
+ * woff2 fonts, favicons: 186,314 B on 2026-11-12) plus its own HTML, so one
  * default total budget covers them all. The population is whatever the build
  * emits: a new page is budgeted the moment it exists, with no entry to add.
  *
@@ -20,8 +20,8 @@
 import { describe, expect, it } from 'vitest';
 import { measureAllPages } from './support/perf';
 
-/** Measured 2026-09-24: heaviest layout page (/contact/, 210,164 B; lightest /terms/, 197,117 B). */
-const LAYOUT_MEASURED = 210164;
+/** Measured 2026-11-12: heaviest layout page (/contact/, 214,010 B), after speculation rules joined the shared head. */
+const LAYOUT_MEASURED = 214010;
 
 /**
  * Layout pages that genuinely need more than the default, each with its own
@@ -38,8 +38,8 @@ const GROWS_WITH_CONTENT: Record<string, string> = {
   '/releases/': 'the whole of CHANGELOG.md, about 1 KB of HTML per release',
 };
 
-/** Measured 2026-08-31: identical on every layout page (shared layout assets). */
-const MEASURED_JS = 4751; // dist/assets/js/main.js — the only external script
+/** JS measured 2026-11-12 (main.js, waits for a prerendered page to open); fonts 2026-08-31. Identical on every layout page. */
+const MEASURED_JS = 5841; // dist/assets/js/main.js — the only external script
 const MEASURED_FONTS = 120620; // 4 variable woff2 files reachable from fonts.css
 
 /**
@@ -87,11 +87,11 @@ describe('page-weight budgets', () => {
   });
 
   it('keeps JavaScript within budget on every layout page', () => {
-    const budget = MEASURED_JS + headroom(MEASURED_JS); // 5775 B from 4751 B @ 2026-08-31
+    const budget = MEASURED_JS + headroom(MEASURED_JS); // 6865 B from 5841 B @ 2026-11-12
     for (const p of layoutPages) {
       expect(
         p.jsBytes,
-        `${p.route}: js ${p.jsBytes} B > budget ${budget} B (measured 4751 B on 2026-08-31). ` +
+        `${p.route}: js ${p.jsBytes} B > budget ${budget} B (measured ${MEASURED_JS} B on 2026-11-12). ` +
           'A script grew or a new one was added.',
       ).toBeLessThanOrEqual(budget);
     }

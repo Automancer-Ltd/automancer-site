@@ -31,6 +31,42 @@ const markdownUrl = markdown ? abs(markdown) : markdownTwinPath(Astro.url.pathna
 const SCHEMA_PAGE_TYPES = new Set(['WebPage', 'AboutPage', 'ContactPage', 'CollectionPage']);
 const listedType = staticPages.find((p) => pagePath(p.path) === pagePath(Astro.url.pathname))?.type;
 const jsonLdType = pageType ?? (listedType && SCHEMA_PAGE_TYPES.has(listedType) ? listedType : undefined);
+
+// Instant page-to-page navigation (Speculation Rules; docs/PERFORMANCE.md).
+// When a visitor hovers a link to one of our pages (or presses it on a touch
+// screen), the browser renders that page in the background, so the click shows
+// it at once instead of waiting a round trip to GitHub Pages. Same origin only:
+// no request goes anywhere a normal click would not. /contact/ is fetched but
+// never prerendered, because rendering it would load the third-party security
+// check before the visitor chose to open the form. Files (.md, .json, .txt,
+// .xml, images) are never speculated. Browsers without support ignore it.
+const SPECULATION_RULES = {
+  prerender: [
+    {
+      where: {
+        and: [
+          { href_matches: '/*' },
+          { not: { href_matches: '/*.*' } },
+          { not: { href_matches: '/contact/' } },
+          { not: { selector_matches: '[download], [target=_blank], [rel~=nofollow]' } },
+        ],
+      },
+      eagerness: 'moderate',
+    },
+  ],
+  prefetch: [
+    {
+      where: {
+        and: [
+          { href_matches: '/*' },
+          { not: { href_matches: '/*.*' } },
+          { not: { selector_matches: '[download], [target=_blank], [rel~=nofollow]' } },
+        ],
+      },
+      eagerness: 'eager',
+    },
+  ],
+};
 ---
 
 <!doctype html>
@@ -58,6 +94,7 @@ const jsonLdType = pageType ?? (listedType && SCHEMA_PAGE_TYPES.has(listedType) 
     <link rel="preload" href="/assets/fonts/space-grotesk-400-latin.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="/assets/fonts/syne-800-latin.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="stylesheet" href="/assets/css/fonts.css" />
+    <script type="speculationrules" is:inline set:html={JSON.stringify(SPECULATION_RULES)} />
 
     <!-- One JSON-LD @graph per page: Organization + WebSite + this page,
           plus the founder Person node (referenced by @id from the
