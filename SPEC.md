@@ -1,7 +1,7 @@
 # Automancer Site — Living Specification
 
 > Internal living spec. Update the relevant module section in the SAME branch
-> as any behaviour change. Last verified against the code: 2026-10-23.
+> as any behaviour change. Last verified against the code: 2026-11-12.
 
 ## North star
 
@@ -52,15 +52,15 @@ Provide a truthful public front door for Automancer. Give people and machines th
 
 ### Published releases
 
-- What it does: Publishes every release from `CHANGELOG.md` at `/releases/` (HTML, one anchor per version), `/releases.md` and `/api/releases.json`, newest first. The three are built from the one file, so they cannot disagree, and a `## ` heading that is not a release heading fails the build rather than publishing a malformed release.
+- What it does: Publishes every release from `CHANGELOG.md` at `/releases/` (HTML, one anchor per version), `/releases.md` and `/api/releases.json`, newest first. The three are built from the one file, so they cannot disagree, and a `## ` heading that is not a release heading, or a release still carrying the release tool's "notes are not written yet" placeholder, fails the build rather than publishing it.
 - State: built
 - Shaped by: `CHANGELOG.md`, `src/data/releases.ts`, `src/pages/releases.astro`, `src/pages/api/releases.json.ts`, `src/data/static-markdown.ts`, `src/data/api.ts` and `src/data/openapi.ts`.
 
 ### Contact path
 
-- What it does: Validates enquiries in the browser, including native email-address validation before any request, and posts them to the configured lead-intake API. It uses Cloudflare Turnstile and provides an email fallback when submission fails. Scrolling to invalid fields and confirmation follows the visitor's reduced-motion preference.
+- What it does: Validates enquiries in the browser, including native email-address validation before any request, and posts them to the configured lead-intake API. It uses Cloudflare Turnstile and provides an email fallback when submission fails. Scrolling to invalid fields and confirmation follows the visitor's reduced-motion preference. The form's fields (labels, required, limits, examples) and its "What happens next" steps come from `src/data/enquiry.ts`, which also publishes them at `/api/enquiry.json` with every route to Waseem and which one an agent can complete (email only: the form needs a person to pass the browser security check, and the site says so instead of describing a submission an agent cannot make). A dist test reads the built `/contact/` form and fails if any field, label, limit, example or step differs from the payload.
 - State: built
-- Shaped by: `src/pages/contact.astro` and `src/config/site.ts`.
+- Shaped by: `src/pages/contact.astro`, `src/data/enquiry.ts`, `src/pages/api/enquiry.json.ts`, `src/config/site.ts` and `tests/enquiry-contract.test.ts`.
 
 ### Privacy, legal, and accessibility controls
 

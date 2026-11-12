@@ -79,6 +79,9 @@ export const GET: APIRoute = () => {
   lines.push(`Phone: ${business.phone} (voicemail line — reaches Waseem, same as the form)`);
   lines.push(`Web: ${business.url}`);
   lines.push(`Contact form: ${abs('/contact')}`);
+  lines.push(
+    `Enquiry contract: ${business.url}/api/enquiry.json (every route, which one an agent can complete, the form's fields and limits). Agents: email is the route you can complete; the form needs a person in a browser.`
+  );
   lines.push('');
 
   lines.push('## Company');
@@ -107,6 +110,7 @@ export const GET: APIRoute = () => {
   );
   lines.push(`- [Business facts](${business.url}/api/business.json)`);
   lines.push(`- [Services & pricing](${business.url}/api/services.json)`);
+  lines.push(`- [Enquiry contract](${business.url}/api/enquiry.json): how to reach Waseem, which route an agent can complete, and the fields and limits the contact form uses.`);
   lines.push(`- [Case studies (full text)](${business.url}/api/case-studies.json)`);
   lines.push(`- [Field notes (full text)](${business.url}/api/field-notes.json)`);
   lines.push(`- [Page inventory](${business.url}/api/pages.json): every page with title, description, Markdown-twin URL and last-modified.`);

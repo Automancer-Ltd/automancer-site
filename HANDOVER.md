@@ -7,7 +7,7 @@ It does not outrank anything: `VISION.md` is authority 0 and `SPEC.md` describes
 When this file and `SPEC.md` disagree about what exists, `SPEC.md` and the code are right and this
 file is out of date.
 
-Last updated: 23 October 2026 (service scope is the same list for people and machines).
+Last updated: 12 November 2026 (the enquiry contract is published as data; /releases has no placeholder notes).
 
 ## Where the site stands against the vision
 
@@ -18,7 +18,7 @@ disagree. Against that, today:
 | Vision line | State today |
 | --- | --- |
 | A UK business reads pages that answer plainly and publish the price | Built. `/services/` prices render from `src/data/business.ts`; a build test fails if a from-price in the output is not a published `priceFrom` (`v2026.10.14.1`, PR #69). |
-| An agent can quote, price and act on it correctly | Built. The `/api/*.json` endpoints in one registry (`src/data/api.ts`) behind the discovery document, the OpenAPI 3.1 spec and `/developers`; `agent.json`, `security.txt`, `llms.txt`, Markdown twins and full-content feeds. `/api/services.json` `includes` is the same included list `/services/` shows, and the build fails if they disagree. Acting still means email: the form needs a browser security check. |
+| An agent can quote, price and act on it correctly | Built. The `/api/*.json` endpoints in one registry (`src/data/api.ts`) behind the discovery document, the OpenAPI 3.1 spec and `/developers`; `agent.json`, `security.txt`, `llms.txt`, Markdown twins and full-content feeds. `/api/services.json` `includes` is the same included list `/services/` shows, and the build fails if they disagree. Acting still means email: the form needs a browser security check, and since 12 Nov 2026 that is data: `/api/enquiry.json` names email as the route an agent can complete, with the form's fields, limits and an email template that asks the same questions. |
 | What a machine is told never differs from what a person is shown | Enforced for the facts that matter most: prices, service names, each service's included list, page inventory, JSON-LD, twins and feeds all read shared modules, and dist-level tests compare the payloads with the pages. |
 | Its own honesty audited | Partly. Production is verified after every deploy and every 30 minutes (`ops/verify-production.sh`), including the revision served, the legal block, TLS and the machine surfaces. Nothing yet audits the *claims* on the pages against the truth layer continuously. |
 | Published identifiers are promises | **Built in this slice.** The promise is now a document an agent can fetch and check: `/api/stability.json`. |
@@ -86,21 +86,39 @@ payload disagree. Who an offer is for, and the FAQ, stay on the page: they are n
 Undo: revert this merge. `includes` is additive; a consumer that ignores unknown fields is
 unaffected, and the page renders the same sentences it did before.
 
-## Next three slices, in order
+## The last slice: the enquiry contract, and no placeholder release notes (12 November 2026, t18804)
 
-1. **Stop publishing the release-notes placeholder.** `/releases` currently shows "Plain-English
-   notes are not written yet" and "Replace this section before showing it to a client" on
-   v2026.10.23.4 and v2026.10.22.8. A visitor reading the release history sees internal process
-   language. Rewrite those two notes from the commits they describe, and fail the build if the
-   placeholder ships again.
-2. **Publish the enquiry contract, including its limit.** `agent.json` tells agents to prefer
-   email because the form needs JavaScript and a browser security check. The field names, limits
-   and that limit are not themselves data an agent can fetch. Publish them from the same module
-   the form uses, and keep saying email is the path an agent can actually complete. Do not invent
-   a Turnstile bypass.
-3. **No third slice until the open questions below are answered.** They are Waseem's, not a
-   guess: the stability-policy wording, case-study names (tracker t4928), and whether a removed
-   `/api/v1` path is ever retired.
+`agent.json` told agents to prefer email because the form needs a browser security check, but the
+form's fields, limits and what happens after sending were not data an agent could fetch. Now:
+
+- **`/api/enquiry.json`** (`getEnquiryContract`): every route to Waseem with `agentCanComplete`
+  (true only for email), what the web form needs, the six fields the form asks for (id, label,
+  required, limit, example), the joined 5,000-character message limit, an email template and
+  `mailto:` that ask the same questions, the response promise and the four "What happens next"
+  steps. Registry entry, so `/api/index.json`, `/openapi.json` (`EnquiryContract` schema),
+  `/developers`, `agent.json` endpoints and the stability policy's `endpointPaths` pick it up;
+  also linked from `agent.json` `contact.enquiryContract`, `llms.txt` and `/contact.md`.
+- **One source:** `src/data/enquiry.ts`. `/contact/` reads its labels, limits, examples and steps
+  from it; the built page is unchanged in wording. `tests/enquiry-contract.test.ts` compares the
+  built form with the built payload.
+- **No Turnstile bypass was described or attempted.** The payload says the form is for a person.
+- **`/releases`:** v2026.10.23.4 and v2026.10.22.8 showed "Plain-English notes are not written
+  yet … Replace this section before showing it to a client". Both are rewritten from their
+  commits, and `src/data/releases.ts` now fails the build if that placeholder appears again
+  (proved by reinserting it: the build stopped with the version named).
+- Undo: revert the merge. The endpoint is additive; nothing else depends on it.
+
+## Next slices, in order
+
+1. **Mark "Business name" optional on /contact/.** The intake API and the form treat it as
+   optional (and `/api/enquiry.json` says `required: false`), but it is the only optional field
+   without the "(optional)" marker. Visible wording, so it needs instruction before changing.
+2. **Cache the hashed assets at the edge.** GitHub Pages sends `max-age=600` even for the
+   content-hashed `/_astro/` files; have `ops/edge/worker.js` mark `/_astro/*` immutable for a year
+   (deployed with `ops/edge/deploy.sh`) and measure repeat-visit load before and after.
+3. **Releases since v2026.11.01.3 have no notes.** Seven merges (security headers' HSTS fix,
+   instant navigation, the 30-minute verifier move, dependency bumps) are live without a release
+   entry; whoever cuts the next release should describe the visitor-facing ones.
 
 ## Open questions
 

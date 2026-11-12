@@ -46,6 +46,12 @@ export async function getReleases(): Promise<Release[]> {
     const notes = rest.join('\n').trim();
     const summary = notes.split(/\n\s*\n/)[0]!.trim();
     if (!summary || summary.startsWith('#')) throw new Error(`CHANGELOG.md: ${version} has no opening paragraph`);
+    // The release tool writes this placeholder when nobody described the
+    // change. It is a note to the writer, not to a visitor: two releases
+    // shipped it to /releases until t18804. Write the notes instead.
+    if (/not written yet|Replace this section/i.test(notes)) {
+      throw new Error(`CHANGELOG.md: ${version} still carries the "notes are not written yet" placeholder; write plain-English notes`);
+    }
     return {
       version: version!,
       date: `${y}-${mo}-${d}`,

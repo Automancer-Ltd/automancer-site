@@ -37,13 +37,7 @@ The services page now lists what each service includes, so visitors can see its 
 
 ## v2026.10.23.4 — 23 October 2026
 
-> **Plain-English notes are not written yet.** The writer did not describe these changes.
-> Below is the raw change list, grouped by area. Replace this section before
-> showing it to a client.
-
-### Contact
-
-- lead-form Turnstile widget from the Automancer Cloudflare account (#131)
+The contact form’s security check now runs from Automancer’s own Cloudflare account. Sending an enquiry works the same way as before.
 
 
 ## v2026.10.23.1 — 23 October 2026
@@ -61,13 +55,7 @@ The website’s presentation is more consistent across pages and screen sizes.
 
 ## v2026.10.22.8 — 22 October 2026
 
-> **Plain-English notes are not written yet.** The writer did not describe these changes.
-> Below is the raw change list, grouped by area. Replace this section before
-> showing it to a client.
-
-### General
-
-- Contact form: name the combined limit; developers page: drop hosting phrase (t7216)
+When a message is too long, the contact form now explains that the limit covers the message, team size and extra boxes together, so you know what to shorten. The Developers page’s note on the agent manifest is also shorter.
 
 
 ## v2026.10.22.6 — 22 October 2026
