@@ -88,6 +88,34 @@ test('visitor can compare starting prices immediately and jump to each offer', a
   await expectNoSidewaysScroll(page);
 });
 
+test('the enquiry form starts on the first screen, and still works with text at 200%', async ({ page }, info) => {
+  await stubIntake(page, { status: 200, body: { ok: true } });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/contact/');
+  // The page exists to take an enquiry: the first field is visible on arrival,
+  // not two screens down behind the promise (1558px at 390×844 before t19493).
+  await expect(page.locator('#name')).toBeInViewport({ ratio: 1 });
+  // And it is the first stop in the content, ahead of the promise and phone route.
+  const order = await page.evaluate(() => {
+    const name = document.getElementById('name')!;
+    const tel = document.querySelector('main a[href^="tel:"]')!;
+    return name.compareDocumentPosition(tel) & Node.DOCUMENT_POSITION_FOLLOWING ? 'form first' : 'form after';
+  });
+  expect(order).toBe('form first');
+
+  // A visitor who enlarges text to 200% (WCAG 1.4.4) can still open the menu
+  // and use the form without scrolling sideways. The menu button used to sit
+  // at x=517 on a 390px screen.
+  await page.evaluate(() => document.documentElement.style.setProperty('font-size', '200%'));
+  await expectNoSidewaysScroll(page);
+  if (info.project.name === 'mobile') {
+    const menu = page.getByRole('button', { name: 'Open menu' });
+    await expect(menu).toBeInViewport({ ratio: 1 });
+    await menu.click();
+    await expect(page.locator('#mobile-menu')).toBeVisible();
+  }
+});
+
 test('visitor finds the prices and reaches us through the contact form', async ({ page }, info) => {
   const phone = info.project.name === 'mobile';
   const posted = await stubIntake(page, { status: 200, body: { ok: true } });
