@@ -1,0 +1,12 @@
+---
+import { createHash } from 'node:crypto';
+
+// Astro does not hash is:inline or define:vars bodies. Render the trusted
+// template once, then authorize those exact bytes through its CSP API.
+const markup = await Astro.slots.render('default');
+const match = /^\s*<script\b[^>]*>([\s\S]*?)<\/script>\s*$/.exec(markup);
+if (!match) throw new Error('InlineScript expects exactly one inline script');
+Astro.csp.insertScriptHash(`sha256-${createHash('sha256').update(match[1]).digest('base64')}`);
+---
+
+<Fragment set:html={markup} />

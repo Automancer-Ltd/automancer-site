@@ -93,6 +93,11 @@ test('visitor finds the prices and reaches us through the contact form', async (
   const posted = await stubIntake(page, { status: 200, body: { ok: true } });
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
+  page.on('console', (message) => {
+    if (message.type() === 'error' && /Content Security Policy|violates.*directive/i.test(message.text())) {
+      errors.push(message.text());
+    }
+  });
 
   // Home -> Services through the real navigation (the drawer on a phone).
   await page.goto('/');

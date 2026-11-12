@@ -7,6 +7,7 @@
  * "deployed Nh ago" age and updates it while the page is open.
  */
 import { build, formatBuildStamp } from '../data/build';
+import InlineScript from './InlineScript.astro';
 
 const stamp = formatBuildStamp();
 const sha = build.commit ?? 'local';
@@ -50,7 +51,7 @@ const items = [
   </p>
 </div>
 
-<script is:inline>
+<InlineScript><script is:inline>
   (function () {
     var el = document.querySelector('[data-build-since]');
     if (!el) return;
@@ -78,4 +79,4 @@ const items = [
     tick();
     setInterval(tick, 15000);
   })();
-</script>
+</script></InlineScript>

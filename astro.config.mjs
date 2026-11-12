@@ -67,6 +67,25 @@ const wellKnownRoutes = {
 export default defineConfig({
   site: 'https://automancer.uk',
   output: 'static',
+  // Astro and InlineScript authorize approved script bytes at build time. Unhashed
+  // inline JavaScript and eval stay blocked; the external application script
+  // and lazy Sentry modules load from our origin. Turnstile is the only
+  // third-party script source, added only by contact.astro.
+  security: {
+    csp: {
+      scriptDirective: {
+        resources: [
+          "'self'",
+          { resource: "'none'", kind: 'attribute' },
+        ],
+      },
+      // Existing pages and animation code use inline style attributes. Allow
+      // those separately, while keeping <style> elements hash-protected.
+      styleDirective: {
+        resources: ["'self'", { resource: "'unsafe-inline'", kind: 'attribute' }],
+      },
+    },
+  },
   // Legacy URLs from the pre-2026 hand-written site; emitted as meta-refresh
   // pages so old inbound links and search entries keep resolving.
   redirects: {
