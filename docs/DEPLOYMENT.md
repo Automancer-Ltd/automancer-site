@@ -70,6 +70,14 @@ from the variable. Sentry sends no mail for this project on purpose; the estate 
 `/opt/automancer/ops/scripts/sentry-issue-digest.sh` picks up every unresolved error and routes it
 through `alert-email.sh`.
 
+Error reports keep exception messages, stack locations, line numbers, browser details and the
+release ID. They exclude activity breadcrumbs and query strings and fragments in page and
+stack-frame URLs. Arbitrary error text can still incidentally contain personal data; this is
+data minimisation, not a guarantee that an exception can never contain it. The telemetry browser
+journey intercepts the real SDK envelopes before transport, including on production, so its
+synthetic probes never reach Sentry. Locally the journey rebuilds with a dummy DSN; production
+uses the deployed configuration. Undo by reverting the change through the normal Pages release.
+
 ## The preview target (rehearsals, drafts for review)
 
 A non-production origin on auto-vps: `https://automancer-vps.taild6c90e.ts.net:4174/` (tailnet only),

@@ -24,7 +24,11 @@ export default defineConfig({
     ? undefined
     : {
         // --ignore-lock keeps it in the foreground: astro 7 daemonizes when an agent runs it, leaking the server.
-        command: `node_modules/.bin/astro preview --host 127.0.0.1 --port ${PORT} --ignore-lock`,
+        // Build with monitoring enabled so the telemetry test exercises the
+        // real SDK. Its dummy destination cannot receive reports, and that
+        // test intercepts envelopes on local and production runs alike.
+        command: `pnpm run build && node_modules/.bin/astro preview --host 127.0.0.1 --port ${PORT} --ignore-lock`,
+        env: { PUBLIC_AUT_SENTRY_WEB_DSN: 'https://public@example.invalid/1' },
         url: `http://127.0.0.1:${PORT}/`,
         reuseExistingServer: false,
       },
