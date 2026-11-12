@@ -42,8 +42,8 @@ never a working checkout:
 
 | Signal | What it proves | How an agent reads it |
 |---|---|---|
-| `ops/verify-production.sh` | every route, a real 404, machine surfaces, legal anchor, served revision, Sentry project id in the bundle, TLS > 21 days | run it; also the hosted schedule below |
-| estate-watch schedule `siteVerify` (Executor, :04 and :34 UTC) | the same checks between deploys, read from this script at the revision production serves; a failure files one Gandalf task in automancer/site | Executor `estate-watch` `scheduleRuns {name:"siteVerify"}`; run one now with `siteVerify.run {}` |
+| `ops/verify-production.sh` | every page in the sitemap and `/api/pages.json` and every Markdown twin (200, no redirect, right content type), a real 404, machine surfaces, legal anchor, served revision, Sentry project id in the bundle, TLS > 21 days | run it; also the hosted schedule below |
+| estate-watch schedule `siteVerify` (Executor, :04 and :34 UTC) | the same checks between deploys (pages: only the `ROUTES` list so far; it does not yet read the sitemap and `/api/pages.json`), read from this script at the revision production serves; a failure files one Gandalf task in automancer/site | Executor `estate-watch` `scheduleRuns {name:"siteVerify"}`; run one now with `siteVerify.run {}` |
 | UptimeRobot monitor `803613943` "site automancer.uk" | the public URL answers, independent of auto-vps | Executor `uptimerobot-guarded` `list-monitors` |
 | Sentry project `automancer-site` (id `4511769898647632`, org `automancer`), events tagged with the release SHA | browser errors on the live site | Executor `sentry-guarded.events.listAProjectSIssues` |
 
