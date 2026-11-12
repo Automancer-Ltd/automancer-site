@@ -4,6 +4,8 @@
 // perceived FCP/LCP = paint time minus activationStart (web-vitals / Chrome field-data convention).
 // usage, from the repository root after `pnpm run build` (copy dist/ first to compare two builds):
 //   xvfb-run -a -s "-screen 0 1280x900x24" node ops/perf/nav-journey.mjs dist after 5 200
+// or against a live origin through a local proxy that adds the probe (delay is then ignored):
+//   xvfb-run -a -s "-screen 0 1280x900x24" node ops/perf/nav-journey.mjs https://automancer.uk live 5
 // Prints a JSON summary; writes per-click results to <label>.json in the current directory.
 // docs/PERFORMANCE.md records the numbers it produced.
 import { spawn, execFileSync } from 'node:child_process';
@@ -14,7 +16,8 @@ import os from 'node:os';
 import path from 'node:path';
 
 const [distArg, label, roundsArg, delayArg] = process.argv.slice(2);
-const distSrc = path.resolve(distArg);
+const upstream = /^https?:\/\//.test(distArg) ? distArg.replace(/\/$/, '') : null; // live origin through a local probe proxy
+const distSrc = upstream ? '' : path.resolve(distArg);
 const rounds = Number(roundsArg ?? 5);
 const delay = Number(delayArg ?? 200);
 const CHROME = createRequire(new URL('../../package.json', import.meta.url))('@playwright/test').chromium.executablePath();
@@ -40,6 +43,16 @@ const server = http.createServer((req, res) => {
   let p = decodeURIComponent(url.pathname);
   if (p.endsWith('/')) p += 'index.html';
   if (p.endsWith('.html')) purposes.push(`${url.pathname} ${req.headers['sec-purpose'] ?? 'navigate'}`);
+  if (upstream) {
+    fetch(upstream + url.pathname + url.search).then(async (up) => {
+      let buf = Buffer.from(await up.arrayBuffer());
+      const type = up.headers.get('content-type') ?? 'application/octet-stream';
+      if (type.startsWith('text/html')) buf = Buffer.from(buf.toString().replace('</head>', PROBE + '</head>'));
+      res.writeHead(up.status, { 'content-type': type, 'cache-control': up.headers.get('cache-control') ?? 'no-store' });
+      res.end(buf);
+    }, () => { res.writeHead(502); res.end(); });
+    return;
+  }
   const f = path.join(distSrc, p);
   setTimeout(() => fs.readFile(f, (err, buf) => {
     if (err) { res.writeHead(404); res.end(); return; }
@@ -79,7 +92,7 @@ for (let r = 0; r < rounds; r++) {
 server.close();
 const med = (xs) => { const v = xs.filter((x) => x != null).sort((a, b) => a - b); return v.length ? Math.round(v[Math.floor(v.length / 2)]) : null; };
 const summary = {
-  label, rounds, delay_ms: delay, clicks: results.length,
+  label, rounds, delay_ms: upstream ? null : delay, origin: upstream ?? 'local dist', clicks: results.length,
   prerendered: results.filter((x) => x.prerendered).length,
   median_fcp_ms: med(results.map((x) => x.fcp)),
   median_lcp_ms: med(results.map((x) => x.lcp)),
