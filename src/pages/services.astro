@@ -81,16 +81,32 @@ const faqs = [
   schema={[serviceCatalogNode()]}
 >
   <!-- Hero -->
-  <section class="page-hero hatch">
+  <section class="page-hero services-hero hatch">
     <div class="page-hero__glow" aria-hidden="true" data-px="26"></div>
     <div class="page-hero__inner">
-      <p class="eyebrow">Services &amp; pricing</p>
-      <h1 class="page-hero__title">Four ways in. All of them start with a price you can actually see.</h1>
-      <p class="page-hero__sub">
-        We publish our starting prices so you can check whether we fit your budget before booking a call.
-        Here is what we do, who each service is for, and what it costs to start.
-      </p>
-      <p class="form__micro" style="margin-top: var(--sp-6); max-width: 60ch;">
+      <div class="services-hero__grid">
+        <div>
+          <p class="eyebrow">Services &amp; pricing</p>
+          <h1 class="page-hero__title">Four ways in. All of them start with a price you can actually see.</h1>
+          <p class="page-hero__sub">
+            We publish our starting prices so you can check whether we fit your budget before booking a call.
+            Here is what we do, who each service is for, and what it costs to start.
+          </p>
+        </div>
+        <nav class="overview-list" aria-label="Services &amp; pricing">
+          {overview.map((r, i) => (
+            <div class="overview-row">
+              <div class="overview-row__head">
+                <a class="overview-row__name" href={`#offer-${i + 1}`}>{r.name}</a>
+                <span class="overview-row__price"><span class="from">from</span>{r.from}</span>
+              </div>
+              <p class="overview-row__what">{r.what}</p>
+              <svg class="overview-row__arrow" aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 12h14m-6-6 6 6-6 6" /></svg>
+            </div>
+          ))}
+        </nav>
+      </div>
+      <p class="form__micro services-hero__note">
         Every price below is a <em>from</em> price for real work. Where your project is larger, we
         tell you the full price upfront before we start.
       </p>
@@ -100,30 +116,19 @@ const faqs = [
   <!-- Ladder overview -->
   <section class="section section--tight on-near">
     <div class="wrap">
-      <div class="section-head" style="max-width: 46ch;">
+      <div class="section-head services-path">
         <h2>Think of these as rungs.</h2>
         <p>
           Most clients start with an Audit, move to a Sprint or a Build, and keep us on as their AI
           Ops Partner. You can start at any rung.
         </p>
       </div>
-      <div class="overview-list reveal">
-        {overview.map((r) => (
-          <div class="overview-row">
-            <div class="overview-row__head">
-              <span class="overview-row__name">{r.name}</span>
-              <span class="overview-row__price"><span class="from">from</span>{r.from}</span>
-            </div>
-            <p class="overview-row__what">{r.what}</p>
-          </div>
-        ))}
-      </div>
     </div>
   </section>
 
   <!-- Offer detail blocks -->
   {offers.map((o, i) => (
-    <section class={`section ${i % 2 === 0 ? 'on-paper' : 'on-dark hatch'}`} id={`offer-${i + 1}`}>
+    <section class={`section service-detail ${i % 2 === 0 ? 'on-paper' : 'on-dark hatch'}`} id={`offer-${i + 1}`} tabindex="-1" aria-labelledby={`offer-name-${i + 1}`}>
       <div class="wrap">
         <div class={`offer${i % 2 === 1 ? ' offer--reverse' : ''}`}>
           <div class="offer__lede reveal">
@@ -131,7 +136,7 @@ const faqs = [
               <span class="offer__num" aria-hidden="true">{String(i + 1).padStart(2, '0')}</span>
               <span class="offer__step">{o.step}</span>
             </p>
-            <h2 class="offer__name">{o.name}</h2>
+            <h2 class="offer__name" id={`offer-name-${i + 1}`}>{o.name}</h2>
             <p class="offer__price">
               <span class="offer__amt">{o.amt}</span>{o.per && <span class="offer__amt" style="font-size:var(--t-1)">{o.per}</span>}
               <span class="note">{o.note}</span>

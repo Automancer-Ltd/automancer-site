@@ -7,7 +7,7 @@ It does not outrank anything: `VISION.md` is authority 0 and `SPEC.md` describes
 When this file and `SPEC.md` disagree about what exists, `SPEC.md` and the code are right and this
 file is out of date.
 
-Last updated: 12 November 2026 (the enquiry contract is published as data; /releases has no placeholder notes).
+Last updated: 12 November 2026 (prices and service navigation now lead /services/).
 
 ## Where the site stands against the vision
 
@@ -110,15 +110,31 @@ form's fields, limits and what happens after sending were not data an agent coul
 
 ## Next slices, in order
 
-1. **Mark "Business name" optional on /contact/.** The intake API and the form treat it as
+1. **Bring the enquiry form forward on phones.** On /contact/, the full promise and contact
+   explanation stack before the form. A visitor who has already chosen an offer must scroll
+   through them before typing. Preserve the promise and contact routes, but make the form
+   easier to reach at 390px. This is the next useful frontend slice.
+2. **Mark "Business name" optional on /contact/.** The intake API and the form treat it as
    optional (and `/api/enquiry.json` says `required: false`), but it is the only optional field
-   without the "(optional)" marker. Visible wording, so it needs instruction before changing.
-2. **Cache the hashed assets at the edge.** GitHub Pages sends `max-age=600` even for the
-   content-hashed `/_astro/` files; have `ops/edge/worker.js` mark `/_astro/*` immutable for a year
-   (deployed with `ops/edge/deploy.sh`) and measure repeat-visit load before and after.
-3. **Releases since v2026.11.01.3 have no notes.** Seven merges (security headers' HSTS fix,
-   instant navigation, the 30-minute verifier move, dependency bumps) are live without a release
-   entry; whoever cuts the next release should describe the visitor-facing ones.
+   without the "(optional)" marker. Change it only in a task authorizing visible wording.
+3. **Give static pages truthful modification dates.** `/api/pages.json` currently uses build
+   time when a static page has no `lastUpdated`, so every deploy claims those pages changed.
+   Set real dates or omit the optional field.
+
+The former cache and release-note slices shipped in PRs #164 and #165 respectively.
+
+## Frontend slice: prices on arrival (12 November 2026, t19164)
+
+The /services/ opening viewport promised prices but showed none at 1280×800 or 390×844.
+Its four overview rows also offered no way to jump to the full service details.
+The comparison now sits beside the introduction on desktop and below it on phones. All four
+prices fit on the first desktop screen. Whole-row links reach the existing `#offer-1` through
+`#offer-4` sections, with visible keyboard focus and room below the fixed navigation.
+The rung explanation is a compact band after the comparison. All existing prose and facts remain.
+
+- No added JavaScript or browser storage; navigation also works with scripts disabled.
+- The browser journey checks prices on arrival and keyboard navigation to every offer.
+- Undo: revert this slice's merge commit and push; the normal Pages deploy restores the previous layout.
 
 ## Open questions
 
