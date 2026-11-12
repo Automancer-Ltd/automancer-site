@@ -726,14 +726,23 @@ strong { font-weight: 600; color: inherit; }
 .services-hero .page-hero__title { font-size: var(--t-4); margin-block-start: var(--sp-5); }
 .services-hero .page-hero__sub { font-size: var(--t-0); }
 .services-hero__note { margin-block-start: var(--sp-8); max-inline-size: 75ch; }
-.services-hero .overview-row { position: relative; padding-inline-end: var(--sp-8); }
+.services-hero .overview-row { position: relative; padding-inline-end: 32px; }
 .services-hero .overview-row__head { gap: var(--sp-2) var(--sp-4); }
 .services-hero .overview-row__name { font-size: var(--t-0); }
 .services-hero .overview-row__name::after { content: ""; position: absolute; inset: 0; }
 .services-hero .overview-row__name:focus-visible { outline: 2px solid transparent; }
 .services-hero .overview-row:has(:focus-visible) { outline: 2px solid var(--white); outline-offset: 4px; }
 .services-hero .overview-row__what { font-size: var(--t--1); }
-.services-hero .overview-row__price { font-variant-numeric: tabular-nums; }
+.services-hero .overview-row__price {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: var(--sp-2);
+  font-variant-numeric: tabular-nums;
+  white-space: normal;
+}
+.services-hero .overview-row__price .from { margin-inline-end: 0; }
+.services-hero .overview-row__price > span { white-space: nowrap; }
 .overview-row__arrow { position: absolute; inset-inline-end: 0; inset-block-start: var(--sp-6); }
 .services-hero .overview-row:active { background: var(--g-900); }
 @media (hover: hover) and (pointer: fine) {
