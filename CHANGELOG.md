@@ -1,5 +1,15 @@
 # Release notes
 
+## v2026.11.12.2 — 12 November 2026
+
+Pricing on the services page is clearer and easier to read.
+
+### Services
+
+- Service prices are easier to read when you enlarge text.
+- You can see which services are priced on arrival and follow a link for offer details.
+
+
 ## v2026.11.12.1 — 12 November 2026
 
 The enquiry form and its agent guidance now share one source, so visitors and automated agents get consistent information about how to contact Automancer.
