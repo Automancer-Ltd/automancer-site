@@ -2,6 +2,8 @@
 
 ## v2026.11.12.2 — 12 November 2026
 
+Pricing on the services page is clearer and easier to read.
+
 ### Services
 
 - Service prices are easier to read when you enlarge text.
