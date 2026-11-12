@@ -32,8 +32,22 @@ only the Sentry bootstrap described below.
   1280 and 390 px were pixel-identical before and after, apart from the footer's live deploy clock.
   `tests/fonts.test.ts` reads each built font's character map and fails when a page shows a
   character the full font has but the subset dropped (a field note with "é", say): add it to
-  `charset.txt`, rerun the script, commit both. Measured on a cold phone visit with
-  `ops/perf/cold-visit.mjs` (Slow 4G profile): see the t19380 numbers below.
+  `charset.txt`, rerun the script, commit both. Measured on production before and after the merge
+  (`ops/perf/cold-visit.mjs`, headless Chromium from omarchy, 390 px phone, fresh cache each round,
+  medians of 9 rounds on Slow 4G 150 ms / 1.6 Mbps and 7 rounds on 300 ms / 400 kbps):
+
+  | Cold phone visit | Slow 4G before → after | 400 kbps before → after |
+  | --- | --- | --- |
+  | Home: bytes, requests | 116.2 → 87.3 KB, 9 → 8 | same |
+  | Home: first / largest paint | 720 / 920 → 672 / 872 ms | 1644 / 2128 → 1620 / 1892 ms |
+  | Home: last font arrived | 1011 → 931 ms | 2988 → 2490 ms |
+  | Home: layout shift | 0 → 0 | 0.049 → 0 |
+  | Field note: bytes | 148.7 → 110.1 KB | same |
+  | Field note: first paint | 712 → 668 ms | 1640 → 1604 ms |
+  | Field note: last font arrived | 1172 → 1055 ms | 3663 → 2930 ms |
+
+  Preloading JetBrains Mono as well (it is on every page) was tried and left out: the fonts
+  finished sooner, but it competed with the stylesheet and delayed first paint by ~100 ms.
 - **Sentry loads on the first error, not on page load.** `src/scripts/sentry.ts` registers two
   listeners and imports `@sentry/browser` (~30 KB gzip) only when an uncaught error or rejection
   happens, queueing errors while it loads. Page-load scripts went from 32 KB to 3 KB gzip. The DSN
