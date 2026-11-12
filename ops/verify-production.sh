@@ -24,7 +24,16 @@
 set -euo pipefail
 
 # --- the contract under test -------------------------------------------
+# Every page is checked, not a hand-kept list: the page set is read from the
+# served sitemap and /api/pages.json (check_published_pages), so a new case
+# study, field note or static page is verified live the moment it ships.
+# ROUTES is only the floor: core pages that must stay listed in the sitemap,
+# so a deploy that quietly drops one from both inventories still fails.
+# Keep its name and shape: estate-watch's siteVerify (site-verify.ts
+# parseContract) reads it and probes each route on its 30-minute schedule.
 readonly ROUTES=("/" "/services" "/work" "/field-notes" "/about" "/contact" "/privacy" "/terms" "/developers" "/releases")
+readonly PAGES_INDEX_PATH="/api/pages.json"
+readonly PAGE_PROBE_PARALLEL=8     # concurrent page requests in check_published_pages
 readonly LLMS_PATH="/llms.txt"
 readonly SITEMAP_PATH="/sitemap-index.xml"
 # The agent manifest and RFC 9116 security.txt are served at NON-DOT paths:
@@ -139,9 +148,10 @@ Usage: ops/verify-production.sh <base-url>
        ops/verify-production.sh --self-test
        ops/verify-production.sh --assert-sentry-bundle <js-file>
 
-Verify that a deployed Automancer site serves correctly: page statuses,
-real 404s, llms.txt, sitemap XML, agent.json + security.txt at their
-non-dot paths, the published stability & deprecation policy
+Verify that a deployed Automancer site serves correctly: every page in the
+sitemap and /api/pages.json and each page's Markdown twin (200, no redirect,
+right content type), real 404s, llms.txt, sitemap XML, agent.json +
+security.txt at their non-dot paths, the published stability & deprecation policy
 (/api/stability.json), homepage footer anchor, TLS certificate, Sentry DSN
 for the expected project (not merely "a" Sentry project), and the edge
 Worker's security headers on a page, its Markdown twin and a 404.
@@ -363,8 +373,123 @@ poll_check() {
   done
 }
 
-check_route() {
-  probe_status "${BASE_URL}$1" 200
+# check_published_pages — every page the site publishes, and each page's
+# Markdown twin, answers 200 at its listed URL with no redirect hop and the
+# content type it promises (pages text/html, twins text/markdown).
+#
+# The page set is read from what production SERVES: every <loc> in the
+# sitemap's child sitemaps plus every url/markdownUrl in /api/pages.json, the
+# two inventories /api/stability.json promises "keep resolving". Listed URLs
+# are canonical, so a redirect is a failure: a crawler or agent following the
+# list must land on the page itself. Each URL's path is fetched from BASE_URL,
+# so a preview or the self-test never reaches production. The two inventories
+# must also agree (pages.json lists nothing the sitemap omits), and every
+# ROUTES page must stay in the sitemap.
+check_published_pages() {
+  local index="${BASE_URL}${SITEMAP_PATH}" pages_url="${BASE_URL}${PAGES_INDEX_PATH}"
+  local children child files=() plan cfg out err line code hops ctype url kind want bad=() n_pages=0 n_twins=0
+  fetch_body "$index" || return 1
+  if ! children=$(sitemap_child_paths "$BODY_FILE" 2>&1); then
+    printf 'GET %s returned HTTP 200 but is not a sitemap index: %s\n' "$index" "$(printf '%s' "$children" | tr -d '\n')"
+    rm -f "$BODY_FILE"
+    return 1
+  fi
+  rm -f "$BODY_FILE"
+  for child in $children; do
+    fetch_body "${BASE_URL}${child}" || return 1
+    files+=("$BODY_FILE")
+  done
+  fetch_body "$pages_url" || return 1
+  if ! plan=$(python3 - "$BODY_FILE" "${ROUTES[*]}" "${files[@]}" 2>&1 <<'PY'
+import json, sys, xml.etree.ElementTree as ET
+from urllib.parse import urlparse
+
+pages_file = sys.argv[1]
+core = [r if r.endswith("/") else r + "/" for r in sys.argv[2].split()]
+sitemap = []
+for f in sys.argv[3:]:
+    try:
+        root = ET.parse(f).getroot()
+    except Exception as exc:
+        sys.exit(f"a child sitemap is not XML: {exc}")
+    for loc in root.iter():
+        if loc.tag.rsplit("}", 1)[-1] == "loc" and loc.text:
+            sitemap.append(urlparse(loc.text.strip()).path)
+if not sitemap:
+    sys.exit("the sitemap lists no pages")
+try:
+    doc = json.load(open(pages_file, encoding="utf-8"))
+    pages = doc["pages"]
+    assert isinstance(pages, list) and pages
+except Exception:
+    sys.exit("/api/pages.json is not the page index (no pages[])")
+listed, twins = [], []
+for p in pages:
+    if not isinstance(p, dict) or not isinstance(p.get("url"), str):
+        sys.exit("/api/pages.json has a page with no url")
+    listed.append(urlparse(p["url"]).path)
+    if p.get("markdownUrl"):
+        twins.append(urlparse(p["markdownUrl"]).path)
+extra = sorted(set(listed) - set(sitemap))
+if extra:
+    sys.exit(f"/api/pages.json lists {len(extra)} page(s) the sitemap does not: {', '.join(extra[:5])}")
+missing = [r for r in core if r not in sitemap]
+if missing:
+    sys.exit(f"core page(s) no longer in the sitemap: {', '.join(missing)}")
+for path in dict.fromkeys(sitemap + listed):
+    print("page", path)
+for path in dict.fromkeys(twins):
+    print("twin", path)
+PY
+  ); then
+    printf 'the published page inventories are not usable: %s\n' "$(printf '%s' "$plan" | tail -1)"
+    rm -f "$BODY_FILE" "${files[@]}"
+    return 1
+  fi
+  rm -f "$BODY_FILE" "${files[@]}"
+
+  # One curl process fetches every URL, PAGE_PROBE_PARALLEL at a time, and
+  # writes one "<code>|<redirects>|<url>|<content-type>" line per URL.
+  cfg=$(need_tmp) out=$(need_tmp) err=$(need_tmp)
+  while read -r kind url; do
+    printf 'url = "%s%s"\noutput = "/dev/null"\n' "$BASE_URL" "$url" >>"$cfg"
+  done <<<"$plan"
+  curl -sS -Z --parallel-max "$PAGE_PROBE_PARALLEL" --max-time "$HTTP_TIMEOUT_SECS" \
+    -w '%{http_code}|%{num_redirects}|%{url}|%{content_type}\n' -K "$cfg" >"$out" 2>"$err" || true
+  declare -A seen=()
+  while IFS='|' read -r code hops url ctype; do
+    ctype=${ctype%%;*}
+    seen[$url]="$code $hops ${ctype:-none}"
+  done <"$out"
+  while read -r kind url; do
+    want='text/html'; [[ $kind == twin ]] && want='text/markdown'
+    read -r code hops ctype <<<"${seen[${BASE_URL}${url}]:-000 0 none}"
+    if [[ $code != 200 || $hops != 0 || $ctype != "$want" ]]; then
+      bad+=("${url} -> HTTP ${code}, ${ctype:-no content type}")
+    fi
+    if [[ $kind == page ]]; then n_pages=$((n_pages + 1)); else n_twins=$((n_twins + 1)); fi
+  done <<<"$plan"
+  rm -f "$cfg" "$out" "$err"
+  if (( ${#bad[@]} > 0 )); then
+    printf '%d of %d published URL(s) do not answer 200 directly with the expected content type: %s\n' \
+      "${#bad[@]}" "$((n_pages + n_twins))" "$(IFS=';'; printf '%s' "${bad[*]:0:5}")"
+    return 1
+  fi
+  printf '%d pages (sitemap + %s) and %d Markdown twins all answer 200 directly as text/html and text/markdown\n' \
+    "$n_pages" "$PAGES_INDEX_PATH" "$n_twins"
+}
+
+# sitemap_child_paths <file> — the paths of a sitemap index's child sitemaps.
+sitemap_child_paths() {
+  python3 - "$1" <<'PY'
+import sys, xml.etree.ElementTree as ET
+from urllib.parse import urlparse
+root = ET.parse(sys.argv[1]).getroot()
+if root.tag.rsplit('}', 1)[-1] == 'sitemapindex':
+    for loc in root.iter():
+        if loc.tag.rsplit('}', 1)[-1] == 'loc' and loc.text:
+            print(urlparse(loc.text.strip()).path)
+PY
 }
 
 check_not_found() {
@@ -675,16 +800,7 @@ check_sitemap() {
   # that matters. Each <loc>'s path is fetched from BASE_URL, so a preview or
   # the self-test never reaches production.
   local children child n=0
-  children=$(python3 - "$BODY_FILE" <<'PY'
-import sys, xml.etree.ElementTree as ET
-from urllib.parse import urlparse
-root = ET.parse(sys.argv[1]).getroot()
-if root.tag.rsplit('}', 1)[-1] == 'sitemapindex':
-    for loc in root.iter():
-        if loc.tag.rsplit('}', 1)[-1] == 'loc' and loc.text:
-            print(urlparse(loc.text.strip()).path)
-PY
-  )
+  children=$(sitemap_child_paths "$BODY_FILE")
   rm -f "$BODY_FILE"
   for child in $children; do
     fetch_body "${BASE_URL}${child}" || return 1
@@ -1007,9 +1123,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
         entry = sc.get("routes", {}).get(self.path, sc.get("default", {"status": 404, "body": ""}))
         body = entry.get("body", "").encode("utf-8")
         self.send_response(int(entry.get("status", 200)))
-        self.send_header("Content-Type", "text/plain; charset=utf-8")
+        headers = dict(entry.get("headers", {}))
+        self.send_header("Content-Type", headers.pop("Content-Type", "text/plain; charset=utf-8"))
         self.send_header("Content-Length", str(entry.get("declared_length", len(body))))
-        for name, value in entry.get("headers", {}).items():
+        for name, value in headers.items():
             self.send_header(name, value)
         self.end_headers()
         self.wfile.write(body)
@@ -1045,6 +1162,51 @@ self_test_route_scenario() {
     printf '{"routes":{"%s":{"status":%s,"body":"%s"}},"default":{"status":404,"body":""}}\n' \
       "$route" "$status" "$body" >"$SELFTEST_SCENARIO"
   fi
+}
+
+# self_test_pages_scenario <mutation> — a small published site for
+# check_published_pages: a sitemap with every ROUTES page plus /work/a/,
+# a matching /api/pages.json with Markdown twins, every URL served with its
+# content type. <mutation> breaks exactly one rule; "none" is the control.
+self_test_pages_scenario() {
+  python3 - "$1" "${ROUTES[*]}" >"$SELFTEST_SCENARIO" <<'PY'
+import json, sys
+mutation = sys.argv[1]
+core = [r if r.endswith("/") else r + "/" for r in sys.argv[2].split()]
+site = "https://automancer.uk"
+pages = core + ["/work/a/"]
+if mutation == "core_missing":
+    pages = [p for p in pages if p != "/releases/"]
+html = {"Content-Type": "text/html; charset=utf-8"}
+md = {"Content-Type": "text/markdown; charset=utf-8"}
+def twin(p):
+    return None if p in ("/privacy/", "/terms/") else ("/index.md" if p == "/" else p.rstrip("/") + ".md")
+listed = [p for p in pages if p != "/developers/"]
+if mutation == "pages_extra":
+    listed.append("/work/extra/")
+routes = {
+    "/sitemap-index.xml": {"body": f"<sitemapindex><sitemap><loc>{site}/sitemap-0.xml</loc></sitemap></sitemapindex>"},
+    "/sitemap-0.xml": {"body": "<urlset>" + "".join(f"<url><loc>{site}{p}</loc></url>" for p in pages) + "</urlset>"},
+    "/api/pages.json": {"body": json.dumps({"pages": [{"url": site + p, "markdownUrl": site + twin(p) if twin(p) else None} for p in listed]})},
+}
+for p in pages + ["/work/extra/"]:
+    routes[p] = {"body": "<html>page</html>", "headers": html}
+    if twin(p):
+        routes[twin(p)] = {"body": "# twin", "headers": md}
+if mutation == "page_404":
+    routes["/work/a/"] = {"status": 404, "body": "missing", "headers": html}
+elif mutation == "page_redirect":
+    routes["/work/a/"] = {"status": 301, "body": "", "headers": {"Location": "/work/extra/"}}
+elif mutation == "twin_404":
+    routes["/work/a.md"] = {"status": 404, "body": "missing", "headers": md}
+elif mutation == "twin_html":
+    routes["/work/a.md"] = {"body": "<html>not the twin</html>", "headers": html}
+elif mutation == "not_json":
+    routes["/api/pages.json"] = {"body": "<html>a Pages error page</html>"}
+elif mutation not in ("none", "pages_extra", "core_missing"):
+    sys.exit(f"unknown mutation {mutation}")
+print(json.dumps({"routes": routes, "default": {"status": 404, "body": ""}}))
+PY
 }
 
 # self_test_expect <expected> <label> <fn> [args...]
@@ -1114,10 +1276,24 @@ self_test() {
   self_test_route_scenario "/" 200 "ok"
   self_test_expect pass "HTTP status probe enforces the expected final status" probe_status "${BASE_URL}/" 200
 
-  self_test_route_scenario "/" 404 "missing"
-  self_test_expect fail "page check requires HTTP 200" check_route "/"
-  self_test_route_scenario "/" 200 "ok"
-  self_test_expect pass "page check requires HTTP 200" check_route "/"
+  # Every published page and twin. Each mutation breaks one rule; the
+  # untouched site is the passing control for all of them.
+  local mutation label
+  for mutation in page_404 page_redirect twin_404 twin_html pages_extra core_missing not_json; do
+    case $mutation in
+      page_404) label="every sitemap page answers 200" ;;
+      page_redirect) label="a listed page answers without a redirect" ;;
+      twin_404) label="every Markdown twin answers 200" ;;
+      twin_html) label="a Markdown twin is served as text/markdown" ;;
+      pages_extra) label="/api/pages.json lists no page the sitemap omits" ;;
+      core_missing) label="every core page stays in the sitemap" ;;
+      not_json) label="/api/pages.json is the page index" ;;
+    esac
+    self_test_pages_scenario "$mutation"
+    self_test_expect fail "$label" check_published_pages
+    self_test_pages_scenario none
+    self_test_expect pass "$label" check_published_pages
+  done
 
   self_test_scenario '{"routes":{},"default":{"status":200,"body":"soft 404 page"}}'
   self_test_expect fail "unknown-path check requires a real HTTP 404" check_not_found
@@ -1405,10 +1581,7 @@ main() {
   #
   # Every independently-failable assertion below has an isolated fail+pass
   # fixture in self_test(). Add an assertion here and add its fixture there.
-  local route
-  for route in "${ROUTES[@]}"; do
-    if ! poll_check "page ${route} answers 200" check_route "$route"; then :; fi
-  done
+  if ! poll_check "every published page and its Markdown twin answers 200 directly" check_published_pages; then :; fi
   if ! poll_check "unknown path answers a REAL 404 (not a soft 404)" check_not_found; then :; fi
   if ! poll_check "${LLMS_PATH} answers 200 with a non-empty body" check_llms_txt; then :; fi
   if ! poll_check "${SITEMAP_PATH} answers 200 and parses as XML" check_sitemap; then :; fi

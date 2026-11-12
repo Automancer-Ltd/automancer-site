@@ -38,8 +38,8 @@ for reasons your change did not cause: run `verify` (it rebuilds) or delete `dis
   serves it. Record the estate-watch `deploy.verify` run (product `site`) in the PR.
 - **Rehearse anything risky** on the preview target, never on `main`:
   `ops/preview/deploy-preview.sh <ref> --verify`.
-- **Read production:** Sentry project `automancer-site`, UptimeRobot monitor `803613943`, the host
-  timer `automancer-site-production-verify` (commands in `docs/DEPLOYMENT.md` › Watching production).
+- **Read production:** Sentry project `automancer-site`, UptimeRobot monitor `803613943`, the
+  estate-watch schedule `siteVerify` (commands in `docs/DEPLOYMENT.md` › Watching production).
 
 ## Where things live
 
@@ -64,8 +64,10 @@ ops/preview/                the non-production preview target
   API, feeds, `llms*.txt` and sitemap follow automatically.
 - **Static page `/<slug>/`:** `src/pages/<slug>.astro` on `BaseLayout.astro`; a `PageMeta` entry in
   `staticPages`; unless `legalNoMirror: true`, a `staticBodies` entry and `src/pages/<slug>.md.ts`
-  calling `twinRoute('/<slug>/')`; add the route to `ROUTES` in `ops/verify-production.sh`. The
-  tests catch a missing `PageMeta` entry or twin; nothing catches a missing `ROUTES` entry.
+  calling `twinRoute('/<slug>/')`. The tests catch a missing `PageMeta` entry or twin. Production
+  verification needs no edit: `ops/verify-production.sh` reads every page and twin from the served
+  sitemap and `/api/pages.json`. Add a page to `ROUTES` there only if it must never leave the
+  sitemap (keep that line's shape: estate-watch's `siteVerify` parses it).
 
 ## Contracts the tests hold
 
