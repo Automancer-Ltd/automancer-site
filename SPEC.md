@@ -22,7 +22,7 @@ Provide a truthful public front door for Automancer. Give people and machines th
 
 ### Public pages
 
-- What it does: Serves the marketing, services, work, field notes, about, contact, privacy, terms, and recovery pages as static HTML. The footer proof strip publishes real build provenance only; it is not a live service-health indicator.
+- What it does: Serves the marketing, services, work, field notes, about, contact, privacy, terms, and recovery pages as static HTML. The services page opens with all four from-prices beside its introduction on desktop, stacking the comparison below it on phones. Each comparison row is a native link to its offer details; keyboard focus follows the link, and the target clears the fixed header. The footer proof strip publishes real build provenance only; it is not a live service-health indicator.
 - State: built
 - Shaped by: `src/pages/`, `src/layouts/`, `src/components/`, and `src/styles/`.
 

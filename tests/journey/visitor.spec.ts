@@ -64,6 +64,30 @@ async function expectNoSidewaysScroll(page: Page) {
   expect(overflow, 'page scrolls sideways').toBeLessThanOrEqual(0);
 }
 
+test('visitor can compare starting prices immediately and jump to each offer', async ({ page }, info) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/services/');
+  const comparison = page.getByRole('navigation', { name: 'Services & pricing', exact: true });
+  for (const [index, service] of services.entries()) {
+    // A page about published prices must show them on arrival, not below a
+    // promotional introduction. A phone has room for the first offer only.
+    if (info.project.name === 'desktop' || index === 0) {
+      await expect(comparison.getByText(formatGBP(service.priceFrom), { exact: false })).toBeInViewport();
+    }
+    const link = comparison.getByRole('link', { name: service.name, exact: true });
+    await link.focus();
+    await link.press('Enter');
+    const detail = page.getByRole('region', { name: service.name, exact: true });
+    await expect(detail).toBeFocused();
+    const heading = detail.getByRole('heading', { name: service.name, exact: true });
+    await expect(heading).toBeInViewport();
+    const position = await heading.boundingBox();
+    expect(position!.y, 'offer heading clears the fixed navigation').toBeGreaterThanOrEqual(72);
+    await page.goto('/services/');
+  }
+  await expectNoSidewaysScroll(page);
+});
+
 test('visitor finds the prices and reaches us through the contact form', async ({ page }, info) => {
   const phone = info.project.name === 'mobile';
   const posted = await stubIntake(page, { status: 200, body: { ok: true } });
