@@ -1,4 +1,8 @@
 // Every page this site emits — static pages plus content-collection pages.
+// The lastModified written here is provisional: after the build,
+// src/integrations/page-dates.ts hashes each page's words, adds contentSha256
+// and keeps the date production already publishes for words that have not
+// changed. A page production has never dated keeps the date given here.
 import type { APIRoute } from 'astro';
 import { staticPages, getStudies, getNotes, markdownTwinPath } from '../../data/site-content';
 import { abs } from '../../data/urls';

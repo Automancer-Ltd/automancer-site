@@ -40,9 +40,9 @@ Provide a truthful public front door for Automancer. Give people and machines th
 
 ### Machine-readable surface
 
-- What it does: Publishes Markdown twins, JSON endpoints, OpenAPI, JSON-LD, feeds, `llms.txt`, an agent manifest, a sitemap, security contact data, and the stability policy below. An edge Worker serves a page's Markdown twin to `Accept: text/markdown`, a Markdown 404 to agents that ask for one, RFC 9457 errors under `/api/`, RFC 8288 `Link` headers, and a single 301 from each legacy `*.html` URL to its page (GitHub Pages alone serves a 301 to `/x.html/` and then a meta-refresh stub); `/.well-known/` carries an ARD manifest and an RFC 9727 API catalog. Legal page bodies remain canonical in HTML and are not copied into machine-readable mirrors.
+- What it does: Publishes Markdown twins, JSON endpoints, OpenAPI, JSON-LD, feeds, `llms.txt`, an agent manifest, a sitemap, security contact data, and the stability policy below. An edge Worker serves a page's Markdown twin to `Accept: text/markdown`, a Markdown 404 to agents that ask for one, RFC 9457 errors under `/api/`, RFC 8288 `Link` headers, and a single 301 from each legacy `*.html` URL to its page (GitHub Pages alone serves a 301 to `/x.html/` and then a meta-refresh stub); `/.well-known/` carries an ARD manifest and an RFC 9727 API catalog. Legal page bodies remain canonical in HTML and are not copied into machine-readable mirrors. Every page in `/api/pages.json` and the sitemap carries a real date: `lastModified` / `<lastmod>` is when the words on the page last changed on the live site, with `contentSha256`, the hash of those words; the deploy carries forward the date production publishes for unchanged words, so a deploy that changes no words changes no date (t19631).
 - State: built
-- Shaped by: `src/data/api.ts`, `src/data/openapi.ts`, `src/data/feeds.ts`, `src/data/static-markdown.ts`, and the generated routes in `src/pages/`.
+- Shaped by: `src/data/api.ts`, `src/data/openapi.ts`, `src/data/feeds.ts`, `src/data/static-markdown.ts`, `src/integrations/page-dates.ts`, and the generated routes in `src/pages/`.
 
 ### Published stability & deprecation policy
 

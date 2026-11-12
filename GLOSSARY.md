@@ -59,6 +59,11 @@
 **Definition:** The public service-level commitment stated verbatim across human pages and machine surfaces: `"We promise a meeting within one week of first contact."`
 **In code:** `MEETING_PROMISE` in `tests/agent-readiness.test.ts`, enforced across `src/pages/*.astro`, `src/data/site-content.ts`, `src/data/static-markdown.ts`, `src/data/wellknown-agent.ts`, and `src/pages/llms.txt.ts`.
 
+## Page Date
+**Definition:** When the words a person reads on a page (its title, description and visible `<main>` text) last changed on the live site; published as `lastModified` in `/api/pages.json` and `<lastmod>` in the sitemap, beside `contentSha256`, the SHA-256 of those words.
+**In code:** `pageDates()`, `datePages()` and `pageWords()` in `src/integrations/page-dates.ts`; the deploy's Build step passes `SERVED_PAGES_URL` (production's `/api/pages.json`), whose dates are kept for unchanged words; `tests/page-dates.test.ts`.
+**Invariants:** A deploy that changes no words changes no date. A page production has never dated keeps the date `src/pages/api/pages.json.ts` gives it (the entry's own date, a legal page's `lastUpdated`, else the build time). Nothing that varies by build (the deploy clock, the commit) may sit inside `<main>`, or every deploy would re-date the page.
+
 ## Page-Weight Budget
 **Definition:** The measured byte ceiling on total payload (`html + css + js + fonts + images`), JavaScript bytes, and font bytes for every layout page in `dist/`.
 **In code:** `LAYOUT_MEASURED`, `MEASURED_JS`, `MEASURED_FONTS` in `tests/performance.test.ts` and `measureAllPages()` in `tests/support/perf.ts` (CLI table in `tests/support/perf-cli.ts`, methodology in `docs/PERFORMANCE.md`).
