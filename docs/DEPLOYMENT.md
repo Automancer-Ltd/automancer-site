@@ -152,6 +152,39 @@ a 404. Everything else passes through.
   cannot renew it behind the proxy every page answers 526 and the verifier fails.
 - **Undo, fastest first:** set the four apex `A` records to DNS-only; or delete the Worker route.
 
+### Renewing GitHub's origin certificate (t15154)
+
+Behind the proxy, GitHub sees Cloudflare addresses for the apex. It reports itself not eligible
+to issue a certificate and stops renewing: the Pages API showed `https_certificate.state`
+`bad_authz` with the old expiry on 15 Nov 2026. The verifier only sees Cloudflare's edge
+certificate, so read the origin directly. Start this well before `expires_at`: GitHub can take
+hours.
+
+1. **Read the origin** on each of `185.199.108.153`, `.109.153`, `.110.153` and `.111.153`:
+   `openssl s_client -connect <ip>:443 -servername automancer.uk </dev/null | openssl x509 -noout -enddate`.
+   Also read `repos.getPages` (Executor `github-full-access`, `Automancer-Ltd/automancer-site`):
+   `https_certificate.state` and `expires_at`, and `https_enforced`.
+2. **Capture** the four apex `A` records (Executor `cloudflare-full-access`, zone `automancer.uk`,
+   `dnsRecordsForAZoneListDnsRecords`, name `automancer.uk`, type `A`): id, content, `proxied`,
+   `ttl`. Take the IDs from this live read, not from an old note. Write them on the task.
+3. **DNS-only:** for each of the four, `dnsRecordsForAZonePatchDnsRecord` with
+   `{type: "A", name: "automancer.uk", content: <its ip>, proxied: false}` (the body needs
+   `type`), then read it back. Leave the `www` CNAME (already DNS-only), the Worker routes and
+   SSL "Full (strict)" alone. While DNS-only, the Worker is bypassed: no security headers or
+   Markdown negotiation. The verifier goes red, and the site still serves.
+4. **Make GitHub start over** if it still says `bad_authz` after the health check has seen the
+   change: remove the custom domain and add it back
+   (`repos.updateInformationAboutPagesSite` `{cname: null}`, then `{cname: "automancer.uk"}`; a
+   few seconds of 404). Re-saving the same `cname` alone did not restart it. Either call turns
+   `https_enforced` off. Setting it back to `true` answers 404 until the new certificate exists.
+5. **Wait** for the origin to present a new `notAfter`, on all four addresses. Then set
+   `https_enforced: true` and read it back.
+6. **Restore** each record's captured `proxied` value (`true`) with the same patch, then read all
+   four back. Check `https://automancer.uk/` answers through Cloudflare
+   (`curl -sI` shows `server: cloudflare`), and run `ops/verify-production.sh`.
+
+Undo at any point is step 6: patch the four records back to `proxied: true`.
+
 ## Rollback
 
 Revert the commit and merge the revert: it deploys and verifies like any change. This path was
