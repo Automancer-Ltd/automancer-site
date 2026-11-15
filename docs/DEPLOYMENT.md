@@ -185,6 +185,17 @@ hours.
 
 Undo at any point is step 6: patch the four records back to `proxied: true`.
 
+Measured on 15 Nov 2026:
+- 00:03Z: DNS-only.
+- 00:19Z: the domain was removed and re-added straight away. Nothing changed.
+- 01:19–01:22Z: removed, left off for three minutes, then re-added.
+- About 02:13Z: the new certificate was on all four addresses (notBefore 15 Nov 2026
+  01:14:48, notAfter 13 Feb 2027 01:14:47 GMT). The API said `approved`.
+- 02:14Z: proxy restored.
+
+Allow two hours or more. With the proxy back, GitHub cannot renew by itself, so repeat this before
+each expiry: about 30 days before, as Let's Encrypt would.
+
 ## Rollback
 
 Revert the commit and merge the revert: it deploys and verifies like any change. This path was
