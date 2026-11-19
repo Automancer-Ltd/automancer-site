@@ -37,13 +37,13 @@ Three quick checks:
 
 ## Can one client need both?
 
-Yes, and it is common. Our largest published piece of work, for a ~600-person supported-living care provider, has both kinds in it. The core of it is a platform with a canonical people registry, identity matching and an append-only audit trail. That is a Build. Around it, still in active build, sit smaller modules such as a mileage-claims app and leave requests, which are the kind of job you can describe as "when X, do Y". You can read how that work was broken into governed stages in the [care provider case study](/work/care-provider-transformation).
+Yes, and it is common. Our largest published piece of work, for a ~600-person supported-living care provider, has both kinds in it. The core of it is a platform with a canonical people registry, identity matching and an append-only audit trail. That is a Build. Around it, still in active build, sit smaller modules such as a mileage-claims app and leave requests, which are the kind of job you can describe as "when X, do Y". You can read how that work was broken into governed stages in the [care provider case study](/work/care-provider-transformation/).
 
 The point is that the size of the job decides the type, not the size of the company. A big organisation can have a small problem. A small one can have a problem that needs real software.
 
 ## Why start with an Audit?
 
-Because guessing is the expensive part. An [Audit from £450](/services) maps how your business actually runs, ranks the opportunities with an estimate of what each is costing you now, and tells you which are Sprints and which, if any, are Builds. The fee is credited against any project you go on to do. So at worst you've bought a clear plan. At best it is free.
+Because guessing is the expensive part. An [Audit from £450](/services/) maps how your business actually runs, ranks the opportunities with an estimate of what each is costing you now, and tells you which are Sprints and which, if any, are Builds. The fee is credited against any project you go on to do. So at worst you've bought a clear plan. At best it is free.
 
 You can also keep the plan and use it with anyone you like. It's yours.
 
@@ -51,4 +51,4 @@ You can also keep the plan and use it with anyone you like. It's yours.
 
 Pick the one workflow that annoys you most. Write it as "when X happens, do Y". If you can, it is probably a Sprint, and you can scope it in an afternoon. If you find yourself describing users, permissions and history, it is a Build, and it is worth doing in stages.
 
-If you can't tell, that's what the Audit is for. [Have a look at the services page](/services), or [get in touch](/contact) and tell us the sentence.
+If you can't tell, that's what the Audit is for. [Have a look at the services page](/services/), or [get in touch](/contact/) and tell us the sentence.
