@@ -13,6 +13,7 @@
  * ops/verify-production.sh looks for it.
  */
 const dsn = import.meta.env.PUBLIC_AUT_SENTRY_WEB_DSN;
+const release = import.meta.env.PUBLIC_SENTRY_RELEASE;
 
 if (import.meta.env.PROD && dsn) {
   const pending: unknown[] = [];
@@ -23,15 +24,39 @@ if (import.meta.env.PROD && dsn) {
     if (pending.length > 1) return; // already loading
     import('@sentry/browser')
       .then((Sentry) => {
+        const errorTypes = new Set([
+          'Error', 'AggregateError', 'EvalError', 'RangeError', 'ReferenceError',
+          'SyntaxError', 'TypeError', 'URIError',
+        ]);
+        const locationOnly = (url: string) => url.split(/[?#]/, 1)[0];
+        // The canonical path is baked into the HTML. Even the static 404
+        // names its own page instead of carrying the visitor's requested path.
+        const canonical = document.querySelector<HTMLLinkElement>('link[rel="canonical"]');
+        const pageUrl = canonical && location.origin + new URL(canonical.href).pathname;
+        const sources = new Set(
+          Array.from(document.scripts, (script) => locationOnly(script.src))
+            .filter((url) => url.startsWith(location.origin + '/')),
+        );
+        if (pageUrl) sources.add(pageUrl);
+
         Sentry.init({
           dsn,
           environment: 'production',
           // The commit deploy.yml built, so an issue names the deploy that shipped it.
-          release: import.meta.env.PUBLIC_SENTRY_RELEASE,
+          release,
+          // Only install error integrations. BrowserSession can send its own
+          // envelopes outside beforeSend, which only runs for errors.
+          defaultIntegrations: false,
+          integrations: [
+            Sentry.eventFiltersIntegration(),
+            Sentry.browserApiErrorsIntegration(),
+            Sentry.globalHandlersIntegration(),
+            Sentry.linkedErrorsIntegration(),
+            Sentry.dedupeIntegration(),
+          ],
+          sendClientReports: false,
           // Sentry 11 removed sendDefaultPii and its dataCollection defaults collect
           // everything, so disable identity, cookie, header and body collection.
-          // Keep the other restrictive v10 settings. userInfo: false keeps
-          // Sentry from inferring the visitor's IP address (infer_ip: 'never').
           dataCollection: {
             userInfo: false,
             cookies: false,
@@ -43,21 +68,42 @@ if (import.meta.env.PROD && dsn) {
           },
           // This project is for error detection. Performance telemetry remains off.
           tracesSampleRate: 0,
-          // An error needs its stack, not a visitor's console arguments,
-          // clicked elements, request URLs or navigation history.
           maxBreadcrumbs: 0,
           beforeSend(event) {
-            // SDK query filtering does not remove fragments or sanitize stack
-            // filenames. Strip both from location metadata before transport.
-            const locationOnly = (url: string) => url.split(/[?#]/, 1)[0];
-            if (event.request?.url) event.request.url = locationOnly(event.request.url);
-            for (const exception of event.exception?.values ?? []) {
-              for (const frame of exception.stacktrace?.frames ?? []) {
-                if (frame.filename) frame.filename = locationOnly(frame.filename);
-                if (frame.abs_path) frame.abs_path = locationOnly(frame.abs_path);
-              }
-            }
-            return event;
+            const exceptions = event.exception?.values;
+            if (!exceptions?.length) return null;
+            // Messages, rejection objects and stack labels can contain visitor
+            // data. Build a fresh event with only the fields used to locate bugs.
+            return {
+              type: undefined,
+              event_id: event.event_id,
+              timestamp: event.timestamp,
+              platform: 'javascript',
+              environment: 'production',
+              release,
+              request: pageUrl ? { url: pageUrl } : undefined,
+              exception: {
+                values: exceptions.map(({ type, stacktrace, mechanism }) => ({
+                  type: type && errorTypes.has(type) ? type : 'Error',
+                  value: 'Browser script error',
+                  mechanism: mechanism && {
+                    type: 'generic',
+                    handled: mechanism.handled,
+                    exception_id: mechanism.exception_id,
+                    parent_id: mechanism.parent_id,
+                    is_exception_group: mechanism.is_exception_group,
+                  },
+                  stacktrace: {
+                    frames: (stacktrace?.frames ?? []).flatMap(({ filename, lineno, colno }) => {
+                      const source = filename && locationOnly(filename);
+                      return source && sources.has(source)
+                        ? [{ filename: source, lineno, colno, in_app: true }]
+                        : [];
+                    }),
+                  },
+                })),
+              },
+            };
           },
           // Sentry 11 removed enableLogs; logs are always on and only ship when
           // something calls Sentry.logger.* or adds a log-forwarding integration.
