@@ -1,5 +1,10 @@
 # Release notes
 
+## v2026.11.19.2 — 19 November 2026
+
+A new field note helps prospective clients consider whether a workflow sprint or a custom build fits their needs.
+
+
 ## v2026.11.12.4 — 12 November 2026
 
 This release makes the site’s information easier to find and read.
