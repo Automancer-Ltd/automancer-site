@@ -72,6 +72,28 @@ only the Sentry bootstrap described below.
   344 ms → 96 ms (p75 368 → 142 ms); with a 400 ms delay 532 → 202 ms. Every click was served
   from a prerendered page, and only hovered pages were fetched. Re-measure with
   `ops/perf/nav-journey.mjs` (usage in its header), never with a Playwright test.
+- **Send on the contact form pays only for the POST (t20932, 19 Nov 2026).** The form posts JSON
+  to `api.automancer.uk`, another host, so a cold Send first opened a connection and waited for a
+  CORS preflight (`OPTIONS`, answered by the API's single Durable Object in ~200-300 ms) before the
+  POST could leave. When the visitor starts on the form (`focusin` or `input`), `contact.astro`
+  sends an empty `OPTIONS` to the endpoint: the browser opens the connection and caches the
+  preflight's answer, which allows POST with `Content-Type`, so Send makes the POST alone. It
+  carries no form data, stores nothing, and repeats at most once a minute while they write (Safari
+  keeps a preflight for ten minutes; an idle connection can close after a few minutes). Measured
+  live with `ops/perf/send-probe.mjs` (fresh browser per round, from auto-bee in London, body `{}`
+  so the API rejects it at validation and nothing is stored): typing then Send three seconds later,
+  median of 9, 505 → 224 ms, and the requests Send costs went from `OPTIONS` + `POST` to `POST`
+  alone. The after figure served the built page at the production address (the probe's `html`
+  argument), so it ran against the real API from the real origin before the merge. A real Send adds
+  the API's Turnstile check and storage, which this does not change. After a minute with no typing
+  two of nine rounds took ~1.3 s: the connection had gone, which is why the warm-up repeats. Sending the POST as `text/plain` would skip the preflight
+  without a warm-up, but the API's contract is JSON; it is not changed from this side.
+  Considered and left out the same day: inlining the stylesheet (Astro `inlineStylesheets: 'always'`)
+  painted a cold phone visit 250 ms sooner on Slow 4G (first paint 608 → 360 ms on a local HTTP/2
+  copy), but at 300 ms / 400 kbps text painted before the fonts arrived and the home page's layout
+  shift went from 0.009 to as much as 0.165, and every later page view carried the stylesheet again
+  (+56 ms on Slow 4G where nothing is prerendered). Narrowing each variable font to its declared
+  weight range saved nothing (83,044 → 83,308 B): every weight in each range is rendered somewhere.
 - **Returning visitors paint from their own cache (t18923, 12 Nov 2026).** GitHub Pages sends
   `max-age=600` on every file, so a visit more than ten minutes after the last one re-asked for all
   eight files the home page loads (stylesheets, fonts, scripts, logo) before painting. The edge

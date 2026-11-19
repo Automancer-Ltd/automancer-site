@@ -251,6 +251,25 @@ Astro.csp.insertScriptResource('https://challenges.cloudflare.com');
         return ourDefault || errorFallback;
       }
 
+      // Warm the way to Send (t20932). The endpoint is another host and the
+      // body is JSON, so a cold Send first opens a connection and waits for a
+      // CORS preflight before the POST can leave: about half the wait on
+      // "Sending…". Once the visitor starts on the form, an empty OPTIONS
+      // request opens the connection and the browser caches the preflight's
+      // answer (POST with Content-Type allowed), so Send makes only the POST.
+      // It carries no form data and stores nothing; the API answers it 204.
+      // Repeated at most once a minute while they write, so a long message
+      // still finds both warm (Safari keeps a preflight for ten minutes).
+      var warmedAt = 0;
+      function warmSend() {
+        var now = Date.now();
+        if (now - warmedAt < 60000) return;
+        warmedAt = now;
+        fetch(endpoint, { method: 'OPTIONS', credentials: 'omit' }).catch(function () {});
+      }
+      form.addEventListener('focusin', warmSend);
+      form.addEventListener('input', warmSend);
+
       var turnstileFailures = 0;
       form.addEventListener('submit', async function (event) {
         event.preventDefault();
