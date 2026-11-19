@@ -53,29 +53,11 @@ jobs:
       run: pnpm install --frozen-lockfile
     - name: Lint, typecheck, build and test
       run: pnpm run verify
-    - name: Restore the journey browser
-      id: browser-cache
-      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-      with:
-        path: ~/.cache/ms-playwright
-        key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
     - name: Install the journey browser
-      id: install-browser
-      # Guards a stalled download, at many times the ~30s honest time.
-      timeout-minutes: 8
-      run: |
-        if [ "${{ steps.browser-cache.outputs.cache-hit }}" = "true" ]; then
-          pnpm exec playwright install-deps chromium
-        else
-          pnpm exec playwright install --with-deps chromium
-        fi
-    # Saved even if a later step fails, so nobody re-runs CI to warm it.
-    - name: Save the journey browser
-      if: always() && steps.browser-cache.outputs.cache-hit != 'true' && steps.install-browser.outcome == 'success'
-      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-      with:
-        path: ~/.cache/ms-playwright
-        key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+      # Guards a stalled download or apt mirror. Honest time is 30s to 5 min
+      # depending on the runner's apt mirror (measured 19 Nov), so this is 15 min.
+      timeout-minutes: 15
+      run: pnpm exec playwright install --with-deps chromium
     - name: Visitor journey (phone and desktop, against the built dist/)
       timeout-minutes: 10
       run: pnpm run journey
