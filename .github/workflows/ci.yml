@@ -20,7 +20,9 @@ env:
 jobs:
   checks:
     runs-on: ${{ fromJSON(vars.CI_RUNNER || '"ubuntu-24.04"') }}
-    timeout-minutes: 10
+    # Stops a stuck job only; an honest run takes about two minutes. Speed is a
+    # target we measure, never a limit that cancels a run.
+    timeout-minutes: 20
     steps:
     - name: Checkout
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -51,9 +53,31 @@ jobs:
       run: pnpm install --frozen-lockfile
     - name: Lint, typecheck, build and test
       run: pnpm run verify
+    - name: Restore the journey browser
+      id: browser-cache
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/.cache/ms-playwright
+        key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
     - name: Install the journey browser
-      run: pnpm exec playwright install --with-deps chromium
+      id: install-browser
+      # Guards a stalled download, at many times the ~30s honest time.
+      timeout-minutes: 8
+      run: |
+        if [ "${{ steps.browser-cache.outputs.cache-hit }}" = "true" ]; then
+          pnpm exec playwright install-deps chromium
+        else
+          pnpm exec playwright install --with-deps chromium
+        fi
+    # Saved even if a later step fails, so nobody re-runs CI to warm it.
+    - name: Save the journey browser
+      if: always() && steps.browser-cache.outputs.cache-hit != 'true' && steps.install-browser.outcome == 'success'
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/.cache/ms-playwright
+        key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
     - name: Visitor journey (phone and desktop, against the built dist/)
+      timeout-minutes: 10
       run: pnpm run journey
     - name: Self-test the production checker
       run: ops/verify-production.sh --self-test
