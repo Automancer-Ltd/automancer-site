@@ -66,7 +66,7 @@ async function expectNoSidewaysScroll(page: Page) {
 
 test('decorative motion pauses while reading and resumes when scrolled back into view', async ({ page }) => {
   await page.goto('/field-notes/what-does-an-ai-agent-actually-cost/');
-  const glow = page.locator('.page-hero__glow');
+  const glow = page.locator('.page-hero__glow > span').first();
   await expect(glow).toHaveCSS('animation-play-state', 'running');
   await page.locator('.prose h2').nth(2).scrollIntoViewIfNeeded();
   await expect(page.locator('.page-hero')).not.toBeInViewport();
@@ -74,6 +74,33 @@ test('decorative motion pauses while reading and resumes when scrolled back into
   await page.evaluate(() => scrollTo({ top: 0, behavior: 'instant' }));
   await expect(page.locator('.page-hero')).toBeInViewport();
   await expect(glow).toHaveCSS('animation-play-state', 'running');
+});
+
+// The spectrum effects that run while a visitor reads (the glow, the spectral
+// rules, the nav's current-page underline) move only by transform and opacity,
+// which the compositor runs without the main thread. An animated color or
+// background-position restyles and repaints on every frame instead
+// (ops/perf/idle-screen.mjs). The home and /developers/ heroes keep two such
+// effects (the spectral word and the eyebrow bead), so they are not listed here.
+test('decorative motion on interior pages runs on the compositor', async ({ page }) => {
+  for (const path of ['/about/', '/services/', '/field-notes/what-does-an-ai-agent-actually-cost/', '/work/fast-small-business-websites/']) {
+    await page.goto(path);
+    await expect(page.locator('.page-hero__glow > span').first()).toHaveCSS('animation-play-state', 'running');
+    // main.js has paused what is offscreen (the closing call to action is).
+    await expect(page.locator('.cta').first()).toHaveClass(/motion-paused/);
+    const repainting = await page.evaluate(() =>
+      document.getAnimations()
+        .filter((a) => a.playState === 'running')
+        .flatMap((a) => {
+          const effect = a.effect as KeyframeEffect;
+          const props = new Set(effect.getKeyframes().flatMap((k) => Object.keys(k)));
+          ['offset', 'computedOffset', 'easing', 'composite', 'transform', 'opacity'].forEach((k) => props.delete(k));
+          const el = effect.target as Element;
+          return props.size ? [`${el.className}${effect.pseudoElement ?? ''} animates ${[...props].join(', ')}`] : [];
+        }),
+    );
+    expect(repainting, `${path}: an ambient animation repaints every frame`).toEqual([]);
+  }
 });
 
 test('visitor can compare starting prices immediately and jump to each offer', async ({ page }, info) => {

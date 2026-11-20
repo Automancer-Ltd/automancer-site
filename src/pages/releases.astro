@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
+import SpectrumGlow from '../components/SpectrumGlow.astro';
 import { getReleases } from '../data/releases';
 import { staticPages } from '../data/site-content';
 
@@ -9,7 +10,7 @@ const releases = await getReleases();
 
 <BaseLayout title={meta.title} description={meta.description} pageType={meta.type}>
   <section class="page-hero hatch">
-    <div class="page-hero__glow" aria-hidden="true" data-px="26"></div>
+    <SpectrumGlow class="page-hero__glow" px={26} />
     <div class="page-hero__inner">
       <p class="eyebrow">Release notes</p>
       <h1 class="page-hero__title">What changed on this site, and when.</h1>

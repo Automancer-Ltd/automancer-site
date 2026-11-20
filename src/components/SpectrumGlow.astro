@@ -1,0 +1,29 @@
+---
+/**
+ * The spectrum glow: a soft orb that cycles through the spectrum's colours
+ * behind a hero (global.css, "Spectrum glow").
+ *
+ * Each colour of the cycle is its own static layer, and the cycle crossfades
+ * their opacity. Opacity runs on the compositor, so the page's main thread
+ * neither restyles nor repaints the glow while a visitor reads; the old orb
+ * animated `color`, which repainted it on every frame. The layers blend with
+ * plus-lighter, so two layers in flight add up to exactly the colour the old
+ * animation interpolated.
+ *
+ * `cycle` names the colour sequence: `a` (six colours) or `b` (four). The
+ * element's class sets the size, place and cycle length (--glow-cycle).
+ */
+interface Props {
+  class: string;
+  cycle?: 'a' | 'b';
+  /** Cursor-parallax depth for main.js ([data-px]); none leaves the glow still. */
+  px?: number;
+}
+
+const { class: className, cycle = 'a', px } = Astro.props;
+const layers = cycle === 'a' ? 6 : 4;
+---
+
+<div class:list={['glow', `glow--${cycle}`, className]} aria-hidden="true" data-px={px}>
+  {Array.from({ length: layers }, () => <span></span>)}
+</div>

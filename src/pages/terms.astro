@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
+import SpectrumGlow from '../components/SpectrumGlow.astro';
 import { staticPages } from '../data/site-content';
 
 const lastUpdated = staticPages.find((p) => p.path === '/terms/')!.lastUpdated!;
@@ -7,7 +8,7 @@ const lastUpdated = staticPages.find((p) => p.path === '/terms/')!.lastUpdated!;
 
 <BaseLayout title="Website Terms" description="Website terms of use for Automancer Ltd — how you may use this site, our liability position, and the intellectual property in it.">
   <section class="page-hero hatch">
-    <div class="page-hero__glow" aria-hidden="true"></div>
+    <SpectrumGlow class="page-hero__glow" />
     <div class="page-hero__inner">
       <p class="eyebrow">Legal</p>
       <h1 class="page-hero__title">Website Terms</h1>

@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
+import SpectrumGlow from '../components/SpectrumGlow.astro';
 import { business } from '../data/business';
 // The published "last updated" date is written once, in site-content.ts, so
 // /privacy and every machine-readable surface (pages.json, llms-full.txt)
@@ -14,7 +15,7 @@ const lastUpdated = staticPages.find((p) => p.path === '/privacy/')!.lastUpdated
   description="How Automancer Ltd handles your data — in plain English. What we collect, why, where it lives, who touches it, and the rights you have over it."
 >
   <section class="page-hero hatch">
-    <div class="page-hero__glow" aria-hidden="true"></div>
+    <SpectrumGlow class="page-hero__glow" />
     <div class="page-hero__inner">
       <p class="eyebrow">Legal</p>
       <h1 class="page-hero__title">Privacy Policy</h1>

@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
+import SpectrumGlow from '../../components/SpectrumGlow.astro';
 import { getCollection } from 'astro:content';
 import { formatGBP, serviceById } from '../../data/business';
 
@@ -19,7 +20,7 @@ const rest = studies.filter((e) => e.id !== feature?.id);
   description="Real systems, live in production. Case studies from a care provider, a manufacturer, a diversity & inclusion consultancy and small firms — all real work."
 >
   <section class="page-hero hatch">
-    <div class="page-hero__glow" aria-hidden="true" data-px="26"></div>
+    <SpectrumGlow class="page-hero__glow" px={26} />
     <div class="page-hero__inner">
       <p class="eyebrow">Selected work</p>
       <h1 class="page-hero__title">Real businesses. Real systems. Live in production.</h1>
