@@ -1,5 +1,25 @@
 # Release notes
 
+## v2026.11.20.3 — 20 November 2026
+
+This release makes Automancer’s work easier to explore and share.
+
+### Explore our work
+
+- Case studies now have an “On this page” list beside the text on larger screens, and a closed contents list on smaller screens. It highlights the section you’re reading.
+- Field notes now have the same contents list, making it easier to find a section and see where you are.
+
+### Share a page
+
+- Each field note and case study now has its own share image, so previews show the page’s headline and details.
+
+### Browsing and contact
+
+- Pages now refuse injected scripts and unsafe HTML, helping protect visitors while they browse.
+- If sending a contact enquiry fails, you can recover the enquiry instead of losing what you wrote.
+- Legacy page redirects now keep the query string as you entered it.
+
+
 ## v2026.11.20.2 — 20 November 2026
 
 Pages can now send data only to this site and its error reporter, with the contact page also able to submit enquiries.
