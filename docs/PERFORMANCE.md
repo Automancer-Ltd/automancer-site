@@ -18,6 +18,16 @@ exact `dist/` it publishes, so a heavier production build fails the release inst
 
 ## Decisions behind the numbers
 
+- **The homepage paints without a stylesheet request (t22482, 20 Nov 2026).**
+  The build embeds Astro's compiled homepage stylesheet in its cascade position
+  and adds its SHA-256 hash to the page CSP. Other pages still preload and share
+  the content-hashed file. On seven interleaved cold Chromium phone visits per
+  build (390 px, 300 ms latency, 400 kbps, local HTTP/2 with Brotli), median
+  first and largest paint both fell from 1,368 to 728 ms. The median layout
+  shift was 0 before and 0.0004 after. An immediate second navigation to
+  `/services/` in the same browser context now fetches the common CSS, adding
+  108 ms to median first paint (804 → 912 ms). Across that two-page test, the
+  median sum of the two first-paint waits fell from 2,148 to 1,688 ms.
 - **The browser starts stylesheet requests at the start of the head (t22318, 20 Nov
   2026).** Astro emits the stylesheet links after page metadata and inline CSS.
   The static build now emits preload hints for those same hashed files just after
