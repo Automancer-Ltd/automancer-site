@@ -154,6 +154,8 @@ export interface ArticleNodeOpts {
   author: string;
   body?: string;
   articleSection?: string;
+  /** Root-relative path of the note's share card (src/data/share-cards.ts). */
+  image?: string;
 }
 
 /** BlogPosting node for field notes. */
@@ -170,7 +172,7 @@ export function articleNode(opts: ArticleNodeOpts) {
     inLanguage: 'en-GB',
     datePublished: opts.date.toISOString(),
     wordCount: wordCount(opts.body),
-    image: `${business.url}/assets/images/og-image.png`,
+    image: `${business.url}${opts.image ?? '/assets/images/og-image.png'}`,
     author:
       authorName === founderNode().name
         ? { '@id': founderNode()['@id'] }

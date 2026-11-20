@@ -17,6 +17,8 @@ export interface Props {
   title: string;
   description: string;
   image?: string;
+  /** Alt text for `image` (og:image:alt, twitter:image:alt). */
+  imageAlt?: string;
   ogType?: 'website' | 'article';
   /** Page-specific schema.org nodes merged into the shared @graph. */
   schema?: Record<string, unknown>[];
@@ -32,7 +34,7 @@ export interface Props {
   trustedTypes?: string[];
 }
 
-const { title, description, image, ogType = 'website', schema = [], pageType, markdown, trustedTypes = [] } = Astro.props;
+const { title, description, image, imageAlt, ogType = 'website', schema = [], pageType, markdown, trustedTypes = [] } = Astro.props;
 Astro.csp.insertDirective(`trusted-types ${trustedTypes.length ? trustedTypes.join(' ') : "'none'"}`);
 const markdownUrl = markdown ? abs(markdown) : markdownTwinPath(Astro.url.pathname);
 
@@ -89,7 +91,7 @@ const SPECULATION_RULES = {
     <meta name="is-agentic-site-type" content="business" />
     {/* The full commit this page was built from: deploy checks compare it with the commit shipped. */}
     {build.commitFull && <meta name="build-revision" content={build.commitFull} />}
-    <SEO title={`${title} | Automancer`} description={description} image={image} type={ogType} />
+    <SEO title={`${title} | Automancer`} description={description} image={image} imageAlt={imageAlt} type={ogType} />
     {markdownUrl && <link rel="alternate" type="text/markdown" href={markdownUrl} />}
 
     <link rel="icon" type="image/png" sizes="32x32" href="/assets/images/favicon-32.png" />

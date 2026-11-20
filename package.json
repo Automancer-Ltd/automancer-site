@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "@astrojs/sitemap": "^3.7.6",
+    "@resvg/resvg-wasm": "2.6.2",
     "@sentry/browser": "^11.14.0",
     "astro": "^7.4.13",
     "node-html-parser": "^9.0.7"

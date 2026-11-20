@@ -7,6 +7,7 @@ import { articleNode } from '../../data/jsonld';
 import { getCollection, render } from 'astro:content';
 import { fitDescription, fitTitle } from '../../lib/meta';
 import { formatGBP, serviceById } from '../../data/business';
+import { cardAlt, cardPath, fieldNoteCard } from '../../data/share-cards';
 
 const auditFrom = formatGBP(serviceById('automation-opportunity-audit').priceFrom);
 
@@ -22,6 +23,7 @@ export async function getStaticPaths() {
 const { entry } = Astro.props;
 const { Content, headings } = await render(entry);
 const d = entry.data;
+const card = cardPath('field-notes', entry.id);
 
 const fmt = (dt: Date) =>
   dt.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -29,10 +31,10 @@ const fmt = (dt: Date) =>
 
 {/* SERP metadata is length-fitted (see src/lib/meta.ts); the visible
      article title below keeps the frontmatter copy verbatim. */}
-<BaseLayout title={fitTitle(d.title)} description={fitDescription(d.description)} ogType="article" markdown={`/field-notes/${entry.id}.md`}>
+<BaseLayout title={fitTitle(d.title)} description={fitDescription(d.description)} ogType="article" image={card} imageAlt={cardAlt(fieldNoteCard(entry))} markdown={`/field-notes/${entry.id}.md`}>
   <Fragment slot="head">
     <JsonLd
-      nodes={[articleNode({ path: Astro.url.pathname, title: d.title, description: d.description, date: d.date, author: d.author, body: entry.body })]}
+      nodes={[articleNode({ path: Astro.url.pathname, title: d.title, description: d.description, date: d.date, author: d.author, body: entry.body, image: card })]}
     />
   </Fragment>
 

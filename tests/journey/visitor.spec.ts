@@ -496,3 +496,19 @@ test('a page that does not exist is a real 404 with a way back', async ({ page }
   expect(res?.status()).toBe(404);
   await expect(page.getByRole('link', { name: /home|automancer/i }).first()).toBeVisible();
 });
+
+test('a shared field note or case study previews with its own card, not the generic image', async ({ page }) => {
+  for (const path of ['/field-notes/what-does-an-ai-agent-actually-cost/', '/work/care-provider-transformation/']) {
+    await page.goto(path);
+    const og = (p: string) => page.locator(`meta[property="og:${p}"]`).getAttribute('content');
+    const image = new URL((await og('image'))!);
+    expect(image.pathname, `${path} shares the generic image`).toBe(`/og${path.replace(/\/$/, '')}.png`);
+    // The tags are absolute production URLs; fetch the same path from the origin under test.
+    const res = await page.request.get(image.pathname);
+    expect(res.status()).toBe(200);
+    expect(res.headers()['content-type']).toMatch(/^image\/png/);
+    const png = await res.body();
+    expect([png.readUInt32BE(16), png.readUInt32BE(20)]).toEqual([Number(await og('image:width')), Number(await og('image:height'))]);
+    expect(await og('image:alt')).toContain((await page.locator('h1').textContent())!.trim());
+  }
+});

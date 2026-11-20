@@ -7,7 +7,7 @@ It does not outrank anything: `VISION.md` is authority 0 and `SPEC.md` describes
 When this file and `SPEC.md` disagree about what exists, `SPEC.md` and the code are right and this
 file is out of date.
 
-Last updated: 20 November 2026 (price ladder numbered, case-study label and figures fit phones, t21223).
+Last updated: 20 November 2026 (share cards for every field note and case study, t21825).
 
 ## Where the site stands against the vision
 
@@ -123,6 +123,26 @@ form's fields, limits and what happens after sending were not data an agent coul
    studies' and tighten it on narrow screens only; show before/after.
 
 The former cache and release-note slices shipped in PRs #164 and #165 respectively.
+
+## Slice: share cards for every field note and case study (20 November 2026, t21825)
+
+Every page shared the same `og:image`, the home page's "Your admin, automated into oblivion." So a
+field note or case study shared on LinkedIn, Slack, WhatsApp or iMessage previewed with a picture
+that said nothing about it, and the picture's colours no longer matched the site. Each of the 17
+field notes and 4 case studies now has its own 1200×630 card: the logo, "Field note · Pricing" (or
+"Case study · <sector>"), the page's headline at the largest size that fits (balanced like the page's
+title), and its date and author or its status, on the site's black with the spectrum rule.
+
+- Drawn at build from SVG by resvg (WebAssembly, ~70-130 ms a card; the build is ~2-4 s longer)
+  with static instances of the site's own fonts (`ops/og-card/fonts.py` cuts them from the served
+  subsets, so a card can show exactly the characters a page can; a missing one stops the build).
+- Only the page's own words; the alt text (`og:image:alt`, `twitter:image:alt`) is the card's words
+  and ends with the page's headline. Every page also gains `og:image:type`, `:width` and `:height`,
+  and a field note's BlogPosting `image` is its card.
+- Tests: `tests/og-cards.test.ts` (every page's `og:image` is a built PNG of the stated size; each note
+  and study names its own card; alt carries the headline; BlogPosting image) and a journey test that
+  fetches two cards from the origin under test (failed on production before this merge, both widths).
+- Undo: revert this slice's merge commit; pages name the generic image again.
 
 ## Frontend slice: prices on arrival (12 November 2026, t19164)
 
