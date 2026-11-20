@@ -121,6 +121,34 @@ test('home and developer introductions load their hero layout', async ({ page })
   }
 });
 
+test('home actions are visible from the first frame and the headline holds its height while Syne loads', async ({ page }) => {
+  const syne = Promise.withResolvers<void>();
+  await page.route('**/syne.*.woff2', async (route) => {
+    await syne.promise;
+    await route.continue();
+  });
+
+  const headline = page.getByRole('heading', { level: 1 });
+  try {
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    // Freeze any entrance at its first frame so the check is independent of machine speed.
+    const opacity = await page.locator('.hero__ctas').evaluate((actions) => {
+      for (const animation of actions.getAnimations()) {
+        animation.pause();
+        animation.currentTime = 0;
+      }
+      return getComputedStyle(actions).opacity;
+    });
+    expect.soft(opacity, 'the primary links paint at full opacity').toBe('1');
+    const fallbackHeight = await headline.evaluate((el) => el.getBoundingClientRect().height);
+    syne.resolve();
+    await page.evaluate(() => document.fonts.ready);
+    expect(await headline.evaluate((el) => el.getBoundingClientRect().height)).toBeCloseTo(fallbackHeight);
+  } finally {
+    syne.resolve();
+  }
+});
+
 test('visitor can compare starting prices immediately and jump to each offer', async ({ page }, info) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/services/');

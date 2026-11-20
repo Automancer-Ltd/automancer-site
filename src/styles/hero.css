@@ -9,43 +9,42 @@
   display: flex; flex-direction: column; align-items: flex-start;
   container-type: inline-size;
 }
-/* Reading order: command → promise → substance → machine confirmation → action.
-   The typed line drops below the body copy so it lands as the punchline
-   directly ahead of the CTAs (DOM order is untouched). */
-.hero__eyebrow { order: 1; animation: reveal-up .8s var(--ease-out-expo) .1s both; }
+/* Keep the headline's line breaks close to Syne while the web font loads. */
+@font-face {
+  font-family: 'Syne Hero Fallback';
+  src: local('Arial Bold'), local('Arial-BoldMT'), local('Liberation Sans Bold');
+  font-weight: 800;
+  size-adjust: 156%;
+  ascent-override: 59.3%;
+  descent-override: 17.6%;
+  line-gap-override: 0%;
+}
+
 .hero__headline {
-  order: 2;
-  font-family: var(--font-display); font-weight: 800;
+  font-family: 'Syne', 'Syne Hero Fallback', var(--font-ui); font-weight: 800;
   font-size: min(clamp(2.35rem, 0.6rem + 7.6vw, 5.75rem), 14cqi); line-height: 0.96; letter-spacing: -0.045em;
-  max-width: min(17ch, 100%); margin-top: var(--sp-6); text-wrap: balance;
-  animation: reveal-up 1s var(--ease-out-expo) .18s both;
+  /* 17ch in Syne 800, expressed in em so the measure survives the font swap. */
+  max-width: min(18.122em, 100%); margin-top: var(--sp-6); text-wrap: balance;
 }
 .hero__headline .spell { color: var(--white); }
 .hero__reveal {
-  order: 3;
   display: block; font-family: var(--font-display); font-weight: 600;
   font-size: clamp(1.05rem, 0.9rem + 1vw, 1.6rem); letter-spacing: -0.02em;
   color: var(--g-200); margin-top: var(--sp-6); max-width: 40ch; line-height: 1.35;
-  animation: reveal-up 1s var(--ease-out-expo) .34s both;
 }
-.hero__body { order: 4; margin-top: var(--sp-6); max-width: 52ch; color: var(--muted); font-size: var(--t-1);
-  animation: reveal-up 1s var(--ease-out-expo) .46s both; }
-/* Typed terminal line — "It's not magic. It's very good engineering." */
-.hero__typed {
-  order: 5;
+.hero__body { margin-top: var(--sp-6); max-width: 52ch; color: var(--muted); font-size: var(--t-1); }
+.hero__terminal {
   margin-top: var(--sp-8); padding-top: var(--sp-5); border-top: 1px solid var(--border);
   font-family: var(--font-mono);
   font-size: clamp(0.8rem, 0.75rem + 0.3vw, 0.95rem); letter-spacing: 0.02em;
   color: var(--g-200); min-height: 1.6em;
-  animation: reveal-up 1s var(--ease-out-expo) .58s both;
 }
-.hero__typed .prompt { color: var(--faint); }
+.hero__terminal .prompt { color: var(--faint); }
 .hero__caret {
   display: inline-block; width: 0.55em; height: 1em; background: var(--g-200);
   vertical-align: -0.15em; margin-left: 2px; animation: caret-blink 1.1s steps(1) infinite;
 }
-.hero__ctas { order: 6; display: flex; flex-wrap: wrap; gap: var(--sp-4); margin-top: var(--sp-10);
-  animation: reveal-up 1s var(--ease-out-expo) .72s both; }
+.hero__ctas { display: flex; flex-wrap: wrap; gap: var(--sp-4); margin-top: var(--sp-10); }
 
 /* At 375 both CTAs are primary paths. 100svh plus the type stack pushed
    "See the work" below the fold. Shorten the phone hero rather than assume
@@ -60,7 +59,7 @@
   .hero__headline,
   .hero__reveal,
   .hero__body { margin-top: var(--sp-3); }
-  .hero__typed { margin-top: var(--sp-3); padding-top: var(--sp-3); }
+  .hero__terminal { margin-top: var(--sp-3); padding-top: var(--sp-3); }
   .hero__ctas { margin-top: var(--sp-4); }
   .hero > .hero__cue { display: none; }
 }

@@ -1,7 +1,7 @@
 /* ═══════════════════════════════════════════
    AUTOMANCER — main.js
    Scroll reveals · nav scroll state · mobile menu
-   · orb cursor-parallax · card spotlight · hero typed line
+   · orb cursor-parallax · card spotlight
    Minimal, dependency-free, reduced-motion aware.
    ═══════════════════════════════════════════ */
 (function () {
@@ -83,23 +83,6 @@
         e.preventDefault();
         setOpen(false);
       });
-    }
-
-    /* ── Hero typed line ──
-       The span renders the full line by default (works with no JS / reduced
-       motion). When motion is allowed we clear it and type it back in. */
-    var typedEl = document.querySelector('[data-typed]');
-    if (typedEl && !reduce) {
-      var full = typedEl.textContent || '';
-      typedEl.textContent = '';
-      var i = 0;
-      setTimeout(function () {
-        var timer = setInterval(function () {
-          i += 1;
-          typedEl.textContent = full.slice(0, i);
-          if (i >= full.length) clearInterval(timer);
-        }, 38);
-      }, 1400);
     }
 
     /* ── Article contents: mark the part (section or sub-section) above the top
