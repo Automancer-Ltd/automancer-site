@@ -108,7 +108,20 @@ draft with no page to link can be reviewed from its file in the repository inste
 
 HTML pages also carry Astro's build-generated Content Security Policy in a meta tag. It blocks
 unapproved inline JavaScript, event-handler attributes and eval; same-origin scripts and modules
-remain allowed. Only `/contact/` adds the Turnstile script origin. Wrap trusted `is:inline`
+remain allowed. Only `/contact/` adds the Turnstile script origin.
+
+Since t21404 the same policy starts from `default-src 'none'` and lists everything else a page may
+use (`security.csp.directives` in `astro.config.mjs`): images, fonts, the manifest, form targets
+and base URLs from this site only, and `connect-src` limited to this site plus the origin of the
+Sentry DSN the build bundles (read from `PUBLIC_AUT_SENTRY_WEB_DSN` at build time, so a build with
+no DSN allows only `'self'`). `contact.astro` adds `frame-src https://challenges.cloudflare.com`
+and the enquiry API's origin for that page alone. The browser therefore refuses any request to
+another host, even from code the policy lets run. `tests/csp.test.ts` fails if a page's
+`connect-src` and the bundled DSN disagree (error reports would be silently refused), and the
+journey's "cannot send data to any other origin" probe proves the refusal in a real browser.
+A new third-party request needs its origin added here first, deliberately. Turnstile was checked
+on production's real origin with this policy swapped in: the widget and its frame load with no
+refusal on the page, exactly as before (Turnstile's own frame logs its own CSP lines, unrelated). Wrap trusted `is:inline`
 scripts in `src/components/InlineScript.astro`: Astro does not hash those bodies itself, so the
 wrapper renders them once and registers their exact hash through `Astro.csp`. Existing inline
 style attributes remain allowed. The visitor journey checks real browser refusal and that the

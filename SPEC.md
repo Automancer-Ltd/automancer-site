@@ -76,9 +76,9 @@ Provide a truthful public front door for Automancer. Give people and machines th
 
 ### Browser script protection
 
-- What it does: Astro generates a Content Security Policy in each HTML page, including the recovery page. Approved inline scripts get build-time hashes; external scripts load only from the site's own origin or Cloudflare Turnstile. Unapproved inline scripts, event-handler attributes and eval are blocked. Inline style attributes remain allowed for the existing layout and animations; style elements require a hash or same-origin source. The edge Worker's existing policy separately restricts framing, base URLs and objects. This is defence in depth, not a claim that the site had an exploitable injection path.
+- What it does: Astro generates a Content Security Policy in each HTML page, including the recovery page. Approved inline scripts get build-time hashes; external scripts load only from the site's own origin or Cloudflare Turnstile. Unapproved inline scripts, event-handler attributes and eval are blocked. Inline style attributes remain allowed for the existing layout and animations; style elements require a hash or same-origin source. Everything else starts from nothing (`default-src 'none'`): images, fonts, the manifest, form targets and base URLs come only from the site itself, and a page may send data (`connect-src`) only to its own origin and the error-report origin of the Sentry DSN the build bundles. `/contact/` alone adds the enquiry API and Turnstile's frame. So the browser itself refuses any request to an analytics, advertising or other third-party host, even from code the policy lets run (t21404). The edge Worker's existing policy separately restricts framing, base URLs and objects. This is defence in depth, not a claim that the site had an exploitable injection path.
 - State: built
-- Shaped by: `astro.config.mjs`, `src/components/InlineScript.astro` (hashes trusted template scripts, including `define:vars`, through Astro's CSP API), `tests/journey/security.spec.ts`, and `tests/journey/visitor.spec.ts`.
+- Shaped by: `astro.config.mjs`, `src/pages/contact.astro`, `src/components/InlineScript.astro` (hashes trusted template scripts, including `define:vars`, through Astro's CSP API), `tests/csp.test.ts`, `tests/journey/security.spec.ts`, and `tests/journey/visitor.spec.ts`.
 
 ### Runtime health signals
 
