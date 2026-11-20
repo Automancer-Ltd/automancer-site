@@ -18,6 +18,11 @@ exact `dist/` it publishes, so a heavier production build fails the release inst
 
 ## Decisions behind the numbers
 
+- **JetBrains Mono keeps its slash ligatures (t22274, 20 Nov 2026).** The site
+  uses `//` in URLs and labels. The subset keeps the rules for repeated
+  slashes and drops the other programming ligatures. The font fell
+  from 24,836 to 10,232 B. The four fonts now total 68,440 B, and the heaviest
+  fixed-budget page is 148,994 B (/contact/).
 - **Page styles load where they are used (t22218, 20 Nov 2026).** Shared layout and
   design tokens stay in `src/styles/global.css`. A page's own selectors live in
   its Astro template. Routes import the styles they share, such as the home

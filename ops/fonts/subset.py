@@ -11,8 +11,8 @@ Keeps every glyph in ops/fonts/charset.txt and the OpenType features the CSS
 can switch on: the defaults a browser applies (kerning, ligatures, marks,
 contextual forms) and the numeral forms font-variant-numeric asks for
 (tnum, lnum, pnum). Each file stays variable over its full weight axis, so
-every weight renders as before. Drops accented letters and alternates no page
-uses: that is most of the bytes (121 KB to 76 KB for the four, Nov 2026).
+every weight renders as before. In JetBrains Mono, the only contextual
+ligatures the site uses are repeated slashes, as in URLs and comment labels.
 
 Syne leaves out U+007E (~): its tilde is a dot-sized squiggle that reads
 "~600" as "·600", so the tilde falls through to Space Grotesk.
@@ -44,8 +44,30 @@ def charset() -> set[int]:
     return chars | {0xA0}
 
 
+def keep_slash_ligatures(font: TTFont) -> None:
+    """Keep the original contextual rules for // and ///, including their guards."""
+    gsub = font["GSUB"].table
+    lookups = gsub.LookupList.Lookup
+    ligatures = {"slash_slash.liga", "slash_slash_slash.liga"}
+    slash_substitutions = {
+        index for index, lookup in enumerate(lookups)
+        if lookup.LookupType == 1 and any(ligatures.intersection(sub.mapping.values()) for sub in lookup.SubTable)
+    }
+    contextual = next(record.Feature for record in gsub.FeatureList.FeatureRecord if record.FeatureTag == "calt")
+    contextual.LookupListIndex = [
+        index for index in contextual.LookupListIndex
+        if any(
+            action.LookupListIndex in slash_substitutions
+            for rule in lookups[index].SubTable
+            for action in rule.SubstLookupRecord
+        )
+    ]
+
+
 def cut(family: str, chars: set[int]) -> bytes:
     font = TTFont(HERE / "source" / f"{family}-latin.woff2")
+    if family == "jetbrains-mono":
+        keep_slash_ligatures(font)
     options = subset.Options()
     options.layout_features = FEATURES
     options.name_IDs = ["*"]  # keep the licence and names
