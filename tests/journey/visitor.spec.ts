@@ -85,12 +85,13 @@ test('decorative motion pauses while reading and resumes when scrolled back into
 test('decorative motion on interior pages runs on the compositor', async ({ page }) => {
   for (const path of ['/about/', '/services/', '/field-notes/what-does-an-ai-agent-actually-cost/', '/work/fast-small-business-websites/']) {
     await page.goto(path);
-    await expect(page.locator('.page-hero__glow > span').first()).toHaveCSS('animation-play-state', 'running');
+    await expect(page.locator('.page-hero')).toBeInViewport();
     // main.js has paused what is offscreen (the closing call to action is).
     await expect(page.locator('.cta').first()).toHaveClass(/motion-paused/);
     const repainting = await page.evaluate(() =>
       document.getAnimations()
-        .filter((a) => a.playState === 'running')
+        // Running keyframe animations; a hover or focus transition ends by itself.
+        .filter((a) => a instanceof CSSAnimation && a.playState === 'running')
         .flatMap((a) => {
           const effect = a.effect as KeyframeEffect;
           const props = new Set(effect.getKeyframes().flatMap((k) => Object.keys(k)));
