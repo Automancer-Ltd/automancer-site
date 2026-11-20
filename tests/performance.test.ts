@@ -20,7 +20,7 @@
 import { readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { allHtmlFiles } from './support/dist';
+import { allHtmlFiles, pageCheckPages } from './support/dist';
 import { DIST, measureAllPages } from './support/perf';
 
 /** Measured 2026-11-20: heaviest fixed-budget page (/contact/, 148,994 B). */
@@ -153,6 +153,27 @@ describe('page-weight budgets', () => {
 });
 
 describe('asset integrity behind the budgets', () => {
+  it('lets the browser discover the critical fonts and each stylesheet early under the page CSP', () => {
+    for (const page of pageCheckPages()) {
+      const head = page.doc.querySelector('head')!;
+      const styles = head.querySelectorAll('link[rel="stylesheet"]');
+      expect(styles.length, page.route).toBeGreaterThan(0);
+
+      const preloads = head.querySelectorAll('link[rel="preload"][as="style"]');
+      const fonts = head.querySelectorAll('link[rel="preload"][as="font"]');
+      const policy = head.querySelector('meta[http-equiv="content-security-policy"]')!;
+      const metadata = head.querySelector('title')!;
+      expect(fonts.length, page.route).toBeGreaterThan(0);
+      expect(preloads.map((link) => link.getAttribute('href')), page.route)
+        .toEqual(styles.map((link) => link.getAttribute('href')));
+      for (const preload of [...fonts, ...preloads]) {
+        expect(preload.range[0], page.route).toBeGreaterThanOrEqual(policy.range[1]);
+        expect(preload.range[1], page.route).toBeLessThanOrEqual(metadata.range[0]);
+      }
+      expect(fonts.at(-1)!.range[1], page.route).toBeLessThanOrEqual(preloads[0].range[0]);
+    }
+  });
+
   it('never references an asset that is missing from dist/', () => {
     const dangling = pages.flatMap((p) =>
       p.missing.map((m) => `${p.route} -> ${m}`),
