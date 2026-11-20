@@ -172,6 +172,22 @@ a 404. Everything else passes through.
   `ops/edge/deploy.sh automancer-site-edge-probe` (workers.dev, real origin). Its workers.dev
   address (`https://automancer-site-edge-probe.waseem-d97.workers.dev`) is off between uses: turn it
   on with `api.workerScript.workerScriptPostSubdomain` `{enabled: true}`, and off again afterwards.
+  Compare the probe with the live Worker: `node ops/edge/probe-matrix.mjs <base-url>` asks each
+  the same 28 awkward questions (twins, 404s, the API, legacy URLs with encoded queries, doubled
+  slashes) and prints one JSON line per answer; diff the two runs.
+- **Runtime (t21891, 20 Nov 2026):** `deploy.sh` uploads `worker.js` byte for byte as an ES module
+  through Cloudflare's JSON Workers API (`api.versions.createWorkerVersion`, `deploy=true`) with
+  `COMPATIBILITY_DATE`, then reads the date back. Before t21891 it rewrote the module into a
+  service-worker script with no date, because the Executor gateway could not send the multipart
+  upload; Cloudflare ran that on its 2021 runtime, whose URL parser re-encoded legacy redirects
+  (`?utm_campaign=spring%20offer` arrived as `spring+offer`). On the standard parser
+  `new URL('//services/', ORIGIN)` names the host `services`, so build origin URLs with
+  `atOrigin()`. Executor checks the version body against Cloudflare's response schema, so the
+  body carries empty `id`, `number`, `urls` and `created_on`; Cloudflare ignores them. To move the
+  date forward, read every compatibility flag that turned on since the old date, rehearse on the
+  probe, and diff it against production. Roll back by deploying the previous version
+  (`api.workerVersions.workerVersionsListVersions` lists them; every upload names its commit in
+  `workers/message`), or run the previous commit's `deploy.sh`.
 - **Changing `SECURITY_HEADERS`:** deploy the Worker from the pull request's branch before you
   merge it. The merge's `deploy` job runs the verifier, which reads the new values back, so a
   Worker deployed after the merge turns that release red.

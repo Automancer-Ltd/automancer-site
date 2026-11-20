@@ -14,6 +14,10 @@
 //   - Fingerprinted files are cached for a year and fonts and images for a
 //     day, in browsers and at the edge (cachePolicy; t18923).
 // Everything else passes through untouched. Deploy and undo: docs/DEPLOYMENT.md.
+//
+// It runs as this ES module, byte for byte, on the Workers runtime of the
+// compatibility date in ops/edge/deploy.sh (t21891). Until then it ran as a
+// rewritten service-worker script with no date, on the 2021 runtime.
 
 const ORIGIN = 'https://automancer.uk';
 const MARKDOWN = 'text/markdown; charset=utf-8';
@@ -72,6 +76,18 @@ export function cachePolicy(pathname, search) {
   return null;
 }
 
+/**
+ * `pathname` and `search` on the origin. Never `new URL(path, ORIGIN)`: under
+ * the standard URL parser a path that starts with `//` (`//services/`) names
+ * another host, so the request would leave for `https://services/`.
+ */
+export function atOrigin(pathname, search = '') {
+  const out = new URL(ORIGIN);
+  out.pathname = pathname;
+  out.search = search;
+  return out;
+}
+
 /** The page a legacy URL moved to, with or without its stub's trailing slash, or null. */
 export function legacyRedirect(pathname) {
   return LEGACY_REDIRECTS.get(pathname.replace(/\/$/, '')) ?? null;
@@ -95,10 +111,15 @@ export function prefers(accept, type, over) {
   return want > 0 && want > quality(accept, over);
 }
 
-/** The Markdown twin path for a page path, or null for file-like paths. */
+/**
+ * The Markdown twin path for a page path, or null for file-like paths. Repeated slashes collapse
+ * (`//services/` → `/services.md`): the twin is named in Content-Location, where `//services.md`
+ * would read as another host.
+ */
 export function twinPath(pathname) {
-  if (pathname === '/' || pathname === '/index.html') return '/index.md';
-  const trimmed = pathname.replace(/\/$/, '');
+  const path = pathname.replace(/\/{2,}/g, '/');
+  if (path === '/' || path === '/index.html') return '/index.md';
+  const trimmed = path.replace(/\/$/, '');
   if ((trimmed.split('/').pop() ?? '').includes('.')) return null;
   return `${trimmed}.md`;
 }
@@ -150,7 +171,7 @@ async function respond(request) {
     return Response.redirect(url.toString(), 301);
   }
   const moved = legacyRedirect(url.pathname);
-  if (moved) return Response.redirect(new URL(moved + url.search, ORIGIN).toString(), 301);
+  if (moved) return Response.redirect(atOrigin(moved, url.search).toString(), 301);
   const accept = request.headers.get('Accept') ?? '';
   const isApi = url.pathname.startsWith('/api/');
   const readOnly = request.method === 'GET' || request.method === 'HEAD';
@@ -161,12 +182,12 @@ async function respond(request) {
     return res;
   }
 
-  const originUrl = new URL(url.pathname + url.search, ORIGIN);
+  const originUrl = atOrigin(url.pathname, url.search);
 
   if (readOnly && prefers(accept, 'text/markdown', 'text/html')) {
     const twin = twinPath(url.pathname);
     if (twin) {
-      const res = await fetch(new URL(twin, ORIGIN), { method: request.method });
+      const res = await fetch(atOrigin(twin), { method: request.method });
       if (res.ok) {
         const out = withVary(res);
         out.headers.set('Content-Type', MARKDOWN);
