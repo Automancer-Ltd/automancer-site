@@ -20,7 +20,7 @@
 import { readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { allHtmlFiles } from './support/dist';
+import { allHtmlFiles, pageCheckPages } from './support/dist';
 import { DIST, measureAllPages } from './support/perf';
 
 /** Measured 2026-11-20: heaviest fixed-budget page (/contact/, 148,994 B). */
@@ -153,6 +153,26 @@ describe('page-weight budgets', () => {
 });
 
 describe('asset integrity behind the budgets', () => {
+  it('lets the browser discover each page stylesheet before fonts or inline styles', () => {
+    for (const page of pageCheckPages()) {
+      const head = page.doc.querySelector('head')!;
+      const styles = head.querySelectorAll('link[rel="stylesheet"]');
+      expect(styles.length, page.route).toBeGreaterThan(0);
+
+      const preloads = head.querySelectorAll('link[rel="preload"][as="style"]');
+      const firstFont = head.querySelector('link[rel="preload"][as="font"]')!;
+      const firstInlineStyle = head.querySelector('style');
+      const policy = head.querySelector('meta[http-equiv="content-security-policy"]')!;
+      expect(preloads.map((link) => link.getAttribute('href')), page.route)
+        .toEqual(styles.map((link) => link.getAttribute('href')));
+      const firstCompetingResource = Math.min(firstFont.range[0], firstInlineStyle?.range[0] ?? Infinity);
+      for (const preload of preloads) {
+        expect(preload.range[0], page.route).toBeGreaterThanOrEqual(policy.range[1]);
+        expect(preload.range[1], page.route).toBeLessThanOrEqual(firstCompetingResource);
+      }
+    }
+  });
+
   it('never references an asset that is missing from dist/', () => {
     const dangling = pages.flatMap((p) =>
       p.missing.map((m) => `${p.route} -> ${m}`),
