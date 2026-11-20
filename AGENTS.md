@@ -26,7 +26,8 @@ checkq -- pnpm run journey                 # visitor journey in a real browser (
 for reasons your change did not cause: run `verify` (it rebuilds) or delete `dist/` first.
 
 - **The visitor journey** (`tests/journey/`, Playwright): nav, published prices, the contact form's
-  validation, send, refusal and outage paths, painted screenshots. CI runs it on the built `dist/`;
+  validation, send, refusal and outage paths, painted screenshots, and no word cut off on any sitemap
+  page at 320px or 200% text (`reflow.spec.ts`). CI runs it on the built `dist/`;
   `deploy.yml` runs it against production (`JOURNEY_URL=https://automancer.uk`), read-only, with the
   enquiry endpoint and Turnstile stubbed so it never sends a real enquiry. Needs `build` first and a
   browser (`pnpm exec playwright install chromium`).
