@@ -1,5 +1,14 @@
 # Release notes
 
+## v2026.11.20.4 — 20 November 2026
+
+Home and services pages now show their published starting prices when shared.
+
+### A smoother experience
+
+The animated beads, home and developer page headlines, and service price underline move smoothly as you browse.
+
+
 ## v2026.11.20.3 — 20 November 2026
 
 This release makes Automancer’s work easier to explore and share.
