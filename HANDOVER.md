@@ -7,7 +7,7 @@ It does not outrank anything: `VISION.md` is authority 0 and `SPEC.md` describes
 When this file and `SPEC.md` disagree about what exists, `SPEC.md` and the code are right and this
 file is out of date.
 
-Last updated: 12 November 2026 (page dates: a deploy that changes no words changes no date).
+Last updated: 20 November 2026 (every page readable at 320px and at 200% text, t21036).
 
 ## Where the site stands against the vision
 
@@ -110,15 +110,18 @@ form's fields, limits and what happens after sending were not data an agent coul
 
 ## Next slices, in order
 
-1. **Make the developer reference reflow at enlarged text.** The home and service buying pages
-   now do (t19571). At 320px and at 200% text, long example URLs, email and inline code on
-   /developers/ still escape their columns. Preserve code usability and the normal design.
-2. **Mark "Business name" optional on /contact/.** The intake API and the form treat it as
+1. **Mark "Business name" optional on /contact/.** The intake API and the form treat it as
    optional (and `/api/enquiry.json` says `required: false`), but it is the only optional field
    without the "(optional)" marker. Change it only in a task authorizing visible wording.
-3. **Let siteVerify read the page dates.** Production now publishes when each page's words last
+2. **Let siteVerify read the page dates.** Production now publishes when each page's words last
    changed (`contentSha256`, t19631). estate-watch could alert when a page's hash changes without a
    deploy, or when a deploy re-dates pages whose words did not change.
+
+3. **Fit case-study figures to their cell instead of breaking a word.** Since t21036 no figure is
+   clipped, but on a 390px phone at normal text "Hours → minutes" still sets "minutes" against the
+   cell edge, and at 200% text it breaks inside the word. Sizing `.stat__v` to its cell (a
+   container-query cap that binds only where the longest word would not fit) would end both; it
+   changes the figures' size, so show before/after.
 
 The former cache and release-note slices shipped in PRs #164 and #165 respectively.
 
@@ -167,6 +170,38 @@ columns shrink to their container instead of stretching to the longest word. All
   320px, 390px and desktop. A document-width check alone missed the old clipped content.
 - The shared hero fix also covers /developers/; its long code and URL examples remain a next slice.
 - Undo: revert this slice's merge commit and merge the revert; Pages restores the prior CSS.
+
+## Frontend slice: every page readable at 320px and at 200% text (20 November 2026, t21036)
+
+`body` hides horizontal overflow, so the site never scrolled sideways and a document-width check
+passed; text that did not fit was clipped instead, out of sight. A walk over every painted line of
+text in `<main>` on all 31 sitemap pages found **94 cut-off text runs on 12 pages**, 17 of them at
+normal text size: a case study's figures "Computed", "One workflow" and "Thorough" ran under the
+next cell on a 1280px desktop, "Findable" and "Computed" on a 390px phone, the status notes
+("· Live in production") ran off a 320px screen, and /developers/ example URLs ran off a phone.
+With text at 200% on a phone the figures were unreadable (`£30|`, `Hou|`), and /about/, /privacy/,
+/releases/, /field-notes/ and /contact/ lost words at the right edge. After: **0** across the same
+five checks (320/390/1280 px, normal and 200% text), and at 768px both ways.
+
+- `body { overflow-wrap: break-word }`: a word longer than its line breaks. It changes no
+  min-content size, so lines that already fit lay out as before.
+- `.statband` is a wrapping flex row: the same cell widths as the old 150px auto-fit grid wherever
+  the words fit, but a cell is never narrower than its longest word, and the 150px minimum grows
+  twice as fast as the text (`max(150px, 18.75rem - 150px)`), so 200% text gets one column on a
+  phone and two on a desktop.
+- A case study's eyebrow wraps its status notes when its column is under 18rem (container query:
+  a 320px screen or enlarged text; a 390px phone at normal text is unchanged). `.section-head__log`
+  and `.note-row__meta` may wrap; `.case-card__foot` wraps its tags under "Read the case study".
+  /about/'s story headings (which never break inside a word) are capped at `11cqi`, and its
+  single-column layout is `minmax(0, 1fr)`.
+- Full-page screenshots at 1280 and 390 px, normal text: 52 of 62 pixel-identical. The others are
+  /contact/ (its height differs between two builds of the same commit), the four case studies'
+  figure bands, /work/'s featured card footer, and /developers/, each where text was clipped or
+  squeezed before.
+- Test: `tests/journey/reflow.spec.ts` reads the served sitemap and fails on any text painted
+  outside the screen, a clipping ancestor or its panel (`.stat`, `.rung`, `.offer`, `.case-card`,
+  `.principle`, `.promise`, whose neighbours paint over it). It found all 94 on the old CSS.
+- Undo: revert this slice's merge commit; Pages restores the previous CSS.
 
 ## Codebase slice: truthful page dates (12 November 2026, t19631)
 

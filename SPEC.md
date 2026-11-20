@@ -1,7 +1,7 @@
 # Automancer Site — Living Specification
 
 > Internal living spec. Update the relevant module section in the SAME branch
-> as any behaviour change. Last verified against the code: 2026-11-12.
+> as any behaviour change. Last verified against the code: 2026-11-20.
 
 ## North star
 
@@ -22,7 +22,7 @@ Provide a truthful public front door for Automancer. Give people and machines th
 
 ### Public pages
 
-- What it does: Serves the marketing, services, work, field notes, about, contact, privacy, terms, and recovery pages as static HTML. The services page opens with all four from-prices beside its introduction on desktop, stacking the comparison below it on phones. Each comparison row is a native link to its offer details; keyboard focus follows the link, and the target clears the fixed header. The home headline and service-price cards reflow on narrow screens with enlarged text: display amounts are bounded by their panel width, price rows wrap, and offer columns allow text to wrap inside the screen. The footer proof strip publishes real build provenance only; it is not a live service-health indicator.
+- What it does: Serves the marketing, services, work, field notes, about, contact, privacy, terms, and recovery pages as static HTML. The services page opens with all four from-prices beside its introduction on desktop, stacking the comparison below it on phones. Each comparison row is a native link to its offer details; keyboard focus follows the link, and the target clears the fixed header. The home headline and service-price cards reflow on narrow screens with enlarged text: display amounts are bounded by their panel width, price rows wrap, and offer columns allow text to wrap inside the screen. Every page keeps its words on screen at 320px and with text at 200% (t21036): a word longer than its line breaks rather than being clipped by `body`'s hidden horizontal overflow, case-study figures sit in a wrapping row whose cells never get narrower than their longest word (and widen with enlarged text), a case study's status notes wrap below its sector when the column is narrow, and the /about/ headings, which never break inside a word, size to their column. The browser journey walks every sitemap page at 320px, 390px and 1280px, at normal and 200% text, and fails on any text painted outside the screen, a clipping ancestor or its panel. The footer proof strip publishes real build provenance only; it is not a live service-health indicator.
 - State: built
 - Shaped by: `src/pages/`, `src/layouts/`, `src/components/`, and `src/styles/`.
 
