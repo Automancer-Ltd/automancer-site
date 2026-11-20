@@ -10,6 +10,8 @@ const origin: Record<string, [number, string, string]> = {
   '/index.md': [200, 'text/markdown; charset=utf-8', '# Home'],
   '/privacy/': [200, 'text/html; charset=utf-8', '<html>privacy</html>'],
   '/api/services.json': [200, 'application/json; charset=utf-8', '{}'],
+  '/assets/images/logo.svg': [200, 'image/svg+xml', '<svg></svg>'],
+  '/field-notes/rss.xml': [200, 'application/xml', '<rss></rss>'],
 };
 
 function serve(input: RequestInfo | URL) {
@@ -94,7 +96,7 @@ describe('edge Worker in front of GitHub Pages', () => {
       expect(target, `${stub.file} has a meta refresh`).toBeTruthy();
       const legacy = `/${stub.file.replace(/\/index\.html$/, '')}`;
       expect(legacyRedirect(legacy), `${legacy} is in LEGACY_REDIRECTS`).toBe(target);
-      for (const path of [legacy, `${legacy}/`, `${legacy}?ref=old`]) {
+      for (const path of [legacy, `${legacy}/`, `${legacy}/index.html`, `/${legacy}`, `/${legacy}/`, `/${legacy}/index.html`, `${legacy}?ref=old`]) {
         const res = await get(path);
         expect(res.status, path).toBe(301);
         expect(res.headers.get('Location'), path).toBe(`https://automancer.uk${target}${path.includes('?') ? '?ref=old' : ''}`);
@@ -163,6 +165,18 @@ describe('edge Worker in front of GitHub Pages', () => {
     ];
     for (const [label, res] of responses) {
       for (const [name, value] of Object.entries(expected)) expect(res.headers.get(name), `${label}: ${name}`).toBe(value);
+    }
+
+    // SVG and XML are active documents in browsers and carry no <meta> policy,
+    // so the Worker gives them a full default-src 'none' + Trusted Types CSP.
+    for (const path of ['/assets/images/logo.svg', '/field-notes/rss.xml']) {
+      const res = await get(path);
+      const csp = res.headers.get('Content-Security-Policy') ?? '';
+      expect(csp, path).toContain("default-src 'none'");
+      expect(csp, path).toContain("frame-ancestors 'none'");
+      expect(csp, path).toContain("form-action 'none'");
+      expect(csp, path).toContain("require-trusted-types-for 'script'");
+      expect(res.headers.get('X-Content-Type-Options'), path).toBe('nosniff');
     }
   });
 

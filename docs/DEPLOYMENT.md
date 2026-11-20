@@ -44,7 +44,7 @@ never a working checkout:
 
 | Signal | What it proves | How an agent reads it |
 |---|---|---|
-| `ops/verify-production.sh` | every page in the sitemap and `/api/pages.json` and every Markdown twin (200, no redirect, right content type), a real 404, machine surfaces, legal anchor, served revision, Sentry project id in the bundle, TLS > 21 days, `automancer.co.uk` refuses forged mail (null MX, SPF `-all`, DMARC reject) | run it; also the hosted schedule below |
+| `ops/verify-production.sh` | every page in the sitemap and `/api/pages.json` and every Markdown twin (200, no redirect, right content type), a real 404, machine surfaces, legal anchor, served revision, served page CSP (`default-src 'none'`, Trusted Types, `connect-src` matching the served DSN origin), SVG/XML active-document CSP and legacy `.html` edge 301s, Sentry project id in the bundle, TLS > 21 days, `automancer.co.uk` refuses forged mail (null MX, SPF `-all`, DMARC reject) | run it; also the hosted schedule below |
 | estate-watch schedule `siteVerify` (Executor, :04 and :34 UTC) | the same checks between deploys (pages: only the `ROUTES` list so far; it does not yet read the sitemap and `/api/pages.json`, nor run the forged-mail check), read from this script at the revision production serves; a failure files one Gandalf task in automancer/site | Executor `estate-watch` `scheduleRuns {name:"siteVerify"}`; run one now with `siteVerify.run {}` |
 | UptimeRobot monitor `803613943` "site automancer.uk" | the public URL answers, independent of auto-vps | Executor `uptimerobot-guarded` `list-monitors` |
 | Sentry project `automancer-site` (id `4511769898647632`, org `automancer`), events tagged with the release SHA | browser errors on the live site | Executor `sentry-guarded.events.listAProjectSIssues` |
@@ -164,7 +164,20 @@ and unversioned scripts keep GitHub's ten minutes. Change a file under `/assets/
 if visitors must see it at once. Every response it returns carries the same security
 headers (`SECURITY_HEADERS`: HSTS, `nosniff`, Referrer-Policy, a framing/base/object CSP and
 Permissions-Policy), which `ops/verify-production.sh` reads back on a page, its Markdown twin and
-a 404. Everything else passes through.
+a 404; SVG and XML responses (`image/svg+xml`, `application/xml`) get a full `default-src 'none'`
+and Trusted Types CSP header (`XML_DOCUMENT_CSP`), and every legacy `.html` path variant
+(including `/<name>.html/index.html` and `//<name>.html/`) gets one 301 at the edge (`t22166`).
+Everything else passes through.
+
+On the Sentry project `automancer-site` (`4511769898647632`), `allowedDomains` is `["automancer.uk"]`
+so Relay filters out cross-origin browser events from any other origin (`outcome: filtered`,
+`reason: cors`),
+`scrapeJavaScript` is `false` with `verifySSL` `true`, and replay and performance loader options
+on the public client key (`6dc470c03e475e24a3f9ab1aef1f86cb`) are disabled (`t22166`; per-key
+`rateLimit` is ignored on Sentry's Team plan, where Spike Protection governs bursts). Private
+vulnerability reporting is enabled on `Automancer-Ltd/automancer-site`.
+Undo via Executor `sentry-guarded` (`projects.updateProject` and `projects.updateProjectKey`) and
+`github-full-access` (`repos.disablePrivateVulnerabilityReporting`).
 
 - **Deploy it:** `ops/edge/deploy.sh` (Executor `cloudflare-full-access`, account "Waseem
   Cloudflare", the Automancer account, which has held the zone since 23 Oct 2026). A merged change to `worker.js`

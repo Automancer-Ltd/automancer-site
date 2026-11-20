@@ -78,8 +78,10 @@ ops/preview/                the non-production preview target
 
 - No first-party browser storage (`tests/no-browser-storage.test.ts`).
 - Pages may contact only this site and the bundled Sentry DSN's origin; `/contact/` adds the
-  enquiry API and Turnstile's frame (`tests/csp.test.ts`, `security.csp` in `astro.config.mjs`).
-  A new third-party request needs its origin added there on purpose.
+  enquiry API and Turnstile's frame (`tests/csp.test.ts` across all 37 HTML files including redirect
+  stubs, `security.csp` in `astro.config.mjs`, SVG/XML edge CSP in `ops/edge/worker.js`, and live
+  verification in `ops/verify-production.sh`). A new third-party request needs its origin added
+  there on purpose.
 - `/privacy/` and `/terms/` are `legalNoMirror` and hash-pinned (`tests/legal-integrity.test.ts`);
   their wording changes only on Waseem's instruction.
 - The contact form never shows a raw API error code (`tests/contact-errors.test.ts`).
