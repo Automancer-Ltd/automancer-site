@@ -113,6 +113,14 @@ test('decorative motion runs on the compositor', async ({ page }) => {
   }
 });
 
+test('home and developer introductions load their hero layout', async ({ page }) => {
+  for (const path of ['/', '/developers/']) {
+    await page.goto(path);
+    await expect(page.locator('main .hero')).toHaveCSS('display', 'flex');
+    await expect(page.locator('main .hero__fold')).toHaveCSS('position', 'absolute');
+  }
+});
+
 test('visitor can compare starting prices immediately and jump to each offer', async ({ page }, info) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/services/');

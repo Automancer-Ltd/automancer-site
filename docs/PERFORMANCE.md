@@ -20,11 +20,11 @@ exact `dist/` it publishes, so a heavier production build fails the release inst
 
 - **Page styles load where they are used (t22218, 20 Nov 2026).** Shared layout and
   design tokens stay in `src/styles/global.css`. A page's own selectors live in
-  its Astro template, and styles used by a few routes, such as prose or case
-  cards, are imported by those routes. Astro inlines small stylesheets and
+  its Astro template. Routes import the styles they share, such as the home
+  and developer hero, prose, and case cards. Astro inlines small stylesheets and
   links the larger ones at content-hashed URLs. The weight audit counts inline
   CSS in HTML and follows its asset references. The heaviest fixed-budget page
-  is now 163,490 B (/contact/), so the total budget was tightened to match.
+  is now 163,598 B (/contact/), so the total budget was tightened to match.
 - **Fonts are four variable woff2 files**, one per family, declared in `src/styles/fonts.css`
   and bundled into the page stylesheet. In August 2026 26 static files cost ~87% of every page;
   collapsing them cut a cold visit by ~450 KB. `BaseLayout.astro` preloads exactly the two used
