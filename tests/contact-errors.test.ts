@@ -35,7 +35,7 @@ const PAGE = 'contact/index.html';
 
 /**
  * The exact bytes of the contact page's inline logic script as served,
- * including the define:vars preamble Astro injects (endpoint, limits, email,
+ * including the define:vars preamble Astro injects (endpoint, limits, draftFields,
  * errorCopy, errorFallback as leading const declarations inside the same
  * <script> tag).
  */
@@ -77,6 +77,7 @@ interface FieldStub {
 
 interface DriveResult {
   shown: string;
+  recoveryVisible: boolean;
   turnstileErrorCallback?: () => boolean;
   fields: Record<string, FieldStub>;
   fetchCalls: number;
@@ -120,6 +121,7 @@ async function driveFormState(
     },
   };
   const confirmEl = { style: {} as Record<string, string>, scrollIntoView() {}, querySelector: () => null };
+  const recovery = { hidden: true };
   const btnLabel = { textContent: '' };
   const submitBtn = { disabled: false, querySelector: () => btnLabel };
 
@@ -189,6 +191,9 @@ async function driveFormState(
       if (id === 'contact-form') return form;
       if (id === 'form-error') return errEl;
       if (id === 'form-confirm') return confirmEl;
+      if (id === 'form-recovery') return recovery;
+      if (id === 'copy-enquiry') return { addEventListener() {} };
+      if (id === 'form-unavailable') return { hidden: false };
       return null;
     },
   };
@@ -231,6 +236,7 @@ async function driveFormState(
   }
   return {
     get shown() { return errEl.textContent; },
+    get recoveryVisible() { return !recovery.hidden; },
     turnstileErrorCallback: windowStub.onTurnstileError,
     fields,
     fetchCalls,
@@ -342,17 +348,14 @@ describe('the built contact page never shows a lead-API machine code', () => {
 
   it('even a REPEATED security-check failure — the our-fault case — names no code and offers the email route', async () => {
     for (const code of ['turnstile_failed', 'some_new_backend_code']) {
-      const shown = await driveForm(script, { status: 403, body: { error: code } }, 2);
+      const { shown, recoveryVisible } = await driveFormState(script, { status: 403, body: { error: code } }, 2);
       expect(
         shown,
         `second consecutive 403 carrying "${code}": visitor saw "${shown}" — the code leaked through ` +
           'the repeated-failure branch'
       ).not.toContain(code);
       assertHumanCopy(shown, `repeated 403 with "${code}"`);
-      expect(
-        shown,
-        'the repeated-failure copy must offer the direct email route'
-      ).toMatch(/email\s+\S+@automancer\.uk/);
+      expect(recoveryVisible).toBe(true);
     }
   });
 });
@@ -443,7 +446,7 @@ describe('aborted or timed-out submission', () => {
 
     expect(result.lastFetchInit?.signal, 'fetch call must receive an AbortSignal').toBeInstanceOf(AbortSignal);
     expect(result.shown).toContain('Couldn’t reach us just now.');
-    expect(result.shown).toMatch(/email\s+\S+@automancer\.uk/);
+    expect(result.recoveryVisible).toBe(true);
     assertHumanCopy(result.shown, 'aborted fetch error');
     expect(result.submitBtn.disabled).toBe(false);
     expect(result.submitBtn.textContent).toBe('Send it to Waseem');
@@ -462,7 +465,7 @@ describe('Turnstile widget execution errors', () => {
     expect(result.turnstileErrorCallback, 'the widget error callback was not installed globally').toBeTypeOf('function');
     expect(result.turnstileErrorCallback!()).toBe(true);
     expect(result.shown).toMatch(/security check could not load/i);
-    expect(result.shown).toMatch(/email\s+\S+@automancer\.uk/);
+    expect(result.recoveryVisible).toBe(true);
     expect(result.shown).not.toContain('600010');
     expect(result.shown).not.toContain('TurnstileError');
   });
