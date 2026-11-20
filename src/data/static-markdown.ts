@@ -176,6 +176,8 @@ No calendar gauntlet. No chatbot. No twelve-step sales sequence.
 - **Email:** ${business.email}
 - **Phone:** ${business.phone} — a voicemail line; leave a message and it reaches Waseem, same as the form.
 
+If the web form cannot send, you can copy what you entered and paste it into an email to Waseem.
+
 Based in ${business.areasServed[0]} · Leeds · Manchester · UK-wide, remote-first.
 
 ## The one-week promise

@@ -60,10 +60,10 @@ describe('/api/enquiry.json — the enquiry contract matches the /contact/ form'
     expect(form, '/contact/ has no #contact-form').toBeTruthy();
   });
 
-  it('lists every visible form control, in order, and nothing else', () => {
+  it('lists every editable enquiry field, in order, and nothing else', () => {
     const controls = form!
       .querySelectorAll('input, textarea, select')
-      .filter((el) => el.getAttribute('name') !== 'website' && el.getAttribute('type') !== 'hidden')
+      .filter((el) => el.getAttribute('name') !== 'website' && el.getAttribute('type') !== 'hidden' && !el.hasAttribute('readonly'))
       .map((el) => el.getAttribute('name'));
     expect(controls).toEqual(contract.fields.map((f) => f.id));
   });

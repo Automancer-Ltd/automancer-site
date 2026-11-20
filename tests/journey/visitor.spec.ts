@@ -265,7 +265,8 @@ test('visitor finds the prices and reaches us through the contact form', async (
   const form = page.locator('#contact-form');
   const send = form.getByRole('button', { name: 'Send it to Waseem' });
   await expect(send).toBeEnabled();
-  await expect(page.locator(`a[href="mailto:${business.email}"]`).first()).toBeVisible();
+  const footerContact = page.getByRole('contentinfo').getByRole('navigation', { name: 'Get in touch' });
+  await expect(footerContact.getByRole('link', { name: business.email })).toHaveAttribute('href', `mailto:${business.email}`);
   await expectNoSidewaysScroll(page);
   await expectPainted(page, `${info.project.name}-contact`);
 
@@ -374,8 +375,56 @@ test('a refused or failed send keeps the enquiry and never shows an error code',
   // Endpoint unreachable: still a human way out, still no lost text.
   await page.route(ENDPOINT_URL, (route) => route.abort());
   await page.getByRole('button', { name: 'Send it to Waseem' }).click();
-  await expect(error).toContainText(business.email);
+  await expect(error).toContainText('Couldn’t reach us just now.');
+  const recovery = page.locator('#form-recovery');
+  const email = recovery.getByRole('link', { name: business.email });
+  await expect(email).toBeVisible();
+  await expect(email).toHaveAttribute('href', `mailto:${business.email}`);
   await expect(page.locator('#time-sink')).toHaveValue(ENQUIRY.time_sink);
+
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+  // Copy reads the latest draft, including edits made after the send failed.
+  await page.locator('#extra').fill('Updated after the outage.');
+  await recovery.getByRole('button', { name: 'Copy enquiry' }).click();
+  await expect(recovery.getByRole('status')).toContainText('Copied.');
+  const draft = await page.evaluate(() => navigator.clipboard.readText());
+  expect(draft).toContain(ENQUIRY.time_sink);
+  expect(draft).toContain('Updated after the outage.');
+  expect(draft).not.toContain('journey-token');
+});
+
+test('a blocked security check offers a draft even when the clipboard is denied', async ({ page }) => {
+  const posted = await stubIntake(page, { status: 200, body: { ok: true } });
+  await page.route('**/challenges.cloudflare.com/**', (route) => route.abort('blockedbyclient'));
+  await page.addInitScript(() => {
+    navigator.clipboard.writeText = () => Promise.reject(new DOMException('Denied', 'NotAllowedError'));
+  });
+  await page.goto('/contact/');
+  await page.locator('#name').fill(ENQUIRY.name);
+  await page.locator('#email').fill(ENQUIRY.email);
+  await page.locator('#time-sink').fill(ENQUIRY.time_sink);
+  await page.getByRole('button', { name: 'Send it to Waseem' }).click();
+
+  const recovery = page.locator('#form-recovery');
+  await expect(recovery.getByRole('link', { name: business.email })).toBeVisible();
+  await recovery.getByRole('button', { name: 'Copy enquiry' }).click();
+  const draft = recovery.getByRole('textbox', { name: 'Enquiry draft' });
+  await expect(draft).toBeFocused();
+  await expect(draft).toHaveValue(new RegExp(ENQUIRY.time_sink));
+  expect(await draft.evaluate((el: HTMLTextAreaElement) => el.selectionEnd - el.selectionStart)).toBeGreaterThan(0);
+  expect(posted).toHaveLength(0);
+});
+
+test.describe('with JavaScript off', () => {
+  test.use({ javaScriptEnabled: false });
+
+  test('offers email where the contact form would have been', async ({ page }) => {
+    await page.goto('/contact/');
+    await expect(page.locator('#contact-form')).toBeHidden();
+    const email = page.locator('main').getByRole('link', { name: business.email });
+    await expect(email).toBeVisible();
+    await expect(email).toHaveAttribute('href', `mailto:${business.email}`);
+  });
 });
 
 test('a page that does not exist is a real 404 with a way back', async ({ page }) => {

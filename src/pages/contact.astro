@@ -24,10 +24,12 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import InlineScript from '../components/InlineScript.astro';
 import { ENDPOINT_URL, TURNSTILE_SITE_KEY, FIELD_LIMITS, LEAD_ERROR_COPY, LEAD_ERROR_FALLBACK } from '../config/site';
 import { business } from '../data/business';
-import { AFTER_SEND_STEPS, enquiryField } from '../data/enquiry';
+import { AFTER_SEND_STEPS, ENQUIRY_FIELDS, enquiryField } from '../data/enquiry';
 
 const steps = AFTER_SEND_STEPS;
 const f = enquiryField;
+const emailLink = `mailto:${business.email}`;
+const draftFields = ENQUIRY_FIELDS.map(({ id, label }) => ({ id, label }));
 // This page alone may load Turnstile, show its challenge frame and send the
 // enquiry to the intake API; every other page's policy refuses all three.
 Astro.csp.insertScriptResource('https://challenges.cloudflare.com');
@@ -66,7 +68,8 @@ Astro.csp.insertDirective(`connect-src ${new URL(ENDPOINT_URL).origin}`);
             </p>
           </div>
 
-          <form id="contact-form" class="form" method="POST" novalidate data-endpoint={ENDPOINT_URL}>
+          <p id="form-unavailable">Please email <a href={emailLink}>{business.email}</a> to get in touch.</p>
+          <form id="contact-form" class="form" method="POST" novalidate data-endpoint={ENDPOINT_URL} hidden>
             <div class="field">
               <label for="name">{f('name').label}</label>
               <input type="text" id="name" name="name" required autocomplete="name" maxlength={f('name').maxLength} />
@@ -109,6 +112,16 @@ Astro.csp.insertDirective(`connect-src ${new URL(ENDPOINT_URL).origin}`);
             <!-- Disabled until the script below takes over: with no action, a no-JS submit
                  would POST the enquiry to GitHub Pages and lose it. -->
             <button type="submit" class="btn btn--full" disabled><span>Send it to Waseem</span></button>
+
+            <div id="form-recovery" class="form-recovery" hidden>
+              <p>Send your enquiry by email to <a href={emailLink}>{business.email}</a>.</p>
+              <button id="copy-enquiry" type="button" class="btn btn--ghost"><span>Copy enquiry</span></button>
+              <p id="copy-enquiry-status" role="status"></p>
+              <div id="enquiry-draft-field" class="field" hidden>
+                <label for="enquiry-draft">Enquiry draft</label>
+                <textarea id="enquiry-draft" rows="4" readonly></textarea>
+              </div>
+            </div>
 
             <p class="form__micro">
               No spam, no sales sequence, no sharing your details. Just a human reading what you sent.
@@ -178,18 +191,48 @@ Astro.csp.insertDirective(`connect-src ${new URL(ENDPOINT_URL).origin}`);
     </div>
   </section>
 
-  <InlineScript><script is:inline define:vars={{ endpoint: ENDPOINT_URL, limits: FIELD_LIMITS, email: business.email, errorCopy: LEAD_ERROR_COPY, errorFallback: LEAD_ERROR_FALLBACK }}>
+  <InlineScript><script is:inline define:vars={{ endpoint: ENDPOINT_URL, limits: FIELD_LIMITS, draftFields, errorCopy: LEAD_ERROR_COPY, errorFallback: LEAD_ERROR_FALLBACK }}>
     (function () {
       var form = document.getElementById('contact-form');
       if (!form) return;
       var errEl = document.getElementById('form-error');
       var confirmEl = document.getElementById('form-confirm');
+      var recovery = document.getElementById('form-recovery');
       var submitBtn = form.querySelector('button[type="submit"]');
 
       function showError(msg) {
         errEl.textContent = msg;
         errEl.style.display = 'block';
       }
+      function showDeliveryError(msg) {
+        showError(msg);
+        recovery.hidden = false;
+      }
+      document.getElementById('copy-enquiry').addEventListener('click', async function () {
+        var status = document.getElementById('copy-enquiry-status');
+        var draftField = document.getElementById('enquiry-draft-field');
+        var values = new FormData(form);
+        var text = draftFields.flatMap(function (field) {
+          var value = values.get(field.id)?.trim();
+          return value ? [field.label + '\n' + value] : [];
+        }).join('\n\n');
+        if (!text) {
+          status.textContent = 'There is nothing to copy yet.';
+          return;
+        }
+        try {
+          await navigator.clipboard.writeText(text);
+          draftField.hidden = true;
+          status.textContent = 'Copied. Paste your enquiry into your email.';
+        } catch {
+          var draft = document.getElementById('enquiry-draft');
+          status.textContent = 'Select and copy your enquiry below.';
+          draft.value = text;
+          draftField.hidden = false;
+          draft.focus();
+          draft.select();
+        }
+      });
       function clearFieldErrors() {
         var controls = [form.name, form.email, form.company, form.time_sink, form.team_size, form.extra];
         for (var i = 0; i < controls.length; i++) {
@@ -225,31 +268,18 @@ Astro.csp.insertDirective(`connect-src ${new URL(ENDPOINT_URL).origin}`);
         var input = form.querySelector('[name="cf-turnstile-response"]');
         return input ? input.value : '';
       }
-      // Turnstile throws an uncaught TurnstileError (reaching Sentry as
-      // AUTOMANCER-SITE-4, code 600010 from headless browsers) when a widget has
-      // no error-callback. Handle it: tell the visitor the email route works, and
-      // return true so Turnstile treats the error as handled.
       function securityCheckUnavailable() {
-        showError('The security check could not load. Please email ' + email + ' directly and we\u2019ll pick it up straight away.');
+        turnstileState = 'failed';
+        showDeliveryError('The security check could not load.');
       }
       window.onTurnstileError = function () {
         securityCheckUnavailable();
+        // Keep a handled widget error out of Sentry (AUTOMANCER-SITE-4).
         return true;
       };
       function resetTurnstile() { try { if (window.turnstile) window.turnstile.reset(); } catch (e) {} }
 
-      // Load the security check after the page, not with it (t21450). On
-      // arrival it cost a phone ~250 KB from Cloudflare, competing with the
-      // page's own fonts (text set ~0.5 s later at 400 kbps), and ~0.7 s of
-      // main thread while the page was painting and taking its first taps;
-      // it also kept /contact/ out of hover prerendering. It starts on the
-      // first scroll (a phone scrolls off the main thread, so its work hurts
-      // least there, before any typing), the first focus, tap or keystroke in
-      // the form, the check coming within 400 px of the screen, or else 2 s
-      // after the page has loaded, so a visitor reading without scrolling
-      // still has it settled before they type. It sits ~1,500 px down, below
-      // six fields; its slot keeps its height, so nothing moves when it
-      // appears.
+      // Defer the check so its requests and script work stay off the first paint (t21450).
       var slot = form.querySelector ? form.querySelector('.turnstile-slot') : null;
       var turnstileState = 'idle';
       window.onTurnstileLoad = function () {
@@ -268,9 +298,7 @@ Astro.csp.insertDirective(`connect-src ${new URL(ENDPOINT_URL).origin}`);
         var s = document.createElement('script');
         s.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=onTurnstileLoad';
         s.async = true;
-        // Blocked (an extension, a firewall): the submit check below sends
-        // the visitor to email, as when the head script failed before.
-        s.onerror = function () { turnstileState = 'failed'; };
+        s.onerror = securityCheckUnavailable;
         document.head.appendChild(s);
       }
       form.addEventListener('focusin', loadTurnstile);
@@ -293,25 +321,14 @@ Astro.csp.insertDirective(`connect-src ${new URL(ENDPOINT_URL).origin}`);
       if (document.prerendering) document.addEventListener('prerenderingchange', watchSlot, { once: true });
       else watchSlot();
 
-      // Translate a machine code into copy WE wrote. Never render the code.
-      // An unrecognised code gets honest fallback copy plus the direct email
-      // route, so a visitor is never shown an identifier and never left
-      // without a way through.
+      // Only use our own error copy, even when the API sends an unknown code.
       function copyFor(payload, ourDefault) {
         var code = payload && typeof payload.error === 'string' ? payload.error : null;
         if (code && Object.prototype.hasOwnProperty.call(errorCopy, code)) return errorCopy[code];
         return ourDefault || errorFallback;
       }
 
-      // Warm the way to Send (t20932). The endpoint is another host and the
-      // body is JSON, so a cold Send first opens a connection and waits for a
-      // CORS preflight before the POST can leave: about half the wait on
-      // "Sending…". Once the visitor starts on the form, an empty OPTIONS
-      // request opens the connection and the browser caches the preflight's
-      // answer (POST with Content-Type allowed), so Send makes only the POST.
-      // It carries no form data and stores nothing; the API answers it 204.
-      // Repeated at most once a minute while they write, so a long message
-      // still finds both warm (Safari keeps a preflight for ten minutes).
+      // Warm the connection to the intake API with an empty OPTIONS while the visitor types (t20932).
       var warmedAt = 0;
       function warmSend() {
         var now = Date.now();
@@ -350,13 +367,10 @@ Astro.csp.insertDirective(`connect-src ${new URL(ENDPOINT_URL).origin}`);
         if (message.length > limits.message) return failField(null, 'Your message is over the ' + limits.message + '-character limit across the message, team size and extra boxes. Please shorten any of them.');
 
         var token = turnstileToken();
-        // No widget at all (a blocker stopped api.js, so the error callback
-        // never fires): asking for the check would be a dead end. Still
-        // loading (or never started): it is on its way, so ask for it.
         if (!token) {
-          if (window.turnstile || turnstileState === 'loading') return showError('Please complete the security check above.');
-          if (turnstileState === 'idle' && slot) { loadTurnstile(); return showError('Please complete the security check above.'); }
-          return securityCheckUnavailable();
+          if (turnstileState === 'failed' || !slot) return securityCheckUnavailable();
+          loadTurnstile();
+          return showError('Please complete the security check above.');
         }
 
         var payload = {
@@ -400,22 +414,13 @@ Astro.csp.insertDirective(`connect-src ${new URL(ENDPOINT_URL).origin}`);
             var body = await res.json().catch(function () { return {}; });
             showError(copyFor(body, 'Something in the form needs a second look.'));
           } else if (res.status === 403) {
-            // The API sends a bare machine CODE in `error`. copyFor() maps it
-            // to copy we wrote; an unrecognised code falls through to our own
-            // wording plus the email route. A code is never rendered.
             var f = await res.json().catch(function () { return {}; });
-            // The API returns one 403 for BOTH "the visitor's token was bad"
-            // and "our Turnstile secret is wrong". Those need opposite
-            // responses: the first is worth retrying, the second is a
-            // configuration fault on our side that retrying can never fix.
-            //
-            // We cannot tell them apart from here, so we treat a REPEATED 403
-            // as ours rather than theirs. Asking a visitor to redo a check
-            // that will fail every time blames them for our mistake and
-            // silently loses the enquiry.
+            // A bad token and a bad server secret can both be 403. Offer email after a repeat.
             turnstileFailures += 1;
-            if (turnstileFailures >= 2) {
-              showError(copyFor(f, 'The security check keeps failing, which is probably a fault on our side rather than anything you did.') + ' Please email ' + email + ' directly and we\u2019ll pick it up straight away.');
+            if (f?.error === 'turnstile_unavailable' || f?.error === 'server_misconfigured') {
+              showDeliveryError(copyFor(f));
+            } else if (turnstileFailures >= 2) {
+              showDeliveryError('The security check keeps failing.');
             } else {
               showError(copyFor(f, 'The security check needs another go — please complete it again and resend.'));
             }
@@ -424,11 +429,11 @@ Astro.csp.insertDirective(`connect-src ${new URL(ENDPOINT_URL).origin}`);
             var secs = rl && rl.retryAfterMs ? Math.ceil(rl.retryAfterMs / 1000) : null;
             showError(copyFor(rl, 'Whoa, easy — that’s a lot of sending. ' + (secs ? 'Give it about ' + secs + ' seconds' : 'Give it a moment') + ' and try once more.'));
           } else {
-            showError('Something went wrong on our end. Email Waseem directly at ' + email + ' and he’ll pick it up.');
+            showDeliveryError(copyFor(null));
           }
         } catch (err) {
           // Network / CORS failure (expected off the production origin).
-          showError('Couldn’t reach us just now. Please email ' + email + ' directly and we’ll take it from there.');
+          showDeliveryError('Couldn’t reach us just now.');
         } finally {
           // A Turnstile token is single-use, and any request that reached the
           // API may have spent it: a resend with the old one gets a 403.
@@ -438,6 +443,8 @@ Astro.csp.insertDirective(`connect-src ${new URL(ENDPOINT_URL).origin}`);
         }
       });
       submitBtn.disabled = false;
+      form.hidden = false;
+      document.getElementById('form-unavailable').hidden = true;
     })();
   </script></InlineScript>
 </BaseLayout>
