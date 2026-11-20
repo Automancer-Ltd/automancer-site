@@ -1,6 +1,7 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import SpectrumGlow from '../../components/SpectrumGlow.astro';
+import ArticleContents from '../../components/ArticleContents.astro';
 import { getCollection, render } from 'astro:content';
 import { fitDescription, fitTitle } from '../../lib/meta';
 import { formatGBP, serviceById } from '../../data/business';
@@ -22,7 +23,7 @@ export async function getStaticPaths() {
 }
 
 const { entry, next } = Astro.props;
-const { Content } = await render(entry);
+const { Content, headings } = await render(entry);
 const d = entry.data;
 // Characters in a figure's longest unbroken run ("Computed"; "£300–400" may
 // break after its dash). The figure is sized so that run fits the band.
@@ -76,10 +77,12 @@ const notes = [d.anonymised && 'anonymised', d.status].filter((n): n is string =
 
     <!-- Long-form body -->
     <section class="section on-dark">
-      <div class="wrap">
+      <div class="wrap article-layout">
+        <ArticleContents headings={headings} variant="inline" />
         <div class="prose case-prose">
           <Content />
         </div>
+        <ArticleContents headings={headings} variant="rail" />
       </div>
     </section>
 

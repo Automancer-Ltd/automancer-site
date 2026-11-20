@@ -491,6 +491,35 @@ test("a field note's contents jump to each section and mark the one being read",
   await expectNoSidewaysScroll(page);
 });
 
+test("a case study's contents list its sections and their parts, and follow the reader into a part", async ({ page }, info) => {
+  await page.goto('/work/care-provider-transformation/');
+  const ids = await page.locator('.prose :is(h2, h3)[id]').evaluateAll((hs) => hs.map((h) => h.id));
+  expect(ids.length).toBeGreaterThan(await page.locator('.prose h2[id]').count());
+  const phone = info.project.name === 'mobile';
+  const contents = page.locator(phone ? 'details.toc' : 'nav.toc');
+  await expect(page.locator(phone ? 'nav.toc' : 'details.toc')).toBeHidden();
+
+  if (phone) await contents.locator('summary').click();
+  const links = contents.getByRole('link');
+  expect(await links.evaluateAll((as) => as.map((a) => (a as HTMLAnchorElement).hash.slice(1)))).toEqual(ids);
+
+  // A part (an h3): the page lands on it, marks it, and keeps the section that holds it lit.
+  const part = contents.locator('ol ol a').nth(2);
+  const id = (await part.getAttribute('href'))!.slice(1);
+  await part.click();
+  const heading = page.locator(`[id="${id}"]`);
+  await expect.poll(async () => (await heading.boundingBox())!.y).toBeLessThan(200);
+  expect((await heading.boundingBox())!.y).toBeGreaterThan(40);
+  await expect(contents.locator('a[aria-current="location"]')).toHaveText((await heading.textContent())!.trim());
+  const section = contents.locator('li:has(> ol a[aria-current]) > a');
+  await expect(section).toHaveCount(1);
+  await page.mouse.move(0, 0); // off the contents, so hover lights nothing
+  const [lit, unlit] = await Promise.all([section, links.first()].map((l) => l.evaluate((a) => getComputedStyle(a).color)));
+  expect(lit).not.toBe(unlit);
+  await expect(contents).toBeVisible();
+  await expectNoSidewaysScroll(page);
+});
+
 test('a page that does not exist is a real 404 with a way back', async ({ page }) => {
   const res = await page.goto('/no-such-page-journey/');
   expect(res?.status()).toBe(404);

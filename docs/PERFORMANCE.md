@@ -183,3 +183,6 @@ exact `dist/` it publishes, so a heavier production build fails the release inst
   10,631 B; nothing else moved. Putting the CSS in a field-note-only stylesheet would save other
   pages the 1.8 KB but add a request to every note; the shared file is already cached after the
   first page.
+  Case studies reuse it (t21875): nested parts and the lit section add 476 B of unminified source
+  CSS and 205 B to `main.js` (7,236 → 7,441 B, the marker now follows the headings the list links
+  to). Both stay inside the budgets' headroom, so neither measure was re-pinned.

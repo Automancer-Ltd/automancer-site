@@ -921,7 +921,7 @@ strong { font-weight: 600; color: inherit; }
 .article-title { font-size: var(--t-display); line-height: 1.04; letter-spacing: -0.04em;
   text-wrap: balance; margin-bottom: var(--sp-6); }
 
-/* ─────────────────────── Article contents (field notes) ───────────────────────
+/* ─────────────────── Article contents (field notes, case studies) ───────────────────
    The header hands straight on to the text (its full padding left ~120px of
    black on a phone, 205px on desktop). Wide screens keep the note's contents
    beside the text; narrower ones offer them closed above the first paragraph
@@ -934,8 +934,11 @@ strong { font-weight: 600; color: inherit; }
 .toc ol { list-style: none; padding: 0; }
 .toc a { display: block; padding-block: var(--sp-2); font-family: var(--font-ui); line-height: 1.4; text-wrap: pretty; color: var(--muted); transition: color var(--dur-1); }
 .toc a:hover, .toc a[aria-current] { color: var(--white); }
+/* A section's parts sit indented under it; the section holding the part being read stays lit. */
+.toc ol ol a { padding-left: var(--sp-4); font-size: .9em; }
+.toc li:has(> ol a[aria-current]) > a { color: var(--white); }
 .toc--inline { max-width: var(--w-read); margin-bottom: clamp(1.75rem, 4vw, 2.5rem); border-bottom: 1px solid var(--border); }
-.toc--inline ol { padding-bottom: var(--sp-4); }
+.toc--inline > ol { padding-bottom: var(--sp-4); }
 .toc summary { display: flex; align-items: center; gap: var(--sp-4); min-height: 2.75rem; cursor: pointer; list-style: none; }
 .toc summary::-webkit-details-marker { display: none; }
 .toc summary::after { content: ""; margin-inline-start: auto; width: .5rem; height: .5rem;
@@ -952,6 +955,9 @@ strong { font-weight: 600; color: inherit; }
   .toc--rail ol { margin-top: var(--sp-4); border-left: 1px solid var(--border); }
   .toc--rail a { margin-left: -1px; padding-left: var(--sp-5); border-left: 1px solid transparent; font-size: .875rem; }
   .toc--rail a[aria-current] { border-left-color: var(--spec-5); }
+  .toc--rail ol ol { margin-top: 0; border-left: 0; }
+  .toc--rail ol ol a { margin-left: -1px; padding-block: var(--sp-1); padding-left: calc(var(--sp-5) + var(--sp-4)); font-size: .8125rem; }
+  .toc--rail ol ol li:last-child a { padding-bottom: var(--sp-2); }
 }
 
 /* ─────────────────────── Field notes index ─────────────────────── */
