@@ -161,6 +161,9 @@ function measureHtmlFile(absolutePath: string, route: string, file: string): Pag
   const doc = parse(readFileSync(absolutePath, 'utf8'));
   const refs = newCssRefResult();
 
+  // Inline CSS bytes are already in htmlBytes, but its asset references still count.
+  for (const style of doc.querySelectorAll('style')) scanCssText(style.rawText, refs);
+
   // Stylesheets (+ their @import/url() closures).
   for (const link of doc.querySelectorAll('link[href]')) {
     const rel = (link.getAttribute('rel') ?? '').toLowerCase();

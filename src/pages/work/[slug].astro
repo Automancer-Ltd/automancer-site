@@ -1,5 +1,8 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
+import '../../styles/prose.css';
+import '../../styles/stat-band.css';
+import '../../styles/case-cards.css';
 import SpectrumGlow from '../../components/SpectrumGlow.astro';
 import ArticleContents from '../../components/ArticleContents.astro';
 import { getCollection, render } from 'astro:content';
@@ -116,3 +119,20 @@ const notes = [d.anonymised && 'anonymised', d.status].filter((n): n is string =
     </section>
   </article>
 </BaseLayout>
+
+<style is:global>
+/* A case study's eyebrow: sector · anonymised · status. On one line where the
+   longest (about 48rem) fits; in a narrower column (phones, tablets, enlarged
+   text) the notes take a second line under the sector, without a leading dot,
+   instead of squeezing into three ragged columns. */
+.case-hero { container-type: inline-size; }
+.case-meta__notes { margin-inline-start: .5rem; }
+.case-meta__more { margin-inline-start: calc(var(--sp-3) + .5rem); }
+@container (max-width: 50rem) {
+  .eyebrow.eyebrow--case { display: grid; grid-template-columns: 1.8rem minmax(0, 1fr); row-gap: var(--sp-2); }
+  .eyebrow--case::before { align-self: center; }
+  .case-meta__notes { grid-column: 2; margin-inline-start: 0; }
+  .case-meta__lead { display: none; }
+  .case-meta__more { margin-inline-start: .5rem; }
+}
+</style>

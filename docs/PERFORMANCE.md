@@ -1,9 +1,9 @@
 # Performance — page weight
 
 `tests/performance.test.ts` is the gate and holds the measured values and their dates. Every
-layout page ships the same shared payload (CSS, `main.js`, four variable woff2 fonts, favicons)
-plus its own HTML, so one default total budget covers every page the build emits; a new page
-needs no entry. Budget = measured + max(1024 B, 2%).
+layout page ships the shared layout assets plus its own HTML and styles. One default total
+budget covers every page the build emits. A new page needs no entry.
+Budget = measured + max(1024 B, 2%).
 
 - A page that genuinely needs more gets a `LAYOUT_EXCEPTIONS` entry with its measured value and a
   reason. A stale exception fails the suite.
@@ -18,6 +18,13 @@ exact `dist/` it publishes, so a heavier production build fails the release inst
 
 ## Decisions behind the numbers
 
+- **Page styles load where they are used (t22218, 20 Nov 2026).** Shared layout and
+  design tokens stay in `src/styles/global.css`. A page's own selectors live in
+  its Astro template, and styles used by a few routes, such as prose or case
+  cards, are imported by those routes. Astro inlines small stylesheets and
+  links the larger ones at content-hashed URLs. The weight audit counts inline
+  CSS in HTML and follows its asset references. The heaviest fixed-budget page
+  is now 163,490 B (/contact/), so the total budget was tightened to match.
 - **Fonts are four variable woff2 files**, one per family, declared in `src/styles/fonts.css`
   and bundled into the page stylesheet. In August 2026 26 static files cost ~87% of every page;
   collapsing them cut a cold visit by ~450 KB. `BaseLayout.astro` preloads exactly the two used

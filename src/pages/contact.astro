@@ -467,3 +467,76 @@ Astro.csp.insertDirective(`connect-src ${new URL(ENDPOINT_URL).origin}`);
     })();
   </script></InlineScript>
 </BaseLayout>
+
+<style is:global>
+/* ─────────────────────── Contact / form ─────────────────────── */
+/* The form is the page's job, so its first field is on the first screen at
+   1280×800 and 390×844: a compact introduction, a shorter gap before the form,
+   and the form first in source order (after the promise only visually, on
+   desktop). The promise and the phone route follow it on phones. */
+.page-hero.contact-hero { padding-block: clamp(6.5rem, 9vw, 8rem) var(--sp-8); }
+.contact-hero .page-hero__title { font-size: var(--t-4); }
+.contact-hero .page-hero__sub { font-size: var(--t-0); margin-top: var(--sp-4); }
+.section.contact-section { padding-block-start: clamp(2rem, 4vw, 3.5rem); }
+.contact-grid { display: grid; grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr); gap: clamp(2.5rem, 6vw, 5rem); align-items: start; }
+.contact-grid__aside { grid-column: 1; grid-row: 1; }
+.contact-grid__form { grid-column: 2; grid-row: 1; }
+@media (max-width: 860px) {
+  .contact-grid { grid-template-columns: minmax(0, 1fr); }
+  .contact-grid__aside, .contact-grid__form { grid-column: auto; grid-row: auto; }
+}
+
+.promise { border: 1px solid var(--border); border-radius: var(--radius-lg); padding: clamp(1.5rem, 3vw, 2.25rem);
+  background: linear-gradient(180deg, var(--near), var(--g-975)); }
+.promise__big { font-family: var(--font-display); font-weight: 800; font-size: clamp(2.4rem, 1.6rem + 3vw, 3.6rem);
+  letter-spacing: -0.04em; line-height: 1; }
+.promise__big .u { font-family: var(--font-mono); font-size: 0.9rem; font-weight: 500; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--muted); display: block; margin-top: var(--sp-3); }
+.promise p { color: var(--muted); margin-top: var(--sp-5); }
+
+.form:not([hidden]) { display: flex; flex-direction: column; gap: var(--sp-6); }
+.field:not([hidden]) { display: flex; flex-direction: column; gap: var(--sp-3); }
+.field > label { font-family: var(--font-mono); font-size: 0.72rem; font-weight: 500; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--muted); }
+.field .opt { color: var(--faint); text-transform: none; letter-spacing: 0; }
+.field input, .field textarea, .field select {
+  width: 100%; background: var(--g-975); border: 1px solid var(--border-strong); border-radius: var(--radius);
+  padding: 0.85em 1em; font-size: var(--t-0); color: var(--ink);
+  transition: border-color var(--dur-1), background var(--dur-1), box-shadow var(--dur-1);
+}
+.field textarea { min-height: 150px; resize: vertical; }
+.field input::placeholder, .field textarea::placeholder { color: var(--faint); }
+.field input:focus, .field textarea:focus, .field select:focus {
+  outline: none; border-color: var(--g-400); background: var(--g-950);
+  box-shadow: 0 0 0 3px rgba(255,255,255,0.06);
+}
+/* Keyboard focus must pass focus-appearance: 2px white ring, ≥3:1 against the
+   field and its surroundings (pointer focus keeps the quieter border change). */
+.field input:focus-visible, .field textarea:focus-visible, .field select:focus-visible {
+  outline: 2px solid var(--white); outline-offset: 2px; border-color: var(--white);
+}
+.field--hero label { font-size: 0.8rem; color: var(--ink); }
+.turnstile-slot { min-height: 65px; }
+
+.form-recovery:not([hidden]) {
+  display: grid; justify-items: start; gap: var(--sp-3);
+  grid-template-columns: minmax(0, 1fr);
+  padding: var(--sp-5); border: 1px solid var(--border-strong); border-radius: var(--radius);
+  background: var(--g-975);
+}
+.form-recovery .field { width: 100%; }
+.form-recovery [role="status"]:empty { margin: calc(-1 * var(--sp-3)) 0 0; }
+#form-unavailable a, .form-recovery a { text-decoration: underline; text-underline-offset: 0.15em; }
+.form-confirm { border: 1px solid var(--border-strong); border-radius: var(--radius-lg); padding: clamp(2rem, 4vw, 3rem);
+  background: var(--g-975); }
+.form-confirm h2 { font-size: var(--t-2); }
+.form-confirm p { color: var(--muted); margin-top: var(--sp-4); }
+
+.steps-num { counter-reset: st; display: flex; flex-direction: column; gap: 0; border-top: 1px solid var(--border); }
+.step-num { display: grid; grid-template-columns: auto 1fr; gap: var(--sp-5); padding-block: var(--sp-6);
+  border-bottom: 1px solid var(--border); }
+.step-num__n { font-family: var(--font-mono); font-size: 0.8rem; color: var(--faint); }
+.step-num__n::before { counter-increment: st; content: "0" counter(st); }
+.step-num h3 { font-size: var(--t-1); }
+.step-num p { color: var(--muted); margin-top: var(--sp-2); max-width: 56ch; }
+</style>

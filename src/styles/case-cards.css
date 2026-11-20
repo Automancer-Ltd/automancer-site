@@ -1,0 +1,43 @@
+/* ─────────────────────────── Work / case cards ─────────────────────────── */
+.case-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: var(--sp-6); }
+.case-card {
+  display: flex; flex-direction: column; gap: var(--sp-5);
+  padding: clamp(1.6rem, 3vw, 2.4rem);
+  border: 1px solid var(--border); border-radius: var(--radius-lg);
+  background: radial-gradient(560px circle at var(--mx) var(--my), rgba(255,255,255,0.045), transparent 45%),
+              linear-gradient(180deg, var(--near), var(--g-975));
+  position: relative; overflow: hidden;
+  transition: transform var(--dur-2) var(--ease-out-expo), border-color var(--dur-2);
+}
+.case-card--feature[data-spot] { background-image: radial-gradient(640px circle at var(--mx) var(--my), rgba(255,255,255,0.045), transparent 45%),
+              linear-gradient(180deg, var(--near), var(--g-975)); }
+.case-card__stats { margin-top: var(--sp-1); }
+.case-card--feature { grid-column: 1 / -1; }
+.case-grid--pair { grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); }
+.case-card:hover { transform: translateY(-4px); border-color: var(--border-strong); }
+.case-card:active { transform: translateY(-1px); transition-duration: var(--dur-1); }
+.case-card:focus-visible { border-color: var(--white); }
+.case-card::after { content: ""; position: absolute; inset: auto 0 0 0; height: 2px;
+  background: var(--spectrum); background-size: 300% 100%; transform: scaleX(0); transform-origin: left;
+  transition: transform var(--dur-3) var(--ease-out-expo); }
+.case-card:hover::after { transform: scaleX(1); animation: spectral-pan 6s linear infinite; }
+.case-card__tag { font-family: var(--font-mono); font-size: 0.68rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); }
+.case-card__title { font-family: var(--font-display); font-weight: 700; font-size: var(--t-2); letter-spacing: -0.03em; }
+.case-card__title.tlink { font-weight: 700; }
+.case-card--feature .case-card__title { font-size: var(--t-3); max-width: 26ch; }
+.case-card__blurb { color: var(--muted); font-size: var(--t-0); max-width: 60ch; }
+.case-card__blurb b, .case-card__blurb strong { color: var(--ink); font-weight: 600; }
+.case-card__foot { margin-top: auto; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-4); padding-top: var(--sp-2); }
+.case-card--feature .case-card__foot { align-items: flex-end; }
+
+.honesty {
+  display: flex; flex-direction: column; gap: var(--sp-3); align-items: flex-start;
+  padding: var(--sp-5) var(--sp-6); border: 1px solid var(--border); border-radius: var(--radius-lg);
+  background: var(--g-975); font-size: var(--t-0); color: var(--muted); max-width: 70ch; line-height: 1.6;
+}
+.honesty p { margin: 0; }
+.on-paper .honesty { background: var(--paper-2); border-color: var(--border-dark); color: var(--muted-dark); }
+.honesty__mark { font-family: var(--font-mono); font-size: 0.74rem; letter-spacing: 0.04em; color: var(--faint); flex: none; }
+
+/* Mono stat-line under a secondary case card */
+.case-card__statline { font-family: var(--font-mono); font-size: 0.74rem; color: var(--faint); line-height: 1.7; }

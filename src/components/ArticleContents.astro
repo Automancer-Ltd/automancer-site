@@ -4,8 +4,7 @@
  * <h3> parts nested beneath it, so a reader can see the shape of a long field
  * note or case study and jump to the part they came for.
  *
- * Two forms of the same list, chosen by width in CSS (global.css, "Article
- * contents"): `inline` is a closed disclosure above the first paragraph on
+ * Two forms of the same list, chosen by width in the styles below: `inline` is a closed disclosure above the first paragraph on
  * phones and tablets; `rail` sits beside the text on wide screens and stays in
  * view while reading. main.js marks the part being read (aria-current), and
  * CSS lights the section that holds it.
@@ -60,3 +59,36 @@ for (const h of headings) {
     </nav>
   )
 )}
+
+<style is:global>
+.toc__label, .toc__count { font-family: var(--font-mono); font-size: .72rem; color: var(--faint); }
+.toc__label { font-weight: 500; letter-spacing: .12em; text-transform: uppercase; }
+.toc ol { list-style: none; padding: 0; }
+.toc a { display: block; padding-block: var(--sp-2); font-family: var(--font-ui); line-height: 1.4; text-wrap: pretty; color: var(--muted); transition: color var(--dur-1); }
+.toc a:hover, .toc a[aria-current] { color: var(--white); }
+/* A section's parts sit indented under it; the section holding the part being read stays lit. */
+.toc ol ol a { padding-left: var(--sp-4); font-size: .9em; }
+.toc li:has(> ol a[aria-current]) > a { color: var(--white); }
+.toc--inline { max-width: var(--w-read); margin-bottom: clamp(1.75rem, 4vw, 2.5rem); border-bottom: 1px solid var(--border); }
+.toc--inline > ol { padding-bottom: var(--sp-4); }
+.toc summary { display: flex; align-items: center; gap: var(--sp-4); min-height: 2.75rem; cursor: pointer; list-style: none; }
+.toc summary::-webkit-details-marker { display: none; }
+.toc summary::after { content: ""; margin-inline-start: auto; width: .5rem; height: .5rem;
+  border: solid var(--faint); border-width: 0 1.5px 1.5px 0; rotate: 45deg; translate: 0 -25%; transition: rotate var(--dur-2); }
+.toc[open] summary::after { rotate: 225deg; translate: 0 25%; }
+.toc--rail { display: none; }
+@media (min-width: 64rem) {
+  .article-layout { display: grid; grid-template-columns: minmax(0, var(--w-read)) minmax(12rem, 16rem);
+    column-gap: clamp(3rem, 6vw, 6rem); justify-content: space-between; align-items: start; }
+  .article-layout > :not(.toc) { grid-column: 1; }
+  .toc--inline { display: none; }
+  .toc--rail { display: block; grid-area: 1 / 2 / span 2; position: sticky; top: 6.5rem; padding-top: .45rem;
+    max-height: calc(100dvh - 8.5rem); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+  .toc--rail ol { margin-top: var(--sp-4); border-left: 1px solid var(--border); }
+  .toc--rail a { margin-left: -1px; padding-left: var(--sp-5); border-left: 1px solid transparent; font-size: .875rem; }
+  .toc--rail a[aria-current] { border-left-color: var(--spec-5); }
+  .toc--rail ol ol { margin-top: 0; border-left: 0; }
+  .toc--rail ol ol a { margin-left: -1px; padding-block: var(--sp-1); padding-left: calc(var(--sp-5) + var(--sp-4)); font-size: .8125rem; }
+  .toc--rail ol ol li:last-child a { padding-bottom: var(--sp-2); }
+}
+</style>

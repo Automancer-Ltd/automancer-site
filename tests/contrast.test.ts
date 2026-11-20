@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { allHtmlFiles, contentPages, readDistFile } from './support/dist';
+import { allHtmlFiles, contentPages, readDistFile, resolveInDist } from './support/dist';
 
 const services = contentPages().find((page) => page.route === '/services/');
-const stylesheet = services?.doc.querySelector('link[rel="stylesheet"][href^="/_astro/"]')?.getAttribute('href');
-const css = stylesheet ? readDistFile(stylesheet.slice(1)) : null;
+const css = services?.doc.querySelectorAll('link[rel="stylesheet"][href], style').map((tag) => {
+  if (tag.tagName === 'STYLE') return tag.rawText;
+  const file = resolveInDist(services.file, tag.getAttribute('href')!);
+  return file ? readDistFile(file) : null;
+}).join('\n');
 
 function declaration(selector: string, property: string): string {
   expect(css, 'services stylesheet was not emitted').toBeTruthy();
