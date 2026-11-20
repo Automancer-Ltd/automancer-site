@@ -7,7 +7,7 @@ It does not outrank anything: `VISION.md` is authority 0 and `SPEC.md` describes
 When this file and `SPEC.md` disagree about what exists, `SPEC.md` and the code are right and this
 file is out of date.
 
-Last updated: 20 November 2026 (share cards for every page, t22092).
+Last updated: 20 November 2026 (field notes: opening line on a laptop's first screen, and Keep reading, t22126).
 
 ## Where the site stands against the vision
 
@@ -164,6 +164,22 @@ before anyone clicks. Each page's WebPage JSON-LD names its card as `primaryImag
 - The 21 existing cards are byte-identical, and all 30 `contentSha256` values are unchanged.
 - Undo: revert this slice's merge commit; the revert restores og-image.png and its source, and
   pages name it again.
+
+## Frontend slice: a field note starts on its first line and ends with the next notes (20 November 2026, t22126)
+
+On a laptop (1280x800) only 1 of the 17 field notes showed any of its text on the first screen: the
+title at `--t-display` ran to four lines and the opening paragraph sat at 754-904 px. And a reader
+who finished a note had nowhere to go but the CTA or "All field notes"; the notes on the same
+subject were 6,000 px down the index.
+
+- The title is capped at 3.25rem (`min(var(--t-display), 3.25rem)`, binding from about 1,000 px
+  wide) and the article hero's top padding at 8.5rem. Opening line on the first screen: 1024x768
+  7/17 -> 17/17, 1280x800 1/17 -> 17/17 (median 829 -> 644 px), 1440x900 12/17 -> 17/17. Phones
+  are unchanged (390x844: 17/17 before and after, same positions).
+- "Keep reading": three other notes under the byline, chosen by `src/data/related-notes.ts` (same
+  topic label first, then shared tags, ignoring tags most notes carry, ties to the newer note). It is
+  navigation (`data-page-words="skip"`), so all 30 `contentSha256` values are unchanged.
+- Undo: revert this slice's merge commit.
 
 ## Frontend slice: prices on arrival (12 November 2026, t19164)
 
