@@ -21,10 +21,11 @@ exact `dist/` it publishes, so a heavier production build fails the release inst
 - **The browser starts stylesheet requests at the start of the head (t22318, 20 Nov
   2026).** Astro emits the stylesheet links after page metadata and inline CSS.
   The static build now emits preload hints for those same hashed files just after
-  the viewport and CSP tags, before the font hints. The stylesheet links keep
-  their original cascade order and cache URLs. The policy and the blocks it
-  hashes retain their exact bytes. The dist audit checks that every layout page,
-  including the custom 404, gives the browser the right hints early in the head.
+  the viewport and CSP tags, with the two existing font hints first to keep the
+  home headline steady as it paints. The stylesheet links keep their original
+  cascade order and cache URLs. The policy and the blocks it hashes retain their
+  exact bytes. The dist audit checks that every layout page, including the custom
+  404, gives the browser the right hints early in the head.
 - **JetBrains Mono keeps its slash ligatures (t22274, 20 Nov 2026).** The site
   uses `//` in URLs and labels. The subset keeps the rules for repeated
   slashes and drops the other programming ligatures. The font fell

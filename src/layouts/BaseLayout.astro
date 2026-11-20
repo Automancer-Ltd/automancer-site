@@ -94,6 +94,9 @@ const SPECULATION_RULES = {
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    {/* Preload the two self-hosted fonts used above the fold on every page. */}
+    <link rel="preload" href={spaceGroteskUrl} as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href={syneUrl} as="font" type="font/woff2" crossorigin />
     <meta name="theme-color" content="#000000" />
     <meta name="is-agentic-site-type" content="business" />
     {/* The full commit this page was built from: deploy checks compare it with the commit shipped. */}
@@ -105,15 +108,6 @@ const SPECULATION_RULES = {
     <link rel="icon" type="image/png" sizes="16x16" href="/assets/images/favicon-16.png" />
     <link rel="icon" href="/assets/images/logo.svg" type="image/svg+xml" />
 
-    <!-- Fonts: two display voices (Syne + JetBrains Mono machine voice),
-         Space Grotesk for UI/body, Outfit for long-form reading. Weights
-         trimmed to what the design actually uses; display=swap avoids FOIT.
-         Self-hosted from our own origin (src/styles/fonts.css, bundled into
-         the page stylesheet) — no request ever leaves the visitor's browser
-         to a third-party font host, so no visitor IP is shared with Google.
-         The two used above the fold on every page load at once. -->
-    <link rel="preload" href={spaceGroteskUrl} as="font" type="font/woff2" crossorigin />
-    <link rel="preload" href={syneUrl} as="font" type="font/woff2" crossorigin />
     <InlineScript><script type="speculationrules" is:inline set:html={JSON.stringify(SPECULATION_RULES)} /></InlineScript>
 
     <!-- One JSON-LD @graph per page: Organization + WebSite + this page,

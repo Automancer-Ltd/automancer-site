@@ -153,23 +153,24 @@ describe('page-weight budgets', () => {
 });
 
 describe('asset integrity behind the budgets', () => {
-  it('lets the browser discover each page stylesheet before fonts or inline styles', () => {
+  it('lets the browser discover the critical fonts and each stylesheet early under the page CSP', () => {
     for (const page of pageCheckPages()) {
       const head = page.doc.querySelector('head')!;
       const styles = head.querySelectorAll('link[rel="stylesheet"]');
       expect(styles.length, page.route).toBeGreaterThan(0);
 
       const preloads = head.querySelectorAll('link[rel="preload"][as="style"]');
-      const firstFont = head.querySelector('link[rel="preload"][as="font"]')!;
-      const firstInlineStyle = head.querySelector('style');
+      const fonts = head.querySelectorAll('link[rel="preload"][as="font"]');
       const policy = head.querySelector('meta[http-equiv="content-security-policy"]')!;
+      const metadata = head.querySelector('title')!;
+      expect(fonts.length, page.route).toBeGreaterThan(0);
       expect(preloads.map((link) => link.getAttribute('href')), page.route)
         .toEqual(styles.map((link) => link.getAttribute('href')));
-      const firstCompetingResource = Math.min(firstFont.range[0], firstInlineStyle?.range[0] ?? Infinity);
-      for (const preload of preloads) {
+      for (const preload of [...fonts, ...preloads]) {
         expect(preload.range[0], page.route).toBeGreaterThanOrEqual(policy.range[1]);
-        expect(preload.range[1], page.route).toBeLessThanOrEqual(firstCompetingResource);
+        expect(preload.range[1], page.route).toBeLessThanOrEqual(metadata.range[0]);
       }
+      expect(fonts.at(-1)!.range[1], page.route).toBeLessThanOrEqual(preloads[0].range[0]);
     }
   });
 

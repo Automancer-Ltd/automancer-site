@@ -23,19 +23,27 @@ export function preloadStylesheets(): AstroIntegration {
           if (!styles.length) continue;
           const viewport = head.querySelector('meta[name="viewport"]');
           const policy = head.querySelector('meta[http-equiv="content-security-policy"]');
-          if (!viewport || !policy || viewport.range[1] > policy.range[0]) {
+          const lastFont = head.querySelectorAll('link[rel="preload"][as="font"]').at(-1);
+          if (!viewport || !policy) {
             throw new Error(`Cannot preload styles under the page's CSP in ${file}`);
           }
 
           // Keep the CSP and every hashed inline block byte-for-byte as Astro emitted them.
-          const [, insertAt] = viewport.range;
+          const [, viewportEnd] = viewport.range;
+          // Give the above-the-fold type first use of the connection. Starting CSS
+          // ahead of those fonts can paint the homepage with a visibly shifting fallback.
+          const preloadAt = lastFont?.range[1] ?? viewportEnd;
           const [policyStart, policyEnd] = policy.range;
+          if (preloadAt > policyStart) {
+            throw new Error(`Expected Astro to emit the page CSP after the resource hints in ${file}`);
+          }
           const preloads = [...new Set(styles)]
             .map((href) => `<link rel="preload" as="style" fetchpriority="high" href="${href}">`)
             .join('');
           writeFileSync(file,
-            html.slice(0, insertAt) + html.slice(policyStart, policyEnd) + preloads
-            + html.slice(insertAt, policyStart) + html.slice(policyEnd),
+            html.slice(0, viewportEnd) + html.slice(policyStart, policyEnd)
+            + html.slice(viewportEnd, preloadAt) + preloads
+            + html.slice(preloadAt, policyStart) + html.slice(policyEnd),
           );
         }
       },
