@@ -5,6 +5,16 @@ import sitemap from '@astrojs/sitemap';
 import { pageDates } from './src/integrations/page-dates';
 
 /**
+ * Where browser error reports go: the origin of the Sentry DSN this build
+ * bakes into src/scripts/sentry.ts, or nothing when the build has no DSN
+ * (development and preview builds). Every page may send to it and to its
+ * own origin, and nowhere else; tests/csp.test.ts fails if a built page's
+ * policy and the bundled DSN disagree.
+ */
+const SENTRY_DSN = process.env.PUBLIC_AUT_SENTRY_WEB_DSN;
+const reportOrigin = SENTRY_DSN ? new URL(SENTRY_DSN).origin : null;
+
+/**
  * Sitemap <lastmod>, read from the built /api/pages.json so the two cannot
  * disagree. Every page there carries a real date: when its words last changed
  * on the live site (src/integrations/page-dates.ts dates the file first). The
@@ -72,8 +82,24 @@ export default defineConfig({
   // inline JavaScript and eval stay blocked; the external application script
   // and lazy Sentry modules load from our origin. Turnstile is the only
   // third-party script source, added only by contact.astro.
+  //
+  // Everything else a page may load or send to is listed too, starting from
+  // nothing (default-src 'none'), so the browser itself enforces "no
+  // tracking": a page can talk only to this site and the error-report origin.
+  // contact.astro adds the enquiry API and the Turnstile frame for that page
+  // alone. The edge Worker's header adds frame-ancestors, which a <meta>
+  // policy cannot carry. Method and checks: docs/DEPLOYMENT.md.
   security: {
     csp: {
+      directives: [
+        "default-src 'none'",
+        `connect-src 'self'${reportOrigin ? ` ${reportOrigin}` : ''}`,
+        "img-src 'self' data:",
+        "font-src 'self'",
+        "manifest-src 'self'",
+        "form-action 'self'",
+        "base-uri 'self'",
+      ],
       scriptDirective: {
         resources: [
           "'self'",

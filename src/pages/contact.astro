@@ -28,7 +28,11 @@ import { AFTER_SEND_STEPS, enquiryField } from '../data/enquiry';
 
 const steps = AFTER_SEND_STEPS;
 const f = enquiryField;
+// This page alone may load Turnstile, show its challenge frame and send the
+// enquiry to the intake API; every other page's policy refuses all three.
 Astro.csp.insertScriptResource('https://challenges.cloudflare.com');
+Astro.csp.insertDirective('frame-src https://challenges.cloudflare.com');
+Astro.csp.insertDirective(`connect-src ${new URL(ENDPOINT_URL).origin}`);
 ---
 
 <BaseLayout
