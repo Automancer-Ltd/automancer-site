@@ -44,8 +44,8 @@ never a working checkout:
 
 | Signal | What it proves | How an agent reads it |
 |---|---|---|
-| `ops/verify-production.sh` | every page in the sitemap and `/api/pages.json` and every Markdown twin (200, no redirect, right content type), a real 404, machine surfaces, legal anchor, served revision, Sentry project id in the bundle, TLS > 21 days | run it; also the hosted schedule below |
-| estate-watch schedule `siteVerify` (Executor, :04 and :34 UTC) | the same checks between deploys (pages: only the `ROUTES` list so far; it does not yet read the sitemap and `/api/pages.json`), read from this script at the revision production serves; a failure files one Gandalf task in automancer/site | Executor `estate-watch` `scheduleRuns {name:"siteVerify"}`; run one now with `siteVerify.run {}` |
+| `ops/verify-production.sh` | every page in the sitemap and `/api/pages.json` and every Markdown twin (200, no redirect, right content type), a real 404, machine surfaces, legal anchor, served revision, Sentry project id in the bundle, TLS > 21 days, `automancer.co.uk` refuses forged mail (null MX, SPF `-all`, DMARC reject) | run it; also the hosted schedule below |
+| estate-watch schedule `siteVerify` (Executor, :04 and :34 UTC) | the same checks between deploys (pages: only the `ROUTES` list so far; it does not yet read the sitemap and `/api/pages.json`, nor run the forged-mail check), read from this script at the revision production serves; a failure files one Gandalf task in automancer/site | Executor `estate-watch` `scheduleRuns {name:"siteVerify"}`; run one now with `siteVerify.run {}` |
 | UptimeRobot monitor `803613943` "site automancer.uk" | the public URL answers, independent of auto-vps | Executor `uptimerobot-guarded` `list-monitors` |
 | Sentry project `automancer-site` (id `4511769898647632`, org `automancer`), events tagged with the release SHA | browser errors on the live site | Executor `sentry-guarded.events.listAProjectSIssues` |
 
@@ -242,6 +242,27 @@ Measured on 15 Nov 2026:
 
 Allow two hours or more. With the proxy back, GitHub cannot renew by itself, so repeat this before
 each expiry: about 30 days before, as Let's Encrypt would.
+
+## automancer.co.uk refuses forged mail (t21934)
+
+`automancer.co.uk` (Cloudflare zone `4d8f72d51dbdbf945ae9f6b15db0ac44`, the Automancer account)
+only redirects to `automancer.uk`. It sends and receives no mail: on 20 Nov 2026 Gmail had no
+send-as alias on it, and the mailbox held no message to or from it. Until then it published no MX,
+no SPF and no DMARC, so mail forged as `anything@automancer.co.uk` reached receivers that had no
+policy telling them to refuse it. Since 20 Nov 2026 it publishes:
+
+| Record | Value | Cloudflare record id |
+|---|---|---|
+| MX `automancer.co.uk` | `0 .` (null MX, RFC 7505: refuse mail at once) | `c784fedf70ebe3da3387cc30682855f8` |
+| TXT `automancer.co.uk` | `v=spf1 -all` | `02c23e1387d5a267477b18ddf8212303` |
+| TXT `_dmarc.automancer.co.uk` | `v=DMARC1; p=reject; sp=reject; adkim=s; aspf=s` | `1700240fe27346ff5d0a20a45c3f26ed` |
+
+`sp=reject` covers `www.automancer.co.uk`, which is a CNAME and so cannot carry its own TXT.
+`ops/verify-production.sh` reads all three back over DNS over HTTPS (`NO_MAIL_DOMAINS`,
+`check_no_mail_domains`). It runs after every deploy, so a deleted or weakened record fails the next one.
+If the domain ever needs mail, replace all three records in one change and remove it from
+`NO_MAIL_DOMAINS`. To undo, delete the three records (Executor `cloudflare-full-access`
+`dnsRecordsForAZone.dnsRecordsForAZoneDeleteDnsRecord`) and revert the verifier change.
 
 ## Rollback
 

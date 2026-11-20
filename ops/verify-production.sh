@@ -55,6 +55,13 @@ readonly SECURITY_HEADERS=(
   "Content-Security-Policy: frame-ancestors 'none'; base-uri 'self'; object-src 'none'"
   "Permissions-Policy: camera=(), microphone=(), geolocation=()"
 )
+# The site's domains that send and receive no mail (automancer.co.uk only
+# redirects to automancer.uk). Each must refuse forged mail in its name: a
+# null MX (RFC 7505), SPF "v=spf1 -all" and DMARC p=reject with no weaker sp=
+# (t21934). Without them anyone could send "From: accounts@automancer.co.uk"
+# and receivers had no policy telling them to refuse it. Read over DNS over
+# HTTPS (DOH_URL), so it works where port 53 is blocked.
+readonly NO_MAIL_DOMAINS=("automancer.co.uk")
 # The stability & deprecation policy. Checked for SHAPE, not just for a 200:
 # a promise an agent cannot trust is worse than no promise, and any old JSON
 # would pass a parse-only check.
@@ -98,6 +105,7 @@ HOST=''       # hostname only (for TLS SNI)
 HOST_PORT=''  # hostname[:port]
 EXPECTED_REVISION='' # seven-character revision served in the homepage proof strip
 PREVIEW_MODE=0         # --preview: invert the Sentry assertion for a non-production target
+DOH_URL='https://cloudflare-dns.com/dns-query'  # JSON DNS-over-HTTPS resolver; --self-test points it at its fixture
 
 FAILED_CHECKS=()
 
@@ -774,6 +782,66 @@ check_security_txt() {
   rm -f "$BODY_FILE"
 }
 
+# no_mail_verdict <domain> — reads the domain's MX, its TXT and _dmarc TXT from
+# DOH_URL and prints what is missing for it to refuse forged mail, or a
+# one-line summary when nothing is. An answer that cannot be read is a failure
+# (never "no record"): a resolver error must not pass as a clean domain.
+no_mail_verdict() {
+  python3 - "$DOH_URL" "$1" "$HTTP_TIMEOUT_SECS" <<'PY'
+import json, re, sys, urllib.request
+doh, domain, timeout = sys.argv[1], sys.argv[2], float(sys.argv[3])
+TYPES = {"MX": 15, "TXT": 16}
+def answers(name, rtype):
+    url = f"{doh}?name={name}&type={rtype}"
+    req = urllib.request.Request(url, headers={"Accept": "application/dns-json"})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            data = json.load(r)
+    except Exception as e:
+        sys.exit(f"{rtype} {name}: DNS-over-HTTPS query to {doh} failed ({e})")
+    if data.get("Status") not in (0, 3):  # NOERROR or NXDOMAIN; anything else is unreadable
+        sys.exit(f"{rtype} {name}: resolver answered DNS status {data.get('Status')}")
+    out = []
+    for a in data.get("Answer") or []:
+        if a.get("type") != TYPES[rtype]:
+            continue  # a CNAME hop on the way
+        v = str(a.get("data", ""))
+        # TXT strings come quoted from some resolvers ("v=spf1" " -all"), bare from others.
+        out.append("".join(re.findall(r'"((?:[^"\\]|\\.)*)"', v)) if v.startswith('"') else v)
+    return out
+bad = []
+mx = [" ".join(m.split()) for m in answers(domain, "MX")]
+if mx != ["0 ."]:
+    bad.append(f"MX is {mx or 'absent'}, not the null MX \"0 .\" (mail to it would wait days to bounce)")
+spf = [t for t in answers(domain, "TXT") if t.lower().startswith("v=spf1")]
+if [" ".join(t.lower().split()) for t in spf] != ["v=spf1 -all"]:
+    bad.append(f"SPF is {spf or 'absent'}, not exactly one \"v=spf1 -all\"")
+dmarc = [t for t in answers(f"_dmarc.{domain}", "TXT") if t.lower().replace(" ", "").startswith("v=dmarc1")]
+tags = {}
+if len(dmarc) == 1:
+    tags = {k.strip().lower(): v.strip().lower() for k, _, v in (p.partition("=") for p in dmarc[0].split(";")) if v}
+if len(dmarc) != 1 or tags.get("p") != "reject" or tags.get("sp", "reject") != "reject" or tags.get("pct", "100") != "100":
+    bad.append(f"DMARC is {dmarc or 'absent'}, not one record with p=reject (and no weaker sp= or pct=)")
+if bad:
+    print(f"{domain}: " + "; ".join(bad))
+    sys.exit(1)
+print(f"{domain}: null MX, SPF -all, DMARC p=reject")
+PY
+}
+
+check_no_mail_domains() {
+  local domain verdict ok=()
+  for domain in "${NO_MAIL_DOMAINS[@]}"; do
+    if ! verdict=$(no_mail_verdict "$domain" 2>&1); then
+      printf '%s does not refuse forged mail: %s\n' "$domain" "$(printf '%s' "$verdict" | tr '\n' ' ')"
+      return 1
+    fi
+    ok+=("$verdict")
+  done
+  local IFS=';'
+  printf 'forged mail is refused: %s\n' "${ok[*]}"
+}
+
 xml_parses() {
   # Real XML parse, not a substring sniff. python3 ships on GitHub's Ubuntu
   # runners and every machine this repo is developed on.
@@ -1209,6 +1277,41 @@ print(json.dumps({"routes": routes, "default": {"status": 404, "body": ""}}))
 PY
 }
 
+# self_test_no_mail_scenario <mutation> — DNS-over-HTTPS JSON answers for every
+# NO_MAIL_DOMAINS entry, served at /dns-query?name=…&type=…. TXT data comes
+# quoted (as Cloudflare's resolver sends it) for the apex and bare (as Google's
+# does) for _dmarc, so the control reads both. <mutation> breaks one rule; "none"
+# is the control.
+self_test_no_mail_scenario() {
+  python3 - "$1" "${NO_MAIL_DOMAINS[@]}" >"$SELFTEST_SCENARIO" <<'PY'
+import json, sys
+mutation, domains = sys.argv[1], sys.argv[2:]
+def answer(name, rtype, data, status=0):
+    code = {"MX": 15, "TXT": 16}[rtype]
+    return {"body": json.dumps({"Status": status, "Answer": [{"name": name, "type": code, "data": d} for d in data]}),
+            "headers": {"Content-Type": "application/dns-json"}}
+routes = {}
+for d in domains:
+    mx = {"mx_absent": [], "mx_real": ["10 mail.example."]}.get(mutation, ["0 ."])
+    txt = ['"google-site-verification=x"'] + {
+        "spf_softfail": ['"v=spf1 ~all"'],
+        "spf_twice": ['"v=spf1 -all"', '"v=spf1 include:_spf.google.com -all"'],
+    }.get(mutation, ['"v=spf1" " -all"'])
+    dmarc = {
+        "dmarc_absent": [],
+        "dmarc_none": ["v=DMARC1; p=none"],
+        "dmarc_sp_none": ["v=DMARC1; p=reject; sp=none"],
+    }.get(mutation, ["v=DMARC1; p=reject; sp=reject; adkim=s; aspf=s"])
+    routes[f"/dns-query?name={d}&type=MX"] = answer(d, "MX", mx)
+    routes[f"/dns-query?name={d}&type=TXT"] = answer(d, "TXT", txt, 2 if mutation == "servfail" else 0)
+    routes[f"/dns-query?name=_dmarc.{d}&type=TXT"] = answer(f"_dmarc.{d}", "TXT", dmarc)
+known = {"none", "mx_absent", "mx_real", "spf_softfail", "spf_twice", "dmarc_absent", "dmarc_none", "dmarc_sp_none", "servfail"}
+if mutation not in known:
+    sys.exit(f"unknown mutation {mutation}")
+print(json.dumps({"routes": routes, "default": {"status": 404, "body": ""}}))
+PY
+}
+
 # self_test_expect <expected> <label> <fn> [args...]
 # Run one check directly (no poll_check retry budget) and assert its result is
 # the expected direction. Records a failure in SELF_TEST_FAILURES and always
@@ -1349,6 +1452,20 @@ self_test() {
   self_test_scenario "{\"routes\":{\"/\":{\"status\":200,\"body\":\"ok\",\"headers\":${secure}}},\"default\":{\"status\":404,\"body\":\"\",\"headers\":${secure}}}"
   self_test_expect pass "security headers are sent on pages and on 404s" check_security_headers
   self_test_expect pass "security header values match exactly" check_security_headers
+
+  DOH_URL="${BASE_URL}/dns-query"
+  for mutation in mx_absent mx_real spf_softfail spf_twice dmarc_absent dmarc_none dmarc_sp_none servfail; do
+    case $mutation in
+      mx_*) label="a no-mail domain publishes the null MX" ;;
+      spf_*) label="a no-mail domain publishes only SPF -all" ;;
+      dmarc_*) label="a no-mail domain publishes DMARC p=reject" ;;
+      servfail) label="an unreadable DNS answer fails the mail check" ;;
+    esac
+    self_test_no_mail_scenario "$mutation"
+    self_test_expect fail "$label" check_no_mail_domains
+    self_test_no_mail_scenario none
+    self_test_expect pass "$label" check_no_mail_domains
+  done
 
   self_test_route_scenario "/agent.json" 200 "{ not json"
   self_test_expect fail "agent manifest is valid JSON" check_agent_manifest
@@ -1594,6 +1711,7 @@ main() {
     if ! poll_check "the /.well-known/ copies are served" check_well_known; then :; fi
     # The edge Worker sends these; the preview server has no Worker in front.
     if ! poll_check "the edge Worker's security headers are sent on pages, twins and 404s" check_security_headers; then :; fi
+    if ! poll_check "${NO_MAIL_DOMAINS[*]} refuses forged mail (null MX, SPF -all, DMARC p=reject)" check_no_mail_domains; then :; fi
   fi
   if ! poll_check "homepage contains structural anchor \"${HOMEPAGE_ANCHOR}\"" check_homepage_anchor; then :; fi
   if [[ -n $EXPECTED_REVISION ]]; then
