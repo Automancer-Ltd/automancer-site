@@ -9,11 +9,12 @@ needs no entry. Budget = measured + max(1024 B, 2%).
   reason. A stale exception fails the suite.
 - A page whose HTML grows with what it publishes (`/releases/`, the whole changelog) is in
   `GROWS_WITH_CONTENT`: it skips only the total, keeps the JS and font checks.
-- To re-derive after a deliberate change to the shared payload: `pnpm run build` without a DSN,
+- To re-derive after a deliberate change to the shared payload: `pnpm run test` (it builds),
   `node tests/support/perf-cli.ts --csv`, update the measured constants and their date in the test.
 
-Measurements use a build without `PUBLIC_AUT_SENTRY_WEB_DSN`, the build CI tests. Production adds
-only the Sentry bootstrap described below.
+Measurements use the build the tests make: monitoring on, with the dummy DSN in
+`tests/support/build-env.ts`, the same shape production ships. `deploy.yml` runs the budgets on the
+exact `dist/` it publishes, so a heavier production build fails the release instead of shipping.
 
 ## Decisions behind the numbers
 
@@ -55,6 +56,14 @@ only the Sentry bootstrap described below.
   measure with a DSN, build with the dummy
   `PUBLIC_AUT_SENTRY_WEB_DSN='https://0000000000000000@o1.ingest.de.sentry.io/4511769898647632'`
   and sum the gzip size of every `<script src>` in `dist/index.html`.
+- **The SDK chunk carries only what the site uses (t21303, 20 Nov 2026).** Taking the dynamic
+  import as a namespace (`.then((Sentry) => Sentry.init(…))`) stopped Rollup tree-shaking it, so the
+  first error on a page downloaded all of `@sentry/browser`: session replay, the feedback widget, the
+  offline transport (IndexedDB) and linked traces (sessionStorage), none of them enabled. Naming the
+  seven exports in the import's destructuring cut that chunk from 423,059 B (140,298 B gzip) to
+  90,703 B (31,002 B gzip), and it now references no storage API. Nothing caught it because the
+  tests built without a DSN and never saw the chunk; they now build with monitoring on, and
+  `tests/performance.test.ts` pins the chunk's size.
 - **Internal links carry their trailing slash.** GitHub Pages answers `/contact` with a 301 to
   `/contact/`, one round trip per click. `tests/links.test.ts` ("internal page links") fails on
   any slashless internal `href`.

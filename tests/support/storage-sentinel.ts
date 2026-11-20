@@ -141,6 +141,19 @@ function instrument(window: Window, touches: string[], instrumentedWindows: Weak
 }
 
 /**
+ * `eval` runs classic scripts, where `import.meta` is a syntax error. A module
+ * keeps its own strict scope and gets `import.meta.url` as the browser would
+ * give it (Vite's preload helper reads it, only when a dynamic import runs). A
+ * static `import` declaration still fails to parse, so a module this cannot
+ * run is reported as an error, never skipped.
+ */
+function asClassicScript(source: string, src: string | null): string {
+  const url = new URL(src ?? '/', 'https://automancer.uk/').href;
+  const meta = `({ url: ${JSON.stringify(url)} })`;
+  return `(function () {\n'use strict';\n${source.replace(/\bimport\.meta\b/g, meta)}\n})();`;
+}
+
+/**
  * Loads one built page into happy-dom, runs its top-level inline and
  * same-origin external scripts, fires `DOMContentLoaded`, and reports any
  * browser-storage touch.
@@ -181,7 +194,7 @@ export function runPage(html: string): PageRunResult {
     }
 
     try {
-      window.eval(source);
+      window.eval(type === 'module' ? asClassicScript(source, src) : source);
     } catch (error) {
       errors.push(`${src ?? 'inline script'}: ${error instanceof Error ? error.message : String(error)}`);
     }

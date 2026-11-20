@@ -7,9 +7,11 @@
    (`pnpm run journey`, Playwright at phone and desktop width on the built `dist/`) and the `ops/`
    self-tests.
 2. Merge to `main` → `.github/workflows/deploy.yml`, in about two minutes:
-   - `build` re-runs `pnpm run verify` on the merged commit (a merge can produce a tree no pull
-     request tested; there is no separate CI run on `main`), then builds with the Sentry DSN and
-     `PUBLIC_SENTRY_RELEASE=$GITHUB_SHA` and uploads the Pages artifact;
+   - `build` builds the merged commit once, with the Sentry DSN, `PUBLIC_SENTRY_RELEASE=$GITHUB_SHA`
+     and production's page dates, then runs lint, typecheck and the whole `dist/` audit on those
+     exact bytes before uploading them as the Pages artifact (a merge can produce a tree no pull
+     request tested; there is no separate CI run on `main`). It holds no Pages or OIDC permission:
+     only `deploy` can publish;
    - `deploy` publishes it with `actions/deploy-pages`, then runs
      `ops/verify-production.sh --expected-revision "$GITHUB_SHA" https://automancer.uk`
      against production itself. A red verify is a red release;
@@ -74,8 +76,10 @@ Error reports keep standard JavaScript error types, the release ID, the page's b
 path and known first-party script locations with line and column numbers. The browser excludes
 exception messages, rejected values, stack function names, activity history and arbitrary URLs.
 The SDK sends error events only. The telemetry browser journey intercepts the real SDK envelopes,
-including on production, so its synthetic probes never reach Sentry. Locally the journey rebuilds
-with a dummy DSN. Undo by reverting the change through the normal Pages release.
+including on production, so its synthetic probes never reach Sentry. The Vitest audit and the local
+journey build with the unreachable dummy DSN in `tests/support/build-env.ts`, so the bootstrap and
+the SDK chunk a visitor downloads on their first error are audited for storage and weight like
+everything else. Undo by reverting the change through the normal Pages release.
 
 ## The preview target (rehearsals, drafts for review)
 
@@ -83,7 +87,8 @@ A non-production origin on auto-vps: `https://automancer-vps.taild6c90e.ts.net:4
 user unit `automancer-site-preview.service`, releases under
 `/opt/automancer/srv/automancer-site-preview/`. It cannot serve `main` or `automancer.uk`: the deploy
 refuses `main`, the server serves only a root `ops/preview/preview.mjs mark` stamped, everything is
-`noindex` with a visible banner, and it refuses ports 80 and 443. Preview builds carry no Sentry DSN.
+`noindex` with a visible banner, and it refuses ports 80 and 443. Preview builds are the gate's build, so they carry the tests' dummy DSN (`example.invalid`): an
+error there loads the SDK and its report goes nowhere.
 
 ```bash
 ops/preview/install-target.sh [<ref>]        # install/refresh the target code (default main)

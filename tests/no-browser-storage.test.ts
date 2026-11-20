@@ -18,9 +18,13 @@
  *
  * Scope and honesty about it:
  *   - This greps the BUILT OUTPUT — inline scripts and every emitted JS
- *     asset, not just our own source. The test build has no Sentry DSN, so
- *     the lazily loaded Sentry chunk is not emitted here (a DSN build of
- *     @sentry/browser 11 references no storage API: checked 2026-10-22).
+ *     asset, not just our own source. The test build carries monitoring as
+ *     production does (tests/support/build-env.ts), so the lazily loaded
+ *     Sentry chunk is scanned too, and deploy.yml runs this on the exact
+ *     dist/ it publishes. Until 20 Nov 2026 the test build had no DSN and
+ *     never emitted that chunk, which held the whole SDK, session replay's
+ *     sessionStorage and the offline transport's IndexedDB included, unused
+ *     but shipped (t21303).
  *   - This is a STATIC scan of source text, not proof the APIs are never
  *     called. Adversarial review (AUT-6705, 2026-08-22) demonstrated that a
  *     computed reference — `window[["session", "Storage"].join("")]`,

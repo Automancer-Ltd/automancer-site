@@ -1,14 +1,16 @@
 /**
  * Page-weight budgets — the gate that makes regressions impossible to miss.
  *
- * Every layout page ships the same shared payload (CSS, main.js, four variable
- * woff2 fonts, favicons: 145,928 B on 2026-11-12) plus its own HTML, so one
+ * Every layout page ships the same shared payload (CSS, main.js, the Sentry
+ * bootstrap, four variable woff2 fonts, favicons: 149,833 B on 2026-11-20) plus
+ * its own HTML, so one
  * default total budget covers them all. The population is whatever the build
  * emits: a new page is budgeted the moment it exists, with no entry to add.
  *
  * Budgets are MEASURED, never guessed: `node tests/support/perf-cli.ts --csv`
- * against a fresh `PUBLIC_AUT_SENTRY_WEB_DSN=""` build (the empty DSN ci.yml's
- * test job builds with; method and tables in docs/PERFORMANCE.md).
+ * against the build `pnpm run test` makes (monitoring on, as production ships
+ * it: tests/support/build-env.ts; method and tables in docs/PERFORMANCE.md).
+ * deploy.yml runs these same budgets on the exact dist/ it publishes.
  * Budget = measured + headroom, where headroom = max(1024, ceil(measured × 0.02)):
  * slack for copy edits and hashing noise, small enough that adding an asset,
  * font weight or dependency-sized script trips it.
@@ -17,11 +19,14 @@
  * entry in LAYOUT_EXCEPTIONS with its reason; a change to the shared payload
  * re-measures LAYOUT_MEASURED and explains the jump in docs/PERFORMANCE.md.
  */
+import { readdirSync, statSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { measureAllPages } from './support/perf';
+import { allHtmlFiles } from './support/dist';
+import { DIST, measureAllPages } from './support/perf';
 
-/** Measured 2026-11-12: heaviest layout page (/contact/, 174,317 B), after the fonts were cut to the characters the site shows (t19380). */
-const LAYOUT_MEASURED = 174317;
+/** Measured 2026-11-20: heaviest layout page (/contact/, 179,607 B), now counting the Sentry bootstrap production has always carried (t21303). */
+const LAYOUT_MEASURED = 179607;
 
 /**
  * Layout pages that genuinely need more than the default, each with its own
@@ -38,8 +43,15 @@ const GROWS_WITH_CONTENT: Record<string, string> = {
   '/releases/': 'the whole of CHANGELOG.md, about 1 KB of HTML per release',
 };
 
-/** JS measured 2026-11-12 (main.js, waits for a prerendered page to open); fonts 2026-11-12. Identical on every layout page. */
-const MEASURED_JS = 5841; // dist/assets/js/main.js — the only external script
+/** JS measured 2026-11-20; fonts 2026-11-12. Identical on every layout page. */
+const MEASURED_JS = 9761; // main.js (5,841 B) + the Sentry bootstrap module (3,920 B, src/scripts/sentry.ts)
+/**
+ * The Sentry SDK chunk, fetched only when a visitor's page first throws. It
+ * is the error path's whole cost, so it is pinned too: importing the SDK as a
+ * namespace once shipped all of it (423,059 B, replay and feedback included)
+ * and nothing failed (t21303).
+ */
+const MEASURED_ON_ERROR_JS = 90703;
 const MEASURED_FONTS = 83044; // 4 variable woff2 subsets (ops/fonts/subset.py) reachable from the page CSS
 
 /**
@@ -87,14 +99,35 @@ describe('page-weight budgets', () => {
   });
 
   it('keeps JavaScript within budget on every layout page', () => {
-    const budget = MEASURED_JS + headroom(MEASURED_JS); // 6865 B from 5841 B @ 2026-11-12
+    const budget = MEASURED_JS + headroom(MEASURED_JS); // 10785 B from 9761 B @ 2026-11-20
     for (const p of layoutPages) {
       expect(
         p.jsBytes,
-        `${p.route}: js ${p.jsBytes} B > budget ${budget} B (measured ${MEASURED_JS} B on 2026-11-12). ` +
+        `${p.route}: js ${p.jsBytes} B > budget ${budget} B (measured ${MEASURED_JS} B on 2026-11-20). ` +
           'A script grew or a new one was added.',
       ).toBeLessThanOrEqual(budget);
     }
+  });
+
+  it('keeps the code a visitor downloads on their first error within budget', () => {
+    // Every emitted chunk no page names in a <script src>: loaded by import() only.
+    const named = allHtmlFiles().map((page) => page.html).join('\n');
+    const lazy = readdirSync(join(DIST, '_astro'))
+      .filter((name) => name.endsWith('.js') && !named.includes(`/_astro/${name}`))
+      .map((name) => ({ name, bytes: statSync(join(DIST, '_astro', name)).size }));
+    expect(
+      lazy.length,
+      'no lazily loaded chunk in dist/_astro: this build has monitoring off, unlike production. ' +
+        'Run `pnpm run test` (it builds with tests/support/build-env.ts) or build with PUBLIC_AUT_SENTRY_WEB_DSN set.',
+    ).toBeGreaterThan(0);
+    const total = lazy.reduce((sum, chunk) => sum + chunk.bytes, 0);
+    const budget = MEASURED_ON_ERROR_JS + headroom(MEASURED_ON_ERROR_JS); // 92518 B from 90703 B @ 2026-11-20
+    expect(
+      total,
+      `lazily loaded JS ${total} B > budget ${budget} B (measured ${MEASURED_ON_ERROR_JS} B on 2026-11-20): ` +
+        `${lazy.map((chunk) => `${chunk.name} ${chunk.bytes} B`).join(', ')}. ` +
+        'Name each Sentry export src/scripts/sentry.ts uses in its import() destructuring; a namespace import ships the whole SDK.',
+    ).toBeLessThanOrEqual(budget);
   });
 
   it('keeps font payload within budget on every layout page', () => {
