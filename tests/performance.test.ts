@@ -23,8 +23,8 @@ import { describe, expect, it } from 'vitest';
 import { allHtmlFiles } from './support/dist';
 import { DIST, measureAllPages } from './support/perf';
 
-/** Measured 2026-11-20: heaviest fixed-budget page (/contact/, 163,598 B), after splitting page styles out of the shared stylesheet (t22218). */
-const LAYOUT_MEASURED = 163598;
+/** Measured 2026-11-20: heaviest fixed-budget page (/contact/, 148,994 B). */
+const LAYOUT_MEASURED = 148994;
 
 /**
  * Layout pages that genuinely need more than the default, each with its own
@@ -41,7 +41,7 @@ const GROWS_WITH_CONTENT: Record<string, string> = {
   '/releases/': 'the whole of CHANGELOG.md, about 1 KB of HTML per release',
 };
 
-/** JS measured 2026-11-20; fonts 2026-11-12. Identical on every layout page. */
+/** JS measured 2026-11-20. Identical on every layout page. */
 const MEASURED_JS = 11156; // main.js (7,236 B, with t21709's offscreen pause) + the Sentry bootstrap module (3,920 B, src/scripts/sentry.ts)
 /**
  * The Sentry SDK chunk, fetched only when a visitor's page first throws. It
@@ -50,7 +50,7 @@ const MEASURED_JS = 11156; // main.js (7,236 B, with t21709's offscreen pause) +
  * and nothing failed (t21303). Re-measured 2026-11-20 on @sentry/browser 11.14.0 (t21367).
  */
 const MEASURED_ON_ERROR_JS = 90372;
-const MEASURED_FONTS = 83044; // 4 variable woff2 subsets (ops/fonts/subset.py) reachable from the page CSS
+const MEASURED_FONTS = 68440; // 4 variable woff2 subsets (ops/fonts/subset.py) reachable from the page CSS
 
 /**
  * Redirect stubs (e.g. /services.html/) are meta-refresh pages with no
@@ -129,11 +129,11 @@ describe('page-weight budgets', () => {
   });
 
   it('keeps font payload within budget on every layout page', () => {
-    const budget = MEASURED_FONTS + headroom(MEASURED_FONTS); // 84705 B from 83044 B @ 2026-11-12
+    const budget = MEASURED_FONTS + headroom(MEASURED_FONTS); // 69809 B from 68440 B @ 2026-11-20
     for (const p of layoutPages) {
       expect(
         p.fontBytes,
-        `${p.route}: fonts ${p.fontBytes} B > budget ${budget} B (measured ${MEASURED_FONTS} B on 2026-11-12). ` +
+        `${p.route}: fonts ${p.fontBytes} B > budget ${budget} B (measured ${MEASURED_FONTS} B on 2026-11-20). ` +
           'A new font file or @font-face rule crept in, or the subsets grew — four variable woff2 ' +
           'files serve every family and weight today (ops/fonts/subset.py).',
       ).toBeLessThanOrEqual(budget);
