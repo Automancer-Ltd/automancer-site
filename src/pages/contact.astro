@@ -38,6 +38,7 @@ Astro.csp.insertDirective(`connect-src ${new URL(ENDPOINT_URL).origin}`);
 ---
 
 <BaseLayout
+  trustedTypes={['turnstile']}
   title="Contact"
   description="Tell us what's eating your week. No calendar gauntlet, no chatbot. Waseem reads it himself, and we promise a meeting within one week of first contact."
 >
@@ -292,11 +293,27 @@ Astro.csp.insertDirective(`connect-src ${new URL(ENDPOINT_URL).origin}`);
           });
         } catch (e) { securityCheckUnavailable(); }
       };
+      // The page refuses plain strings as script URLs (Trusted Types, astro.config.mjs).
+      // This page's one policy can produce exactly Turnstile's URL and nothing else.
+      var turnstileSrc = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=onTurnstileLoad';
+      var turnstilePolicy = null;
+      try {
+        if (window.trustedTypes) {
+          turnstilePolicy = window.trustedTypes.createPolicy('turnstile', {
+            createScriptURL: function (url) {
+              if (url !== turnstileSrc) throw new TypeError('Only the Turnstile script may load here');
+              return url;
+            }
+          });
+        }
+      } catch (e) {}
       function loadTurnstile() {
         if (turnstileState !== 'idle' || !slot) return;
         turnstileState = 'loading';
         var s = document.createElement('script');
-        s.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=onTurnstileLoad';
+        try {
+          s.src = turnstilePolicy ? turnstilePolicy.createScriptURL(turnstileSrc) : turnstileSrc;
+        } catch (e) { securityCheckUnavailable(); return; }
         s.async = true;
         s.onerror = securityCheckUnavailable;
         document.head.appendChild(s);

@@ -24,9 +24,16 @@ export interface Props {
   pageType?: string;
   /** Site path of this page's Markdown twin, where it is not a static page. */
   markdown?: string;
+  /**
+   * Trusted Types policies this page's scripts may create (CSP trusted-types).
+   * None by default: no script on the page can turn a string into HTML or a
+   * script URL. Name one only for a sink that cannot be avoided.
+   */
+  trustedTypes?: string[];
 }
 
-const { title, description, image, ogType = 'website', schema = [], pageType, markdown } = Astro.props;
+const { title, description, image, ogType = 'website', schema = [], pageType, markdown, trustedTypes = [] } = Astro.props;
+Astro.csp.insertDirective(`trusted-types ${trustedTypes.length ? trustedTypes.join(' ') : "'none'"}`);
 const markdownUrl = markdown ? abs(markdown) : markdownTwinPath(Astro.url.pathname);
 
 // A static page's JSON-LD type comes from its staticPages entry (the same one

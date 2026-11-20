@@ -89,6 +89,13 @@ export default defineConfig({
   // contact.astro adds the enquiry API and the Turnstile frame for that page
   // alone. The edge Worker's header adds frame-ancestors, which a <meta>
   // policy cannot carry. Method and checks: docs/DEPLOYMENT.md.
+  //
+  // Trusted Types (require-trusted-types-for): the browser refuses any plain
+  // string written into a place that turns text into HTML or code (innerHTML,
+  // insertAdjacentHTML, document.write, a script's src or text, on* attributes).
+  // An injected string can then add no markup, link, form or script at all, even
+  // through code the policy lets run. BaseLayout names the policies a page may
+  // create: none, except /contact/'s one-URL Turnstile loader.
   security: {
     csp: {
       directives: [
@@ -99,6 +106,7 @@ export default defineConfig({
         "manifest-src 'self'",
         "form-action 'self'",
         "base-uri 'self'",
+        "require-trusted-types-for 'script'",
       ],
       scriptDirective: {
         resources: [
