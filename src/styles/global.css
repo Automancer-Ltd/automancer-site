@@ -1195,6 +1195,13 @@ strong { font-weight: 600; color: inherit; }
 @keyframes orb-hue-b { 0%{color:var(--spec-5);} 25%{color:var(--spec-6);} 50%{color:var(--spec-7);}
   75%{color:var(--spec-1);} 100%{color:var(--spec-5);} }
 
+/* Override the animation shorthands only while the element is offscreen. */
+:is(.motion-paused, .motion-paused *),
+:is(.motion-paused, .motion-paused *)::before,
+:is(.motion-paused, .motion-paused *)::after {
+  animation-play-state: paused !important;
+}
+
 /* ─────────────────────── Reduced motion ─────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }

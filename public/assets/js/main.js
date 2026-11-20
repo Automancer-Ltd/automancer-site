@@ -123,6 +123,17 @@
 
     if (reduce) return;
 
+    /* Keep offscreen effects from repainting while the visitor reads. */
+    if ('IntersectionObserver' in window) {
+      var motion = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+          entry.target.classList.toggle('motion-paused', !entry.isIntersecting);
+        });
+      });
+      document.querySelectorAll('.hero, .page-hero, .proof-strip, .spectral-text, .rule--spectral, .offer__price, .cta, .notfound')
+        .forEach(function (el) { motion.observe(el); });
+    }
+
     /* ── Orb cursor-parallax ──
        [data-px] elements drift gently toward the cursor. data-px is the depth
        factor (px of travel per half-viewport of pointer movement). rAF-throttled. */
