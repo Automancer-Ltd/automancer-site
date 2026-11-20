@@ -1,5 +1,10 @@
 # Release notes
 
+## v2026.11.20.2 — 20 November 2026
+
+Pages can now send data only to this site and its error reporter, with the contact page also able to submit enquiries.
+
+
 ## v2026.11.20.1 — 20 November 2026
 
 The mobile layout is easier to read, with clearer spacing and less crowded text.
