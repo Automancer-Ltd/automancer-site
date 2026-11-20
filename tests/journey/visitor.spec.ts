@@ -383,6 +383,74 @@ test('visitor finds the prices and reaches us through the contact form', async (
   expect(errors, 'uncaught page errors').toEqual([]);
 });
 
+test('the phone menu keeps keyboard focus inside it and hands it back on Close or Escape', async ({ page }, info) => {
+  test.skip(info.project.name !== 'mobile', 'the menu button shows only on a phone');
+  await page.goto('/');
+  // Not by role: while the menu is open the page behind it, this button included, is inert.
+  const button = page.locator('button[aria-controls="mobile-menu"]');
+  const menu = page.locator('#mobile-menu');
+  const focusOutsideMenu = () =>
+    menu.evaluate((m) => document.activeElement !== document.body && !m.contains(document.activeElement));
+
+  await button.click();
+  await expect(menu).toBeVisible();
+  await expect(button).toHaveAttribute('aria-expanded', 'true');
+  // The page behind an open menu cannot take focus, by script or by Tab in either direction
+  // (Tab may visit the browser's own controls, where activeElement is <body>).
+  await page.locator('main a').first().evaluate((a: HTMLElement) => a.focus());
+  expect(await focusOutsideMenu(), 'a link behind the menu took focus').toBe(false);
+  const stops = await menu.locator('a, button').count();
+  for (const key of ['Tab', 'Shift+Tab']) {
+    for (let i = 0; i <= stops + 1; i++) {
+      await page.keyboard.press(key);
+      expect(await focusOutsideMenu(), `${key} reached the page behind the menu`).toBe(false);
+    }
+  }
+
+  await menu.getByRole('button', { name: 'Close menu' }).click();
+  await expect(menu).toBeHidden();
+  await expect(button).toHaveAttribute('aria-expanded', 'false');
+  await expect(button).toBeFocused();
+
+  await button.click();
+  await expect(menu).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(menu).toBeHidden();
+  await expect(button).toHaveAttribute('aria-expanded', 'false');
+  await expect(button).toBeFocused();
+});
+
+test('with reduced motion, the form jumps straight to its error and its confirmation', async ({ page }) => {
+  const posted = await stubIntake(page, { status: 200, body: { ok: true } });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/contact/');
+  /** How far the page scrolls over the next dozen frames: 0 unless the scroll is animated. */
+  const scrollTravel = () =>
+    page.evaluate(async () => {
+      const ys = [scrollY];
+      for (let i = 0; i < 12; i++) {
+        await new Promise(requestAnimationFrame);
+        ys.push(scrollY);
+      }
+      return Math.max(...ys) - Math.min(...ys);
+    });
+  const send = page.getByRole('button', { name: 'Send it to Waseem' });
+
+  await send.click();
+  expect(await scrollTravel(), 'scrolled to the error with an animation').toBeLessThanOrEqual(1);
+  await expect(page.locator('#name')).toBeFocused();
+  await expect(page.locator('#name')).toBeInViewport();
+
+  await page.locator('#name').fill(ENQUIRY.name);
+  await page.locator('#email').fill(ENQUIRY.email);
+  await page.locator('#time-sink').fill(ENQUIRY.time_sink);
+  await send.click();
+  await expect(page.locator('#form-confirm h2')).toBeFocused();
+  expect(await scrollTravel(), 'scrolled to the confirmation with an animation').toBeLessThanOrEqual(1);
+  await expect(page.locator('#form-confirm h2')).toBeInViewport();
+  expect(posted).toHaveLength(1);
+});
+
 test('the security check loads when the visitor starts on the form, not with the page', async ({ page }) => {
   // Turnstile cost a phone ~250 KB and ~0.5 s of main thread on arrival (t21450).
   // The stub records what the form asks it to render, and calls the onload

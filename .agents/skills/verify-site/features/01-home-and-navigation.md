@@ -1,25 +1,27 @@
-# Feature 01: Home Page, Navigation, Mobile Drawer, and 404
+# 01 Home, navigation and the 404 page
 
-## Scope
-Covers the homepage (`/`), proof strip, 4-rung service ladder preview, primary desktop navigation, mobile hamburger menu drawer (`390x844`), skip-to-main accessibility link, and custom `/404` page.
+**The journey.** A visitor lands on `/`, reads the headline and the price ladder, and moves to
+another page through the header (the menu dialog on a phone). A visitor who follows a dead link
+gets a real 404 with a way back.
 
-## Preconditions
-- Production build emitted in `dist/` and served via `astro preview` on `http://127.0.0.1:$PORT`.
+**Reach it.** `/`, the header on every page, the menu button (`button[aria-controls="mobile-menu"]`)
+below the laptop width, any unknown path (served `/404.html`).
 
-## Desktop Steps (`1280x800`)
-1. Open `/` at `1280x800`.
-2. Assert `<title>` ends with `| Automancer`, `<link rel="canonical" href="https://automancer.uk/">` exists, and exactly one `<h1>` is rendered.
-3. Assert `.proof-strip` is present and displays the 7-character git revision SHA (`build.shortSha`).
-4. Assert `.rung` count matches the services in `src/data/business.ts`.
-5. Assert desktop `.nav__links` contains links to `/services`, `/work`, `/field-notes`, `/about`, and `/contact`.
-6. Open `/404` and assert `<h1>` contains `404` and recovery links resolve.
+**Proved by** (`pnpm exec playwright test -g "<name>"`, phone and laptop):
 
-## Mobile Steps (`390x844`)
-1. Set viewport to `390x844` on `/`.
-2. Assert `document.documentElement.scrollWidth <= window.innerWidth` (no horizontal scroll overflow).
-3. Click `.hamburger`; assert `.mobile-menu` gains class `is-open` and `.hamburger` has `aria-expanded="true"`.
-4. Tab from the last menu link and Shift+Tab from the close button; focus must not reach the page behind the menu. Tab may visit browser chrome before returning to the menu. Trying to focus a background link must leave focus inside the menu.
-5. Close with `.mobile-menu__close`, then reopen and press `Escape`; both must clear `is-open`, set `aria-expanded="false"`, and return focus to `.hamburger`.
+- `visitor finds the prices and reaches us through the contact form`: home paints, and the header
+  or the menu reaches `/services/`.
+- `the phone menu keeps keyboard focus inside it and hands it back on Close or Escape`.
+- `home actions are visible from the first frame and the headline holds its height while Syne loads`.
+- `the price ladder counts its rungs 01 to 04 in order`.
+- `a page that does not exist is a real 404 with a way back`.
+- `every page keeps its words on screen at 320px and with text at 200%` (every sitemap page).
+- Vitest on `dist/`: `tests/pages.test.ts` (one `h1`, title, description, canonical, JSON-LD) and
+  `tests/a11y.test.ts` (landmarks, skip link, named navs) on every page and the 404.
 
-## Evidence
-- `desktop-home.png`, `mobile-home.png`, `mobile-menu-open.png`, `desktop-404.png`.
+**End state.** Home shows its headline and actions on the first frame, the menu traps focus while
+open and returns it to the button, and no page scrolls sideways.
+
+**Gotchas.** While the menu is open the page behind it is inert, so the menu button has no
+accessible role then: find it by `aria-controls`. The proof strip shows the build's time and
+commit, which differ in every build.

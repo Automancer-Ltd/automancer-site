@@ -20,6 +20,7 @@ checkq -- pnpm install --frozen-lockfile   # also runs `astro sync` (LSP types i
 checkq -- pnpm run check                   # fast (~5 s): oxlint, tsrs, vitest on the dist/ that exists
 checkq -- pnpm run verify                  # the full verdict CI runs: lint, typecheck, build, audit
 checkq -- pnpm run journey                 # visitor journey in a real browser (phone + desktop) on the built dist/
+checkq -- pnpm run compare                 # every sitemap page, phone + laptop, screenshot-compared with origin/main
 ```
 
 `check` audits whatever `dist/` already holds, so after a source change a stale `dist/` fails it
@@ -34,9 +35,16 @@ it publishes.
   `deploy.yml` runs it against production (`JOURNEY_URL=https://automancer.uk`), read-only, with the
   enquiry endpoint and Turnstile stubbed so it never sends a real enquiry. Needs `build` first and a
   browser (`pnpm exec playwright install chromium`).
+- **What a change looks like:** `pnpm run compare [base-ref]` (`ops/compare-builds.mjs`) builds
+  `origin/main` (or any ref; `--head=<ref>` compares two commits) and the working tree, and
+  compares every sitemap page and the 404 at 390 and 1280 px, screenshot and element boxes. It
+  prints `same` or `DIFFERS` per page and exits 1 on any difference, with base, head and diff
+  images in `test-results/compare/`. Run it on every change that claims "nothing looks different"
+  and attach the diffs for one that changes a page on purpose; do not hand-pick pages (t22218 missed
+  `/developers/` that way).
 - **See it in the real product:** [`.agents/skills/verify-site/SKILL.md`](.agents/skills/verify-site/SKILL.md)
-  (`scripts/verify-local.sh` builds, previews and drives every journey in `features/` at desktop and
-  mobile widths).
+  (the journey and the comparison, how to run them when port 4399 is taken, and `features/`: each
+  visitor journey and the tests that prove it).
 - **Deploy, verify, roll back, watch production:** [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
   Merge is the deploy; `deploy.yml` re-verifies the merged commit, deploys, and checks production
   serves it. Record the estate-watch `deploy.verify` run (product `site`) in the PR.
