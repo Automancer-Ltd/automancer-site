@@ -18,12 +18,15 @@ Run builds, tests and typechecks through `checkq` on auto-vps.
 ```bash
 checkq -- pnpm install --frozen-lockfile   # also runs `astro sync` (LSP types in .astro/)
 checkq -- pnpm run check                   # fast (~5 s): oxlint, tsrs, vitest on the dist/ that exists
-checkq -- pnpm run verify                  # the full verdict CI and the deploy run: lint, typecheck, build, audit
+checkq -- pnpm run verify                  # the full verdict CI runs: lint, typecheck, build, audit
 checkq -- pnpm run journey                 # visitor journey in a real browser (phone + desktop) on the built dist/
 ```
 
 `check` audits whatever `dist/` already holds, so after a source change a stale `dist/` fails it
-for reasons your change did not cause: run `verify` (it rebuilds) or delete `dist/` first.
+for reasons your change did not cause: run `verify` (it rebuilds) or delete `dist/` first. Tests and
+the journey build alike, with monitoring on as production ships it (`tests/support/build-env.ts`),
+so `check` after `journey` audits a good build; the deploy runs the same audit on the exact `dist/`
+it publishes.
 
 - **The visitor journey** (`tests/journey/`, Playwright): nav, published prices, the contact form's
   validation, send, refusal and outage paths, painted screenshots, and no word cut off on any sitemap

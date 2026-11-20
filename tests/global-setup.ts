@@ -8,6 +8,7 @@
  */
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { TEST_SENTRY_DSN } from './support/build-env';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 
@@ -18,12 +19,18 @@ export default function globalSetup(): void {
   // Vitest sets NODE_ENV=test, and Astro derives `import.meta.env.PROD` from
   // it. Left inherited, the audited dist/ would be a non-production build:
   // `draft: true` entries would leak into it and PROD-gated code would differ
-  // from the artifact the deploy job ships. Build the bytes production serves.
+  // from the artifact the deploy job ships. Build the bytes production serves,
+  // monitoring included: without a DSN the Sentry bootstrap and its SDK chunk
+  // are left out, so the storage and weight audits would never read them.
   const result = spawnSync('pnpm', ['run', 'build'], {
     cwd: ROOT,
     stdio: 'inherit',
     shell: process.platform === 'win32',
-    env: { ...process.env, NODE_ENV: 'production' },
+    env: {
+      ...process.env,
+      NODE_ENV: 'production',
+      PUBLIC_AUT_SENTRY_WEB_DSN: process.env.PUBLIC_AUT_SENTRY_WEB_DSN || TEST_SENTRY_DSN,
+    },
   });
   if (result.status !== 0) {
     throw new Error(

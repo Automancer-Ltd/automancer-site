@@ -22,8 +22,15 @@ if (import.meta.env.PROD && dsn) {
   const report = (error: unknown) => {
     pending.push(error);
     if (pending.length > 1) return; // already loading
+    // Destructure in the parameter: Rollup tree-shakes a dynamic import only
+    // when the members used are named here. Taking the whole namespace
+    // (`.then((Sentry) => …)`) shipped every integration in the SDK, replay,
+    // feedback and offline storage included: 140 KB gzipped instead of 31 KB.
     import('@sentry/browser')
-      .then((Sentry) => {
+      .then(({
+        init, captureException, eventFiltersIntegration, browserApiErrorsIntegration,
+        globalHandlersIntegration, linkedErrorsIntegration, dedupeIntegration,
+      }) => {
         const errorTypes = new Set([
           'Error', 'AggregateError', 'EvalError', 'RangeError', 'ReferenceError',
           'SyntaxError', 'TypeError', 'URIError',
@@ -39,7 +46,7 @@ if (import.meta.env.PROD && dsn) {
         );
         if (pageUrl) sources.add(pageUrl);
 
-        Sentry.init({
+        init({
           dsn,
           environment: 'production',
           // The commit deploy.yml built, so an issue names the deploy that shipped it.
@@ -48,11 +55,11 @@ if (import.meta.env.PROD && dsn) {
           // envelopes outside beforeSend, which only runs for errors.
           defaultIntegrations: false,
           integrations: [
-            Sentry.eventFiltersIntegration(),
-            Sentry.browserApiErrorsIntegration(),
-            Sentry.globalHandlersIntegration(),
-            Sentry.linkedErrorsIntegration(),
-            Sentry.dedupeIntegration(),
+            eventFiltersIntegration(),
+            browserApiErrorsIntegration(),
+            globalHandlersIntegration(),
+            linkedErrorsIntegration(),
+            dedupeIntegration(),
           ],
           sendClientReports: false,
           // Sentry 11 removed sendDefaultPii and its dataCollection defaults collect
@@ -113,7 +120,7 @@ if (import.meta.env.PROD && dsn) {
         });
         window.removeEventListener('error', onError);
         window.removeEventListener('unhandledrejection', onRejection);
-        for (const queued of pending) Sentry.captureException(queued);
+        for (const queued of pending) captureException(queued);
       })
       // ponytail: an offline or blocked chunk drops the report; nothing to retry against.
       .catch(() => {});

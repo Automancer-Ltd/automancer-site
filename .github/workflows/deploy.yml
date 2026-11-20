@@ -3,8 +3,10 @@ name: Deploy to GitHub Pages
 # Every push to main builds, deploys and verifies automancer.uk.
 #
 # There is no CI run on main: a merge can produce a tree no pull request
-# tested, so the build job runs the full verdict (`pnpm run verify`) on this
-# exact commit before it builds the artifact it ships.
+# tested. The build job builds this exact commit once, with production's
+# settings, then runs lint, typecheck and the whole dist/ audit on those bytes
+# before uploading them: the artifact GitHub Pages serves is the one the tests
+# read, monitoring chunk and production page dates included.
 #
 # Every `uses:` below is pinned to a full commit SHA, with the human-readable
 # version in a trailing comment. Version tags are mutable upstream, so the pin
@@ -16,11 +18,11 @@ on:
     branches: [main]
   workflow_dispatch:
 
-# id-token is granted to the deploy job alone: build runs `pnpm install` and
-# the site build (third-party code), which must not be able to mint an OIDC token.
+# pages: write and id-token are granted to the deploy job alone: build runs
+# `pnpm install` and the site build (third-party code), which must not be able
+# to publish to Pages or mint an OIDC token. Uploading the artifact needs neither.
 permissions:
   contents: read
-  pages: write
 
 concurrency:
   group: "pages"
@@ -68,9 +70,6 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Lint, typecheck, build and test this commit
-        run: pnpm run verify
-
       - name: Build
         run: pnpm run build
         # Sourced from the repository Actions variable (populated from BWS
@@ -88,8 +87,10 @@ jobs:
           PUBLIC_SENTRY_RELEASE: ${{ github.sha }}
           SERVED_PAGES_URL: https://automancer.uk/api/pages.json?for=${{ github.sha }}
 
-      - name: Setup Pages
-        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+      # The pull request's verdict, run on the bytes this job uploads (the
+      # audit reads the dist/ above instead of building its own).
+      - name: Lint, typecheck and audit the build that ships
+        run: pnpm run lint && pnpm run typecheck && SKIP_BUILD=1 pnpm run test
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
