@@ -188,3 +188,42 @@ test('active SVG and XML endpoints refuse injected scripts and outbound requests
   }
   expect(leaked).toEqual([]);
 });
+
+// Every page sends Cross-Origin-Opener-Policy: same-origin (ops/edge/worker.js), so a
+// site that opens one in a window gets a closed handle back: it cannot later send that
+// window to a look-alike page, message it or count its frames. No response may carry
+// NEL, Report-To or Reporting-Endpoints, which would have the browser post reports to
+// a server for days after the visit, outside the page's CSP. The headers come from the
+// edge Worker, which local preview does not have, so this runs against JOURNEY_URL.
+test('a site that opens a page in a window cannot take it over, and no page asks the browser to report anywhere', async ({ page, context, baseURL }) => {
+  test.skip(!process.env.JOURNEY_URL, 'edge Worker headers are served on the live/preview-worker origin');
+  await context.route('https://opener.example/**', (route) =>
+    route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>another site</title>' }),
+  );
+  for (const path of ['/', '/contact/']) {
+    const response = await page.request.get(new URL(path, baseURL).href);
+    for (const name of ['nel', 'report-to', 'reporting-endpoints']) expect(response.headers()[name], `${path} ${name}`).toBeUndefined();
+
+    await page.goto('https://opener.example/');
+    const popupEvent = context.waitForEvent('page');
+    await page.evaluate((url) => {
+      (window as unknown as { victim: Window | null }).victim = window.open(url, 'victim');
+    }, new URL(path, baseURL).href);
+    const popup = await popupEvent;
+    await popup.waitForLoadState('load');
+    const handle = await page.evaluate(() => {
+      const w = (window as unknown as { victim: Window }).victim;
+      try {
+        w.location.href = 'https://opener.example/look-alike';
+      } catch {
+        /* a severed handle may throw or do nothing */
+      }
+      return { closed: w.closed, frames: w.length };
+    });
+    expect(handle.closed, `${path}: the opener's handle is closed`).toBe(true);
+    await popup.waitForTimeout(500);
+    expect(popup.url(), `${path}: the opened page was not sent elsewhere`).toBe(new URL(path, baseURL).href);
+    expect(await popup.evaluate(() => window.opener), `${path}: the page cannot reach its opener`).toBeNull();
+    await popup.close();
+  }
+});

@@ -18,7 +18,13 @@ function serve(input: RequestInfo | URL) {
   const path = new URL(input instanceof Request ? input.url : String(input)).pathname;
   const [status, type, body] = origin[path] ?? [404, 'text/html; charset=utf-8', '<html>404</html>'];
   // GitHub Pages sends Vary: Accept-Encoding; the Worker must add Accept to it.
-  return Promise.resolve(new Response(body, { status, headers: { 'Content-Type': type, Vary: 'Accept-Encoding' } }));
+  // It also sends the reporting headers a host may add, which must never reach a visitor.
+  const reporting = {
+    NEL: '{"report_to":"host-nel","max_age":604800}',
+    'Report-To': '{"group":"host-nel","max_age":604800,"endpoints":[{"url":"https://reports.example/nel"}]}',
+    'Reporting-Endpoints': 'default="https://reports.example/r"',
+  };
+  return Promise.resolve(new Response(body, { status, headers: { 'Content-Type': type, Vary: 'Accept-Encoding', ...reporting } }));
 }
 
 const get = (path: string, accept?: string, method = 'GET') =>
@@ -151,6 +157,7 @@ describe('edge Worker in front of GitHub Pages', () => {
       'Referrer-Policy': 'strict-origin-when-cross-origin',
       'Content-Security-Policy': "frame-ancestors 'none'; base-uri 'self'; object-src 'none'",
       'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+      'Cross-Origin-Opener-Policy': 'same-origin',
     };
     const responses: [string, Response][] = [
       ['HTML page', await get('/')],
@@ -165,6 +172,8 @@ describe('edge Worker in front of GitHub Pages', () => {
     ];
     for (const [label, res] of responses) {
       for (const [name, value] of Object.entries(expected)) expect(res.headers.get(name), `${label}: ${name}`).toBe(value);
+      // No response may tell the browser to report to anyone for days after the visit.
+      for (const name of ['NEL', 'Report-To', 'Reporting-Endpoints']) expect(res.headers.get(name), `${label}: ${name}`).toBeNull();
     }
 
     // SVG and XML are active documents in browsers and carry no <meta> policy,

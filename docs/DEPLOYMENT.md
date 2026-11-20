@@ -162,8 +162,9 @@ for `/.well-known/api-catalog`, HTTP → HTTPS, and one 301 from each legacy `*.
 day with a week of `stale-while-revalidate`; pages, twins, JSON
 and unversioned scripts keep GitHub's ten minutes. Change a file under `/assets/` under a new name
 if visitors must see it at once. Every response it returns carries the same security
-headers (`SECURITY_HEADERS`: HSTS, `nosniff`, Referrer-Policy, a framing/base/object CSP and
-Permissions-Policy), which `ops/verify-production.sh` reads back on a page, its Markdown twin and
+headers (`SECURITY_HEADERS`: HSTS, `nosniff`, Referrer-Policy, a framing/base/object CSP,
+Permissions-Policy and `Cross-Origin-Opener-Policy: same-origin`) and no reporting header (`NEL`,
+`Report-To`, `Reporting-Endpoints` are stripped; t22383), which `ops/verify-production.sh` reads back on a page, its Markdown twin and
 a 404; SVG and XML responses (`image/svg+xml`, `application/xml`) get a full `default-src 'none'`
 and Trusted Types CSP header (`XML_DOCUMENT_CSP`), and every legacy `.html` path variant
 (including `/<name>.html/index.html` and `//<name>.html/`) gets one 301 at the edge (`t22166`).
@@ -208,7 +209,14 @@ Undo via Executor `sentry-guarded` (`projects.updateProject` and `projects.updat
   `browser_check` off (it challenges agents), `browser_cache_ttl` 0 (respect GitHub's
   `max-age=600`), `security_header` HSTS `max-age=15552000` with `include_subdomains` off and
   `nosniff` on (t15574; Cloudflare's edge applies the zone's HSTS value over Worker headers, so
-  `SECURITY_HEADERS` matches it). SSL is "Full (strict)" against GitHub's certificate; if GitHub
+  `SECURITY_HEADERS` matches it), and `nel` (Network Error Logging) off on both `automancer.uk`
+  (`4574254c3155f93a8f02aabcf19e00af`) and `automancer.co.uk` (`4d8f72d51dbdbf945ae9f6b15db0ac44`)
+  since t22383. With it on, Cloudflare's edge added `NEL` and `Report-To` to every response after
+  the Worker ran (a Worker cannot remove them), telling each visitor's browser to post network
+  failure reports to `a.nel.cloudflare.com` for seven days, which no page CSP governs. The
+  verifier fails if they come back. Undo: `api.nelSettings.nelSettingsEdit` `{value: {enabled:
+  true}}` on the zone (Executor `cloudflare-full-access`). The workers.dev probe still carries
+  Cloudflare's account-level NEL, so compare it with production ignoring those two headers. SSL is "Full (strict)" against GitHub's certificate; if GitHub
   cannot renew it behind the proxy every page answers 526 and the verifier fails.
 - **Undo, fastest first:** set the four apex `A` records to DNS-only; or delete the Worker route.
 
