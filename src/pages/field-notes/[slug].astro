@@ -9,6 +9,8 @@ import { getCollection, render } from 'astro:content';
 import { fitDescription, fitTitle } from '../../lib/meta';
 import { formatGBP, serviceById } from '../../data/business';
 import { cardAlt, cardPath, fieldNoteCard } from '../../data/share-cards';
+import { getNotes } from '../../data/site-content';
+import { relatedNotes } from '../../data/related-notes';
 
 const auditFrom = formatGBP(serviceById('automation-opportunity-audit').priceFrom);
 
@@ -28,6 +30,13 @@ const card = cardPath('field-notes', entry.id);
 
 const fmt = (dt: Date) =>
   dt.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+const short = (dt: Date) =>
+  dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+
+// The notes this one offers next: same subject first (src/data/related-notes.ts).
+const asRelatable = (n: typeof entry) => ({ id: n.id, topic: n.data.category ?? n.data.sector, tags: n.data.tags, date: n.data.date, note: n });
+const published = (await getNotes()).map(asRelatable);
+const next = relatedNotes(asRelatable(entry), published).map((r) => r.note);
 ---
 
 {/* SERP metadata is length-fitted (see src/lib/meta.ts); the visible
@@ -70,12 +79,30 @@ const fmt = (dt: Date) =>
 
         <footer class="article-head article-foot" style="margin-inline:0; margin-top: clamp(3rem,6vw,5rem)">
           <div class="rule--spectral" style="margin-bottom: var(--sp-8)"></div>
-          <p class="form__micro" style="margin-bottom: var(--sp-6)">
+          <p class="form__micro">
             Written by an Automancer agent · reviewed and published by {d.author}. Agents do the work;
             a human makes the call.
           </p>
-          <a href="/field-notes/" class="arrow-link">All field notes <span class="btn__arrow">→</span></a>
         </footer>
+
+        {/* Navigation, not the note's words: it changes no page date (data-page-words).
+            The "All field notes" link stays outside it, after the byline, as it always was. */}
+        <nav class="read-next" aria-label="Keep reading" data-read-next data-page-words="skip">
+          <h2 class="read-next__title">Keep reading</h2>
+          <div class="note-list">
+            {next.map((n) => (
+              <a href={`/field-notes/${n.id}/`} class="note-row note-row--compact">
+                <div class="note-row__head">
+                  <h3 class="note-row__title">{n.data.title}</h3>
+                  <span class="note-row__meta">{short(n.data.date)} · {n.data.category ?? n.data.sector}</span>
+                </div>
+                <p class="note-row__sum">{n.data.summary ?? n.data.description}</p>
+                <span class="note-row__line" aria-hidden="true"></span>
+              </a>
+            ))}
+          </div>
+        </nav>
+        <a href="/field-notes/" class="arrow-link read-next__all">All field notes <span class="btn__arrow">→</span></a>
       </div>
     </section>
 

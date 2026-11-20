@@ -500,6 +500,29 @@ test("a field note's contents jump to each section and mark the one being read",
   await expectNoSidewaysScroll(page);
 });
 
+test('a field note opens with its first line in view and ends with the next notes on its subject', async ({ page }) => {
+  await page.goto('/field-notes/how-ai-agents-actually-make-decisions/');
+  await page.evaluate(() => document.fonts.ready);
+  // On a laptop the title used to fill the first screen, leaving the opening line below the fold.
+  const viewport = page.viewportSize()!;
+  const opening = page.locator('.prose > p').first();
+  expect((await opening.boundingBox())!.y + 24, 'opening line is below the first screen').toBeLessThan(viewport.height);
+
+  const next = page.getByRole('navigation', { name: 'Keep reading' });
+  const notes = next.locator('.note-list a');
+  await expect(notes).toHaveCount(3);
+  const hrefs = await notes.evaluateAll((as) => as.map((a) => a.getAttribute('href')));
+  expect(hrefs).not.toContain('/field-notes/how-ai-agents-actually-make-decisions/');
+  // The other note on AI agents comes first.
+  expect(hrefs[0]).toBe('/field-notes/what-governed-ai-means-and-why-it-matters/');
+  await expectNoSidewaysScroll(page);
+
+  await notes.first().scrollIntoViewIfNeeded();
+  await notes.first().click();
+  await expect(page).toHaveURL(/\/field-notes\/what-governed-ai-means-and-why-it-matters\/$/);
+  await expect(page.locator('h1')).toContainText('governed AI');
+});
+
 test("a case study's contents list its sections and their parts, and follow the reader into a part", async ({ page }, info) => {
   await page.goto('/work/care-provider-transformation/');
   const ids = await page.locator('.prose :is(h2, h3)[id]').evaluateAll((hs) => hs.map((h) => h.id));

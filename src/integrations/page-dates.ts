@@ -43,8 +43,9 @@ export interface ServedDate {
 export function pageWords(page: Pick<IndexedPage, 'title' | 'description'>, html: string): string {
   const main = parse(html).querySelector('main');
   if (!main) throw new Error(`page-dates: ${page.title} has no <main>`);
-  // Navigation that only repeats the page's own words (a note's contents list,
-  // data-page-words="skip") is not new words: adding it must not move a date.
+  // Navigation (data-page-words="skip": a note's contents list, which repeats
+  // its own headings, and its Keep reading list of other notes) is not the
+  // page's words: adding it, or another note changing it, must not move a date.
   for (const hidden of main.querySelectorAll('script, style, template, [data-page-words="skip"]')) hidden.remove();
   const alts = main.querySelectorAll('img[alt]').map((img) => img.getAttribute('alt') ?? '');
   const text = [main.textContent, ...alts].join(' ').replace(/\s+/g, ' ').trim();
