@@ -297,6 +297,62 @@ test('visitor finds the prices and reaches us through the contact form', async (
   expect(errors, 'uncaught page errors').toEqual([]);
 });
 
+test('the security check loads when the visitor starts on the form, not with the page', async ({ page }) => {
+  // Turnstile cost a phone ~250 KB and ~0.5 s of main thread on arrival (t21450).
+  // The stub records what the form asks it to render, and calls the onload
+  // callback named in the script URL, as the real api.js does.
+  const asked: string[] = [];
+  await page.route('**/challenges.cloudflare.com/**', (route) => {
+    asked.push(route.request().url());
+    return route.fulfill({
+      contentType: 'text/javascript',
+      body: `window.turnstile={getResponse:()=>"journey-token",reset(){},render(el,o){window.__rendered={slot:el.className,sitekey:o.sitekey,theme:o.theme,onError:typeof o['error-callback']};}};
+        window[new URL(document.currentScript.src).searchParams.get('onload')]();`,
+    });
+  });
+  await page.goto('/contact/');
+  await page.waitForLoadState('load');
+  await page.waitForTimeout(500);
+  expect(asked, 'Turnstile loaded before the visitor touched the form').toEqual([]);
+
+  await page.locator('#name').focus();
+  await expect.poll(() => asked.length).toBe(1);
+  expect(asked[0]).toContain('render=explicit');
+  const rendered = await page.waitForFunction(() => (window as unknown as { __rendered?: object }).__rendered).then((h) => h.jsonValue());
+  expect(rendered).toEqual({ slot: expect.stringContaining('turnstile-slot'), sitekey: expect.stringMatching(/^0x/), theme: 'dark', onError: 'function' });
+
+  // More typing never loads it twice.
+  await page.locator('#email').fill('x@example.com');
+  await page.locator('#name').fill('Again');
+  expect(asked).toHaveLength(1);
+});
+
+test('a visitor who reads without touching anything still gets the check before typing', async ({ page }) => {
+  const asked: string[] = [];
+  await page.route('**/challenges.cloudflare.com/**', (route) => {
+    asked.push(route.request().url());
+    return route.fulfill({ contentType: 'text/javascript', body: 'window.turnstile={getResponse:()=>"",reset(){},render(){}};' });
+  });
+  await page.goto('/contact/');
+  await page.waitForLoadState('load');
+  expect(asked).toEqual([]);
+  // Two seconds after the page has loaded, with no scroll, tap or key.
+  await expect.poll(() => asked.length, { timeout: 6000 }).toBe(1);
+});
+
+test('the security check is ready by the time a visitor scrolls to it without typing', async ({ page }) => {
+  const asked: string[] = [];
+  await page.route('**/challenges.cloudflare.com/**', (route) => {
+    asked.push(route.request().url());
+    return route.fulfill({ contentType: 'text/javascript', body: 'window.turnstile={getResponse:()=>"",reset(){},render(){}};' });
+  });
+  await page.goto('/contact/');
+  await page.waitForLoadState('load');
+  expect(asked).toEqual([]);
+  await page.locator('.turnstile-slot').scrollIntoViewIfNeeded();
+  await expect.poll(() => asked.length).toBe(1);
+});
+
 test('a refused or failed send keeps the enquiry and never shows an error code', async ({ page }, info) => {
   const posted = await stubIntake(page, { status: 403, body: { error: 'turnstile_failed' } });
   await page.goto('/contact/');

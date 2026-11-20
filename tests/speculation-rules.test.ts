@@ -4,9 +4,11 @@
  * would not, so this evaluates the shipped rules against every link the build emits:
  *
  *   - every link a rule matches is on this origin;
- *   - a prerendered link is an HTML page, never a file, and never /contact/: prerendering the
- *     contact page would load the third-party security check before the visitor chose the form,
- *     which the privacy notice discloses only for the contact page itself.
+ *   - a prerendered link is an HTML page, never a file;
+ *   - a prerendered page loads nothing from another site as it renders. /contact/ is prerendered
+ *     only because its third-party security check now loads after the page is seen and loaded
+ *     (t21450), never with the page: a page that loads a third party at render would send a
+ *     request off-site on a mere hover.
  *
  * `selector_matches` is treated as never matching, the strict direction: it only ever narrows
  * what a `not` clause lets through.
@@ -56,8 +58,9 @@ describe('speculation rules', () => {
     for (const page of pages) rulesOf(page.route);
   });
 
-  it('only ever speculate same-origin links, and prerender only HTML pages other than /contact/', () => {
+  it('only ever speculate same-origin links, and prerender only HTML pages', () => {
     const wrong: string[] = [];
+    const prerendered = new Set<string>();
     for (const page of pages) {
       const rules = rulesOf(page.route);
       for (const a of page.doc.querySelectorAll('a[href]')) {
@@ -68,19 +71,44 @@ describe('speculation rules', () => {
         const prefetch = (rules.prefetch ?? []).some((r) => holds(r.where, url.href));
         if ((prerender || prefetch) && url.origin !== SITE_URL) wrong.push(`${page.route}: speculates off-site ${href}`);
         if (!prerender) continue;
-        if (url.pathname === '/contact/') wrong.push(`${page.route}: prerenders /contact/`);
+        prerendered.add(url.pathname);
         const file = url.pathname.endsWith('/') ? `${url.pathname.slice(1)}index.html` : '';
         if (!file || !distHasFile(file)) wrong.push(`${page.route}: prerenders ${href}, which is not an HTML page`);
       }
     }
     expect(wrong).toEqual([]);
+    expect(prerendered.has('/contact/'), 'no page prerenders /contact/: the test below checks nothing for it').toBe(true);
   });
 
-  it('do something: the nav pages are prerendered and /contact/ is fetched', () => {
+  it('prerender only pages that request nothing from another site as they render', () => {
+    const linked = new Set<string>();
+    for (const page of pages) {
+      const rules = rulesOf(page.route);
+      for (const a of page.doc.querySelectorAll('a[href]')) {
+        const url = new URL(a.getAttribute('href') ?? '', SITE_URL + page.route);
+        if (url.origin === SITE_URL && (rules.prerender ?? []).some((r) => holds(r.where, url.href))) linked.add(url.pathname);
+      }
+    }
+    const offsite: string[] = [];
+    for (const path of linked) {
+      const target = pages.find((p) => p.route === path);
+      if (!target) continue;
+      for (const el of target.doc.querySelectorAll('script[src], link[href], iframe[src], img[src], source[src], video[src], audio[src]')) {
+        const ref = el.getAttribute('src') ?? el.getAttribute('href') ?? '';
+        const rel = el.getAttribute('rel') ?? '';
+        if (el.tagName === 'LINK' && !/stylesheet|preload|modulepreload|icon|manifest|prefetch|preconnect|dns-prefetch/.test(rel)) continue;
+        if (new URL(ref, SITE_URL + path).origin !== SITE_URL) offsite.push(`${path}: ${el.tagName.toLowerCase()} ${ref}`);
+      }
+    }
+    expect(offsite).toEqual([]);
+  });
+
+  it('do something: the nav pages and /contact/ are prerendered', () => {
     const rules = rulesOf('/');
     const at = (path: string, kind: keyof Rules) => (rules[kind] ?? []).some((r) => holds(r.where, `${SITE_URL}${path}`));
     for (const path of ['/', '/services/', '/work/', '/field-notes/', '/about/']) expect(at(path, 'prerender'), path).toBe(true);
     expect(at('/contact/', 'prefetch')).toBe(true);
+    expect(at('/contact/', 'prerender')).toBe(true);
     expect(at('/llms.txt', 'prefetch') || at('/llms.txt', 'prerender')).toBe(false);
   });
 });
