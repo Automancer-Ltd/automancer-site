@@ -64,6 +64,18 @@ async function expectNoSidewaysScroll(page: Page) {
   expect(overflow, 'page scrolls sideways').toBeLessThanOrEqual(0);
 }
 
+test('decorative motion pauses while reading and resumes when scrolled back into view', async ({ page }) => {
+  await page.goto('/field-notes/what-does-an-ai-agent-actually-cost/');
+  const glow = page.locator('.page-hero__glow');
+  await expect(glow).toHaveCSS('animation-play-state', 'running');
+  await page.locator('.prose h2').nth(2).scrollIntoViewIfNeeded();
+  await expect(page.locator('.page-hero')).not.toBeInViewport();
+  await expect(glow).toHaveCSS('animation-play-state', 'paused');
+  await page.evaluate(() => scrollTo({ top: 0, behavior: 'instant' }));
+  await expect(page.locator('.page-hero')).toBeInViewport();
+  await expect(glow).toHaveCSS('animation-play-state', 'running');
+});
+
 test('visitor can compare starting prices immediately and jump to each offer', async ({ page }, info) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/services/');

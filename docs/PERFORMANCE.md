@@ -147,6 +147,13 @@ exact `dist/` it publishes, so a heavier production build fails the release inst
   on mobile data), where the load event moved 547 → 197 ms.
 - **Images cannot shift layout:** the only `<img>` elements are the nav and footer logos, both
   with explicit dimensions.
+- **Offscreen decoration stops using the renderer while someone reads (t21709).** An
+  `IntersectionObserver` pauses CSS animations when their section or decoration leaves the
+  viewport and resumes them at the same point when it returns. On a 390px viewport in Chromium
+  with 4× CPU throttling, the old build spent about 1.3 s on renderer tasks in a 2.2 s pause at
+  the home page's service prices, and about 0.9 s in the middle of a field note. Animations in
+  view keep their original timing. The visitor journey checks that a field note's glow pauses
+  offscreen and resumes on return.
 - **A field note's contents list costs every page 2.7 KB (t21607, 20 Nov 2026).** The contents
   rail and its phone disclosure (`ArticleContents.astro`) add 1,845 B to the shared stylesheet and
   870 B to `main.js` (the scroll marker), unminified as `main.js` always is. Re-measured with
