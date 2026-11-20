@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { readdirSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import worker, { cachePolicy, legacyRedirect } from '../ops/edge/worker.js';
+import worker, { atOrigin, cachePolicy, legacyRedirect } from '../ops/edge/worker.js';
 import { DIST, allHtmlFiles } from './support/dist';
 
 // A stand-in for GitHub Pages: two pages, one twin, everything else 404.
@@ -103,6 +103,42 @@ describe('edge Worker in front of GitHub Pages', () => {
     expect(fetchSpy).not.toHaveBeenCalled();
     expect(legacyRedirect('/contact.html')).toBeNull();
     expect(legacyRedirect('/services/')).toBeNull();
+  });
+
+  // The Worker runs on the standard URL parser (t21891), as Node does. There `new URL('//services/',
+  // origin)` names the host "services", so a visitor's doubled slash would leave the site (Cloudflare
+  // answered 403). GitHub Pages serves such paths itself; the Worker must pass them on unchanged.
+  it('keeps every request on the origin, whatever slashes or escapes its path holds', async () => {
+    const fetchSpy = vi.fn(serve);
+    vi.stubGlobal('fetch', fetchSpy);
+    for (const path of ['//services/', '/services//', '/api//index.json', '/fie%6cd-notes/', '/services/?q=a%20b']) {
+      await get(path);
+      const sent = fetchSpy.mock.calls.at(-1)?.[0];
+      const url = new URL(sent instanceof Request ? sent.url : String(sent));
+      expect(`${url.origin}${url.pathname}${url.search}`, path).toBe(`https://automancer.uk${path}`);
+    }
+    const twin = await get('//', 'text/markdown');
+    expect(twin.headers.get('Content-Location')).toBe('/index.md');
+    const twinAsked = fetchSpy.mock.calls.at(-1)?.[0];
+    expect(twinAsked instanceof Request ? twinAsked.url : String(twinAsked as URL)).toBe('https://automancer.uk/index.md');
+    expect(atOrigin('//evil.example/x', '?a=b').toString()).toBe('https://automancer.uk//evil.example/x?a=b');
+  });
+
+  it("keeps a legacy URL's query exactly as the visitor sent it", async () => {
+    vi.stubGlobal('fetch', vi.fn(serve));
+    const res = await get('/services.html?utm_campaign=spring%20offer&q=a%3Fb&r=c+d');
+    expect(res.headers.get('Location')).toBe('https://automancer.uk/services/?utm_campaign=spring%20offer&q=a%3Fb&r=c+d');
+  });
+
+  // An upload with no date runs on Cloudflare's 2021 runtime and its legacy URL parser; an upload
+  // that rewrites the module deploys code no test ran.
+  it('deploys this module unchanged, on a dated Workers runtime', () => {
+    const deploy = readFileSync(new URL('../ops/edge/deploy.sh', import.meta.url), 'utf8');
+    const date = /^readonly COMPATIBILITY_DATE=(\d{4}-\d{2}-\d{2})$/m.exec(deploy)?.[1];
+    expect(date, 'deploy.sh sets COMPATIBILITY_DATE').toBeTruthy();
+    expect(Date.parse(`${date}T00:00:00Z`)).toBeLessThanOrEqual(Date.now());
+    expect(deploy).toContain('"main_module": "worker.js"');
+    expect(deploy).not.toMatch(/\bsed\b/);
   });
 
   it('sends the same security headers on pages, twins, errors and redirects', async () => {
