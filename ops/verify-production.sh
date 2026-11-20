@@ -54,7 +54,13 @@ readonly SECURITY_HEADERS=(
   "Referrer-Policy: strict-origin-when-cross-origin"
   "Content-Security-Policy: frame-ancestors 'none'; base-uri 'self'; object-src 'none'"
   "Permissions-Policy: camera=(), microphone=(), geolocation=()"
+  "Cross-Origin-Opener-Policy: same-origin"
 )
+# Never sent: each tells the visitor's browser to post reports to a server for
+# days after the visit, outside the page's CSP (Cloudflare's zone setting
+# "nel" added the first two to every response until t22383). The Worker
+# strips them; this fails if any comes back, from the zone or the origin.
+readonly REPORTING_HEADERS=("NEL" "Report-To" "Reporting-Endpoints")
 # The site's domains that send and receive no mail (automancer.co.uk only
 # redirects to automancer.uk). Each must refuse forged mail in its name: a
 # null MX (RFC 7505), SPF "v=spf1 -all" and DMARC p=reject with no weaker sp=
@@ -732,13 +738,17 @@ check_well_known() {
 }
 
 # security_headers_verdict <header-dump> — every SECURITY_HEADERS entry is
-# present with exactly its value; prints the ones that are not.
+# present with exactly its value and no REPORTING_HEADERS entry is present;
+# prints the ones that are wrong.
 security_headers_verdict() {
   local dump=$1 entry name want got bad=()
   for entry in "${SECURITY_HEADERS[@]}"; do
     name=${entry%%: *} want=${entry#*: }
     got=$(tr -d '\r' <"$dump" | grep -i -m1 "^${name}:" | sed 's/^[^:]*:[[:space:]]*//' || true)
     [[ $got == "$want" ]] || bad+=("${name} is \"${got:-absent}\"")
+  done
+  for name in "${REPORTING_HEADERS[@]}"; do
+    if tr -d '\r' <"$dump" | grep -qi "^${name}:"; then bad+=("${name} is sent"); fi
   done
   (( ${#bad[@]} == 0 )) || { local IFS=';'; printf '%s' "${bad[*]}"; return 1; }
 }
@@ -762,7 +772,7 @@ check_security_headers() {
     fi
     rm -f "$dump" "$err"
   done
-  printf 'the page, its Markdown twin and a 404 all send the %d security headers\n' "${#SECURITY_HEADERS[@]}"
+  printf 'the page, its Markdown twin and a 404 all send the %d security headers and no reporting header\n' "${#SECURITY_HEADERS[@]}"
 }
 
 # check_edge_active_surfaces — active non-HTML markup (SVG, XML) carries a
@@ -1630,6 +1640,13 @@ self_test() {
   self_test_scenario "{\"routes\":{\"/\":{\"status\":200,\"body\":\"ok\",\"headers\":${secure}}},\"default\":{\"status\":404,\"body\":\"\",\"headers\":${secure}}}"
   self_test_expect pass "security headers are sent on pages and on 404s" check_security_headers
   self_test_expect pass "security header values match exactly" check_security_headers
+  local reporting
+  for reporting in '"NEL":"{\"report_to\":\"cf-nel\",\"max_age\":604800}"' '"Report-To":"{\"group\":\"cf-nel\"}"' '"Reporting-Endpoints":"default=\"https://reports.example/r\""'; do
+    self_test_scenario "{\"routes\":{\"/\":{\"status\":200,\"body\":\"ok\",\"headers\":${secure%\}},${reporting}}}},\"default\":{\"status\":404,\"body\":\"\",\"headers\":${secure}}}"
+    self_test_expect fail "no response asks the browser to send reports" check_security_headers
+  done
+  self_test_scenario "{\"routes\":{\"/\":{\"status\":200,\"body\":\"ok\",\"headers\":${secure}}},\"default\":{\"status\":404,\"body\":\"\",\"headers\":${secure}}}"
+  self_test_expect pass "no response asks the browser to send reports" check_security_headers
 
   # Active XML/SVG CSP + legacy stub edge redirects.
   local xml_csp="default-src 'none'; frame-ancestors 'none'; base-uri 'none'; object-src 'none'; form-action 'none'; require-trusted-types-for 'script'; trusted-types 'none'"

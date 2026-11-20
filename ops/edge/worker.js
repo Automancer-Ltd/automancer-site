@@ -34,13 +34,25 @@ const PAGE_LINKS = [
 // production, so a change here changes the check there too. HSTS matches the
 // automancer.uk zone security_header setting (t15574: 6 months, no
 // includeSubDomains), which Cloudflare's edge applies over Worker headers.
+// Cross-Origin-Opener-Policy puts every page in its own browsing context group:
+// a site that opens automancer.uk in a window gets back a closed handle, so it
+// cannot later swap the page for a look-alike, message it or count its frames
+// (t22383).
 const SECURITY_HEADERS = {
   'Strict-Transport-Security': 'max-age=15552000',
   'X-Content-Type-Options': 'nosniff',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'Content-Security-Policy': "frame-ancestors 'none'; base-uri 'self'; object-src 'none'",
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+  'Cross-Origin-Opener-Policy': 'same-origin',
 };
+// Headers that tell the visitor's browser to send reports to a server for days
+// after a visit (Network Error Logging and the Reporting API). The pages may
+// contact only this site and the error monitor, and a CSP cannot stop these,
+// so no response carries one. Cloudflare's own NEL is the zone setting `nel`,
+// off on automancer.uk and automancer.co.uk since t22383; this strips any the
+// origin adds, and ops/verify-production.sh fails if one is served.
+const REPORTING_HEADERS = ['NEL', 'Report-To', 'Reporting-Endpoints'];
 // SVG and XML are active documents in browsers when opened directly and carry no
 // <meta> tag, so the edge header gives them the same nothing-allowed floor.
 const XML_DOCUMENT_CSP =
@@ -160,6 +172,7 @@ function withVary(response) {
 function secured(response) {
   const out = new Response(response.body, response);
   for (const [name, value] of Object.entries(SECURITY_HEADERS)) out.headers.set(name, value);
+  for (const name of REPORTING_HEADERS) out.headers.delete(name);
   if (XML_CONTENT_TYPE.test(out.headers.get('Content-Type') ?? '')) {
     out.headers.set('Content-Security-Policy', XML_DOCUMENT_CSP);
   }
