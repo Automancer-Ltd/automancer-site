@@ -102,8 +102,13 @@
       }, 1400);
     }
 
-    /* ── Article contents: mark the section above the top quarter of the screen ── */
-    var toc = document.querySelectorAll('[data-toc] a'), heads = document.querySelectorAll('.prose h2[id]');
+    /* ── Article contents: mark the part (section or sub-section) above the top
+       quarter of the screen. The headings are the ones the contents link to. ── */
+    var toc = document.querySelectorAll('[data-toc] a'), heads = [];
+    toc.forEach(function (a) {
+      var h = document.getElementById(decodeURIComponent(a.hash.slice(1)));
+      if (h && heads.indexOf(h) < 0) heads.push(h);
+    });
     if (toc.length) {
       var tocId, tocQueued;
       var markToc = function () {

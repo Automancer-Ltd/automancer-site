@@ -1,14 +1,16 @@
 ---
 /**
- * A field note's contents: one link per section (its <h2>), so a reader can
- * see the shape of a long note and jump to the part they came for.
+ * An article's contents: one link per section (its <h2>), with that section's
+ * <h3> parts nested beneath it, so a reader can see the shape of a long field
+ * note or case study and jump to the part they came for.
  *
  * Two forms of the same list, chosen by width in CSS (global.css, "Article
  * contents"): `inline` is a closed disclosure above the first paragraph on
  * phones and tablets; `rail` sits beside the text on wide screens and stays in
- * view while reading. main.js marks the section being read (aria-current).
+ * view while reading. main.js marks the part being read (aria-current), and
+ * CSS lights the section that holds it.
  *
- * The list repeats the note's own headings, so it is not counted as the page's
+ * The list repeats the page's own headings, so it is not counted as the page's
  * words (data-page-words="skip", src/integrations/page-dates.ts): adding it
  * changes no page's date.
  */
@@ -20,7 +22,12 @@ interface Props {
 }
 
 const { headings, variant } = Astro.props;
-const sections = headings.filter((h) => h.depth === 2);
+// Each h2 with the h3s that follow it; an h3 before the first h2 has no section to sit in.
+const sections: { head: MarkdownHeading; parts: MarkdownHeading[] }[] = [];
+for (const h of headings) {
+  if (h.depth === 2) sections.push({ head: h, parts: [] });
+  else if (h.depth === 3) sections.at(-1)?.parts.push(h);
+}
 ---
 
 {sections.length >= 3 && (
@@ -31,14 +38,24 @@ const sections = headings.filter((h) => h.depth === 2);
         <span class="toc__count">{sections.length} sections</span>
       </summary>
       <ol>
-        {sections.map((h) => <li><a href={`#${h.slug}`}>{h.text}</a></li>)}
+        {sections.map(({ head, parts }) => (
+          <li>
+            <a href={`#${head.slug}`}>{head.text}</a>
+            {parts.length > 0 && <ol>{parts.map((p) => <li><a href={`#${p.slug}`}>{p.text}</a></li>)}</ol>}
+          </li>
+        ))}
       </ol>
     </details>
   ) : (
     <nav class="toc toc--rail" aria-label="On this page" data-toc data-page-words="skip">
       <p class="toc__label" aria-hidden="true">On this page</p>
       <ol>
-        {sections.map((h) => <li><a href={`#${h.slug}`}>{h.text}</a></li>)}
+        {sections.map(({ head, parts }) => (
+          <li>
+            <a href={`#${head.slug}`}>{head.text}</a>
+            {parts.length > 0 && <ol>{parts.map((p) => <li><a href={`#${p.slug}`}>{p.text}</a></li>)}</ol>}
+          </li>
+        ))}
       </ol>
     </nav>
   )
