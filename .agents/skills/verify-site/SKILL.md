@@ -1,88 +1,95 @@
 ---
 name: verify-site
-description: End-to-end browser and HTTP verification for automancer-site (automancer.uk). Builds and serves the production static output locally, drives every page and user journey in agent-browser at desktop (1280x800) and mobile (390x844) widths, checks links, metadata, contact form validation, zero browser storage, and machine-readable endpoints, captures screenshots, and cleans up all servers and browser sessions.
+description: See automancer-site (automancer.uk) working in a real browser. Runs the visitor journey (Playwright, phone and laptop widths) on the built dist/ or on production, and compares every sitemap page of the working tree with main (or any two commits) screenshot by screenshot, so "nothing looks different" and "only this page changed" are checked, not assumed.
 ---
 
 # verify-site
 
-End-to-end verification skill for `Automancer-Ltd/automancer-site` (`https://automancer.uk`).
+Two commands drive the site as a visitor does. Both are the repository's own: CI and the deploy
+run the first, and the second is how a change proves what it did and did not change on screen.
 
-Run the automated driver for local build + preview + desktop & mobile browser journeys:
+| Question | Command |
+|---|---|
+| Do the journeys a visitor takes still work? | `pnpm run journey` |
+| What does this change look like, page by page, against main? | `pnpm run compare` |
 
-```bash
-.agents/skills/verify-site/scripts/verify-local.sh
-```
+The journeys are listed, with the tests that prove each one, in [`features/`](features/).
 
-Or point the production verifier at live `https://automancer.uk` after a deploy:
+## Launch
 
-```bash
-ops/verify-production.sh --expected-revision "$(git rev-parse origin/main)" https://automancer.uk
-```
+- **Journey, local:** `pnpm run journey` (needs `pnpm exec playwright install chromium` once).
+  Playwright builds `dist/` with monitoring on (`tests/support/build-env.ts`), serves it with
+  `astro preview` on 127.0.0.1:4399 and stops the server when the run ends.
+- **Journey, any served copy:** `JOURNEY_URL=<origin> pnpm run journey` runs the same tests
+  read-only against that origin (`deploy.yml` does this on `https://automancer.uk` after
+  publishing). The enquiry endpoint and Turnstile are stubbed in every run, so no run ever sends a
+  real enquiry.
+- **Compare:** `pnpm run compare [base-ref]` builds `base-ref` (default `origin/main`; run
+  `git fetch` first) from `git archive` into `$COMPARE_DIR` (default: the system temp folder,
+  cached per commit), builds the working tree into `dist/`, and opens both in Chromium through
+  Playwright's request routing. It opens no port and starts no server. Options:
+  - `--head=<ref>` compares two commits instead of the working tree.
+  - `--engines=chromium,firefox,webkit`, `--widths=390,1280`, `--paths=/,/services/` and
+    `--motion=reduce` change what is opened.
+  - `--no-build` reuses the working tree's `dist/`.
+  - `--tolerance=2` is how many colour steps a pixel may move and still count as the same.
 
-## Feature Map
+## Doctor
 
-Every user journey and surface is specified under [`.agents/skills/verify-site/features/`](features/):
+- 4399 already taken (another agent's server): the journey fails at once with "is already used".
+  Serve `dist/` yourself on a free port and point the journey at it:
+  `node_modules/.bin/astro preview --host 127.0.0.1 --port <free> --ignore-lock &`, then
+  `JOURNEY_URL=http://127.0.0.1:<free> pnpm run journey`, then stop that process by its PID.
+- A machine under heavy load can miss Playwright's 60 s webServer start: use the same route.
+- `pnpm run compare origin/main` on an unchanged tree must print `none of 64 page views differ`.
+  If it does not, the comparison is not trustworthy on this machine: read the first moved element
+  it names before believing any other result.
+- WebKit needs system libraries that auto-hst1 and auto-bee lack (`libevent`, `libgtk-4`);
+  Chromium and Firefox run everywhere the estate has tried.
 
-- [`01-home-and-navigation.md`](features/01-home-and-navigation.md) — Homepage (`/`), proof strip, 4-rung service ladder, desktop nav, mobile hamburger menu drawer (`390x844`), and `/404`.
-- [`02-services-and-pricing.md`](features/02-services-and-pricing.md) — `/services/` overview table, all 4 anchored offer sections (`#offer-1`, `#offer-2`, `#offer-3`, `#offer-4`), GBP from-prices matching `src/data/business.ts`, and CTA links.
-- [`03-work-and-field-notes.md`](features/03-work-and-field-notes.md) — `/work/` index, all 4 case-study pages (`/work/<slug>/`), `/field-notes/` index, and field-note articles (`/field-notes/<slug>/`), including `.md` twin routes and feed discovery links.
-- [`04-about-and-legal.md`](features/04-about-and-legal.md) — `/about/` company facts (`17060907`), `/privacy/` (`23 August 2026`), `/terms/` (`3 July 2026`), legal no-mirror enforcement, and runtime zero-storage check (`localStorage`, `sessionStorage`, `document.cookie`).
-- [`05-contact-and-intake-safety.md`](features/05-contact-and-intake-safety.md) — `/contact/` form fields, direct `mailto:`/`tel:` fallbacks, client-side validation (`#name` and `#email` focus + `aria-invalid="true"` with zero network leak to `ENDPOINT_URL`), and `window.onTurnstileError()` human fallback copy.
-- [`06-developer-and-agent-surfaces.md`](features/06-developer-and-agent-surfaces.md) — `/developers/`, `/llms.txt`, `/llms-full.txt`, `/agent.json`, `/security.txt`, `/openapi.json`, `/api/*.json`, RSS/JSON feeds, and Markdown twins (`/*.md`).
+## Drive
 
----
+- **The journeys.** [`features/`](features/) maps each visitor journey to its tests in
+  `tests/journey/` (browser) and `tests/*.test.ts` (Vitest audits of the built `dist/`). Run one
+  with `pnpm exec playwright test -g "<test name>"`. A journey the map lists without a test is a
+  gap: add the test rather than checking it by hand.
+- **The comparison.** Run it on every change that should look the same (a refactor, a
+  performance change, a dependency bump) and on every change that should look different only
+  where intended. Pages come from both builds' sitemaps plus `/404.html`, so a new page is
+  covered with no edit. Each page is scrolled through as a reader would (scroll reveals fire),
+  fonts settle, the proof strip's build stamp and commit are blanked, the pointer rests at the
+  centre (the hero glow's parallax is at rest) and every animation is held still. Then the
+  full-page screenshot and every element's box are compared. Each page prints one line:
+  - `same`;
+  - `DIFFERS`, with changed pixels, the rows they span, any height change and the innermost
+    moved element first (it names the cause; `main` growing around it does not);
+  - a new script error, policy refusal or status change on the head build is also a difference.
 
-## 1. Launch
+  It exits 1 when anything differs.
 
-1. Build the production static output in `dist/` (unless `SKIP_BUILD=1` and `dist/index.html` is already fresh):
-   ```bash
-   checkq -- pnpm run build
-   ```
-2. Pick a free loopback port (e.g. `4321` or ephemeral via `python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1]); s.close()'`) and start Astro's static preview server bound to `127.0.0.1`:
-   ```bash
-   pnpm exec astro preview --host 127.0.0.1 --port "$PORT" >/tmp/verify-site-preview.log 2>&1 &
-   PREVIEW_PID=$!
-   ```
-3. Always register an `EXIT INT TERM` trap before driving the browser so both the preview server and the dedicated `agent-browser` session are closed on exit.
+## Evidence
 
-## 2. Doctor
+- Journey: `test-results/` (painted full-page screenshots named `<project>-<page>.png`, and a
+  trace for each failure: `pnpm exec playwright show-trace <trace.zip>`).
+- Compare: `test-results/compare/report.json` (every page view's row), and for each page that
+  differs `test-results/compare/<engine>-<width>/<page>.{base,head,diff}.png`. In the diff, red
+  marks changed pixels over a faded copy of the head build. Look at the diff before claiming a
+  change is intended, and attach it to the PR or the task.
 
-Before driving user journeys, confirm:
+## Cleanup
 
-1. `command -v agent-browser`, `command -v curl`, and `command -v jq` succeed.
-2. `dist/index.html` and `dist/agent.json` exist on disk.
-3. `curl -fsS -o /dev/null "http://127.0.0.1:$PORT/"` and `curl -fsS -o /dev/null "http://127.0.0.1:$PORT/agent.json"` return HTTP 200 within 15 seconds.
-4. `agent-browser --session "$SESSION" open "http://127.0.0.1:$PORT/"` succeeds with a unique session name (`verify-site-$$`).
+Playwright stops the journey's own server. The comparison starts no server. A preview server you
+started for `JOURNEY_URL` is yours to stop, by the PID you started. Base builds stay cached in
+`$COMPARE_DIR/<commit>` (about 10 MB each: the source and its `dist/`; `node_modules` is removed
+after the build). Delete the folder to reclaim the space. `test-results/` is git-ignored and is replaced by the next run.
 
-## 3. Drive
+## Gotchas
 
-`.agents/skills/verify-site/scripts/verify-local.sh` executes every journey in [`features/`](features/):
-
-1. **Desktop pass (`1280x800`):**
-   - Visits `/`, `/services/`, `/work/`, `/work/care-provider-transformation/`, `/field-notes/`, `/field-notes/what-does-an-ai-agent-actually-cost/`, `/about/`, `/contact/`, `/developers/`, `/privacy/`, `/terms/`, and `/404`.
-   - Asserts `<title>`, `<meta name="description">`, `<link rel="canonical">`, single `<h1>`, landmarks (`header`, `main#main`, `footer`), JSON-LD `@graph`, and zero first-party browser storage (`localStorage.length === 0 && sessionStorage.length === 0 && document.cookie === ""`).
-   - Exercises `/contact/` validation (`empty name` -> `#form-error` text `"Please add your name."`, `#name[aria-invalid="true"]`, activeElement `name`; `empty email` -> `#email[aria-invalid="true"]`, activeElement `email`; `window.onTurnstileError()` -> human fallback naming `waseem@automancer.uk`) without posting test spam to the live Cloudflare Worker.
-   - Captures desktop screenshots for visual inspection.
-2. **Mobile pass (`390x844`):**
-   - Resizes viewport to `390x844`, verifies no horizontal overflow (`document.documentElement.scrollWidth <= window.innerWidth`) across key pages (`/`, `/services/`, `/work/`, `/field-notes/`, `/about/`, `/contact/`, `/developers/`, `/privacy/`, `/terms/`).
-   - Drives the mobile hamburger drawer (`.hamburger` click -> `.mobile-menu.is-open` and `aria-expanded="true"` -> `Escape` closes drawer and restores `aria-expanded="false"`).
-   - Captures mobile screenshots (including open mobile menu drawer and mobile pages).
-3. **Machine-surface HTTP audit:**
-   - Queries `/llms.txt`, `/llms-full.txt`, `/agent.json`, `/security.txt`, `/openapi.json`, `/api/index.json`, `/api/business.json`, `/api/services.json`, `/api/case-studies.json`, `/api/field-notes.json`, `/api/pages.json`, `/work/rss.xml`, `/work/feed.json`, `/field-notes/rss.xml`, `/field-notes/feed.json`, and all static `.md` twins against the preview server.
-
-## 4. Evidence
-
-1. `.agents/skills/verify-site/scripts/verify-local.sh` writes screenshots and `summary.json` into `EVIDENCE_DIR` (default `/tmp/verify-site-evidence`).
-2. **Always inspect screenshots** using `view_file` on the generated `.png` files in `$EVIDENCE_DIR` to verify visual hierarchy, contrast, spacing, and mobile responsiveness.
-
-## 5. Cleanup
-
-The script's `EXIT` trap automatically runs:
-
-```bash
-agent-browser --session "$SESSION" close >/dev/null 2>&1 || true
-kill "$PREVIEW_PID" >/dev/null 2>&1 || true
-wait "$PREVIEW_PID" >/dev/null 2>&1 || true
-```
-
-And verifies that `$PORT` is no longer listening before exiting.
+- Text a script changes on a timer cannot be frozen: before t22347 the home page typed its
+  terminal line, so comparisons against commits from before t22347 show a small difference in
+  that line on `/`.
+- A change to the proof strip's build stamp or commit text is invisible to the comparison by
+  design.
+- t22218 shipped `/developers/` without its hero styles after a hand-picked before/after list
+  missed the page. `node ops/compare-builds.mjs e1f093b --head=bdff3f4` replays that release:
+  `/developers/` differs at both widths (41% and 55% of pixels, about 320 and 620 px shorter).

@@ -74,9 +74,9 @@ Provide a truthful public front door for Automancer. Give people and machines th
 
 ### Build, test, and deployment
 
-- What it does: Builds an Astro static site, checks types and content, audits generated output, and deploys `main` to GitHub Pages, which sits behind Cloudflare and the edge Worker in `ops/edge/` (deployed separately; `docs/DEPLOYMENT.md`). It verifies the deployed revision and key production routes after each deploy.
+- What it does: Builds an Astro static site, checks types and content, audits generated output, and deploys `main` to GitHub Pages, which sits behind Cloudflare and the edge Worker in `ops/edge/` (deployed separately; `docs/DEPLOYMENT.md`). It verifies the deployed revision and key production routes after each deploy. `pnpm run compare` (`ops/compare-builds.mjs`, t22410) shows what a change does on screen: it builds a base commit (default `origin/main`) from `git archive` and the working tree, opens every page in either sitemap plus the 404 at 390 and 1280 px with animations held still, and compares full-page screenshots pixel by pixel and every element's box, printing one line per page, writing base, head and diff images for each page that differs, and exiting 1 on any difference. Two runs of an unchanged tree against `origin/main` found 0 of 64 page views different in Chromium and in Firefox; replaying t22218's first release flags `/developers/` at both widths. The verify-site skill (`.agents/skills/verify-site/`) runs the journey and this comparison; its feature map names the tests that prove each visitor journey.
 - State: built
-- Shaped by: `package.json`, `vitest.config.ts`, `tests/`, `.github/workflows/ci.yml`, `.github/workflows/deploy.yml`, and `ops/verify-production.sh`.
+- Shaped by: `package.json`, `vitest.config.ts`, `tests/`, `.github/workflows/ci.yml`, `.github/workflows/deploy.yml`, `ops/verify-production.sh` and `ops/compare-builds.mjs`.
 
 ### Second domain refuses forged mail
 

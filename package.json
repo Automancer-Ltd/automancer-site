@@ -19,6 +19,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "journey": "playwright test",
+    "compare": "node ops/compare-builds.mjs",
     "verify": "pnpm run lint && pnpm run typecheck && pnpm run test"
   },
   "dependencies": {

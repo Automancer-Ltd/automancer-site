@@ -1,16 +1,20 @@
-# Feature 04: About Page, Legal Pages, and Zero First-Party Browser Storage
+# 04 About, privacy and terms
 
-## Scope
-Covers `/about/`, `/privacy/`, and `/terms/`, company registration details (`Automancer Ltd`, `17060907`), the `legalNoMirror` policy on legal pages, and runtime verification that zero first-party browser storage is written.
+**The journey.** A visitor checks who runs the company (`/about/`) and reads the privacy notice
+and terms, which promise that the site stores nothing in their browser.
 
-## Preconditions
-- Preview server running on `http://127.0.0.1:$PORT`.
+**Reach it.** `/about/`, `/privacy/`, `/terms/` (footer links).
 
-## Steps (`1280x800` and `390x844`)
-1. Open `/about/`; assert `<h1>`, founder details (`Waseem`), company number `17060907`, and HTTP 200 on `/about.md`.
-2. Open `/privacy/`; assert visible `"23 August 2026"` last-updated date, company number `17060907`, and HTTP 404 on `/privacy.md` (`legalNoMirror` policy).
-3. Open `/terms/`; assert visible `"3 July 2026"` last-updated date, company number `17060907`, and HTTP 404 on `/terms.md` (`legalNoMirror` policy).
-4. On every visited page, evaluate `localStorage.length === 0 && sessionStorage.length === 0 && document.cookie === ""` in the browser to confirm zero first-party browser storage.
+**Proved by:**
 
-## Evidence
-- `desktop-about.png`, `desktop-privacy.png`, `desktop-terms.png`, `mobile-about.png`, `mobile-privacy.png`, `mobile-terms.png`.
+- Vitest: `tests/legal-integrity.test.ts` (the legal wording is hash-pinned to its "Last updated"
+  date; it changes only on Waseem's instruction), `tests/no-browser-storage.test.ts` and
+  `tests/storage-sentinel.test.ts` (no page script writes cookies, local or session storage, or
+  IndexedDB), and the legal no-mirror checks in `tests/agent-readiness.test.ts` (no twin, feed or
+  payload repeats a legal sentence).
+- `every page keeps its words on screen at 320px and with text at 200%` covers all three pages.
+
+**End state.** The pages state the company facts from `business.ts`, the legal pages have no
+Markdown twin, and the browser stores nothing.
+
+**Gotchas.** `/privacy/` and `/terms/` are `legalNoMirror`: never add them to a machine surface.

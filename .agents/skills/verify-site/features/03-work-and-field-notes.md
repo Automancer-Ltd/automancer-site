@@ -1,17 +1,24 @@
-# Feature 03: Work Case Studies and Field Notes Collections
+# 03 Case studies and field notes
 
-## Scope
-Covers `/work/`, all 4 published case-study detail pages (`/work/<slug>/`), `/field-notes/`, and published field-note detail pages (`/field-notes/<slug>/`), including `.md` twin routes and RSS/JSON Feed discovery links.
+**The journey.** A visitor opens `/work/` or `/field-notes/`, picks an entry, uses its "On this
+page" contents to move through it and, on a note, carries on with "Keep reading".
 
-## Preconditions
-- Preview server running on `http://127.0.0.1:$PORT`.
+**Reach it.** `/work/`, `/work/<slug>/`, `/field-notes/`, `/field-notes/<slug>/` (one page per
+file in `src/content/`; the sitemap lists them all).
 
-## Steps (`1280x800` and `390x844`)
-1. Open `/work/`; assert 4 `.case-card` links exist (`/work/care-provider-transformation`, `/work/debiaser-ai-product`, `/work/manufacturer-trade-portal`, `/work/fast-small-business-websites`), canonical is `https://automancer.uk/work/`, and `/work/rss.xml` and `/work/feed.json` return HTTP 200.
-2. Open `/work/care-provider-transformation/`; assert `<h1>` is non-empty, canonical link is `https://automancer.uk/work/care-provider-transformation/`, and `/work/care-provider-transformation.md` returns HTTP 200.
-3. Open `/field-notes/`; assert 15 non-draft `.note-row` items are listed, canonical is `https://automancer.uk/field-notes/`, and `/field-notes/rss.xml` and `/field-notes/feed.json` return HTTP 200.
-4. Open `/field-notes/what-does-an-ai-agent-actually-cost/`; assert `<h1>`, `Article` JSON-LD node, and HTTP 200 on `/field-notes/what-does-an-ai-agent-actually-cost.md`.
-5. Verify no horizontal overflow at `390x844` on `/work/`, `/work/care-provider-transformation/`, `/field-notes/`, and `/field-notes/what-does-an-ai-agent-actually-cost/`.
+**Proved by:**
 
-## Evidence
-- `desktop-work.png`, `desktop-case-study.png`, `desktop-field-notes.png`, `desktop-field-note-article.png`, `mobile-work.png`, `mobile-field-notes.png`.
+- `a field note's contents jump to each section and mark the one being read`.
+- `a field note opens with its first line in view and ends with the next notes on its subject`.
+- `a case study's contents list its sections and their parts, and follow the reader into a part`.
+- `a case study's sector and notes read as whole lines, not ragged columns` and
+  `a case study's figures never break inside a word, even with text at 200%`.
+- `a shared page previews with its own card, not the generic image`.
+- Vitest: `tests/related-notes.test.ts`, `tests/og-cards.test.ts`, `tests/feeds.test.ts` and the
+  feed and twin checks in `tests/agent-readiness.test.ts` (every published entry, no drafts).
+
+**End state.** Every published entry has its page, twin, feed item and share card, and drafts
+have none.
+
+**Gotchas.** Counts of notes and studies change with content: derive them from `src/content/` or
+the sitemap, never write them into a check.
