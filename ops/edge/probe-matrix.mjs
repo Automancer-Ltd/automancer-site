@@ -54,7 +54,8 @@ const QUESTIONS = [
 ];
 
 const KEEP = ['content-type', 'location', 'content-location', 'cache-control', 'vary', 'link', 'allow',
-  'strict-transport-security', 'x-content-type-options', 'referrer-policy', 'content-security-policy', 'permissions-policy'];
+  'strict-transport-security', 'x-content-type-options', 'referrer-policy', 'content-security-policy', 'permissions-policy',
+  'cross-origin-opener-policy', 'nel', 'report-to', 'reporting-endpoints'];
 
 for (const [label, path, accept, method = 'GET'] of QUESTIONS) {
   const started = performance.now();

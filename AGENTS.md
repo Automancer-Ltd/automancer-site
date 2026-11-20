@@ -81,7 +81,9 @@ ops/preview/                the non-production preview target
   enquiry API and Turnstile's frame (`tests/csp.test.ts` across all 37 HTML files including redirect
   stubs, `security.csp` in `astro.config.mjs`, SVG/XML edge CSP in `ops/edge/worker.js`, and live
   verification in `ops/verify-production.sh`). A new third-party request needs its origin added
-  there on purpose.
+  there on purpose. No response may carry `NEL`, `Report-To` or `Reporting-Endpoints`: they make the
+  browser report to a server for days, outside the CSP (Cloudflare zone setting `nel` stays off;
+  the Worker strips them and `ops/verify-production.sh` fails on one).
 - `/privacy/` and `/terms/` are `legalNoMirror` and hash-pinned (`tests/legal-integrity.test.ts`);
   their wording changes only on Waseem's instruction.
 - The contact form never shows a raw API error code (`tests/contact-errors.test.ts`).
