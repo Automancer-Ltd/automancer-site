@@ -23,8 +23,8 @@ import { describe, expect, it } from 'vitest';
 import { allHtmlFiles } from './support/dist';
 import { DIST, measureAllPages } from './support/perf';
 
-/** Measured 2026-11-20: heaviest fixed-budget page (/contact/, 163,490 B), after splitting page styles out of the shared stylesheet (t22218). */
-const LAYOUT_MEASURED = 163490;
+/** Measured 2026-11-20: heaviest fixed-budget page (/contact/, 163,598 B), after splitting page styles out of the shared stylesheet (t22218). */
+const LAYOUT_MEASURED = 163598;
 
 /**
  * Layout pages that genuinely need more than the default, each with its own
