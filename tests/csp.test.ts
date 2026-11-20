@@ -50,7 +50,7 @@ function bundledReportOrigin(): string | null {
   return [...found][0] ?? null;
 }
 
-const pages = allHtmlFiles().filter((p) => !p.isRedirectStub);
+const pages = allHtmlFiles();
 
 describe('page Content Security Policy', () => {
   const reportOrigin = bundledReportOrigin();
@@ -63,25 +63,34 @@ describe('page Content Security Policy', () => {
     const policy = policyOf(page.html);
     expect(policy, `${route} ships no CSP meta tag`).not.toBeNull();
     if (!policy) return;
-    const isContact = route === '/contact/';
 
     expect(policy.get('default-src')).toEqual(["'none'"]);
     expect(policy.get('base-uri')).toEqual(["'self'"]);
-    expect(policy.get('form-action')).toEqual(["'self'"]);
-    expect(policy.get('img-src')).toEqual(["'self'", 'data:']);
-    expect(policy.get('font-src')).toEqual(["'self'"]);
     expect(policy.get('script-src-attr')).toEqual(["'none'"]);
     // Trusted Types: no string reaches an HTML or script sink; only /contact/
     // may create one policy, its Turnstile loader.
     expect(policy.get('require-trusted-types-for')).toEqual(["'script'"]);
-    expect(policy.get('trusted-types')).toEqual(isContact ? ['turnstile'] : ["'none'"]);
 
-    const connect = new Set(policy.get('connect-src'));
-    const expected = new Set(["'self'", reportOrigin, ...(isContact ? [ENQUIRY_API] : [])]);
-    expect(connect).toEqual(expected);
+    if (page.isRedirectStub) {
+      expect(policy.get('form-action')).toEqual(["'none'"]);
+      expect(policy.get('trusted-types')).toEqual(["'none'"]);
+      expect(policy.get('connect-src') ?? null).toBeNull();
+      expect(policy.get('frame-src') ?? null).toBeNull();
+      expect(policy.get('script-src') ?? null).toBeNull();
+    } else {
+      const isContact = route === '/contact/';
+      expect(policy.get('form-action')).toEqual(["'self'"]);
+      expect(policy.get('img-src')).toEqual(["'self'", 'data:']);
+      expect(policy.get('font-src')).toEqual(["'self'"]);
+      expect(policy.get('trusted-types')).toEqual(isContact ? ['turnstile'] : ["'none'"]);
 
-    expect(policy.get('frame-src') ?? null).toEqual(isContact ? [TURNSTILE] : null);
-    expect(policy.get('script-src')?.includes(TURNSTILE)).toBe(isContact);
+      const connect = new Set(policy.get('connect-src'));
+      const expected = new Set(["'self'", reportOrigin, ...(isContact ? [ENQUIRY_API] : [])]);
+      expect(connect).toEqual(expected);
+
+      expect(policy.get('frame-src') ?? null).toEqual(isContact ? [TURNSTILE] : null);
+      expect(policy.get('script-src')?.includes(TURNSTILE)).toBe(isContact);
+    }
 
     for (const [name, sources] of policy) {
       for (const source of sources) {

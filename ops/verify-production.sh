@@ -765,6 +765,170 @@ check_security_headers() {
   printf 'the page, its Markdown twin and a 404 all send the %d security headers\n' "${#SECURITY_HEADERS[@]}"
 }
 
+# check_edge_active_surfaces — active non-HTML markup (SVG, XML) carries a
+# default-src 'none' + Trusted Types CSP header, and legacy stub paths
+# (/services.html/index.html, //services.html/) redirect 301 at the edge rather
+# than serving static HTML from the origin.
+check_edge_active_surfaces() {
+  local verdict
+  if ! verdict=$(python3 - "$BASE_URL" "$HTTP_TIMEOUT_SECS" 2>&1 <<'PY'
+import http.client, ssl, sys
+from urllib.parse import urlparse
+
+u = urlparse(sys.argv[1])
+timeout = float(sys.argv[2])
+
+def req(path):
+    conn = (
+        http.client.HTTPSConnection(u.hostname, u.port or 443, timeout=timeout, context=ssl.create_default_context())
+        if u.scheme == "https"
+        else http.client.HTTPConnection(u.hostname, u.port or 80, timeout=timeout)
+    )
+    try:
+        conn.request("GET", path, headers={"User-Agent": "automancer-verify/1"})
+        res = conn.getresponse()
+        res.read()
+        hdrs = {k.lower(): v for k, v in res.getheaders()}
+        return res.status, hdrs
+    except Exception as exc:
+        sys.exit(f"GET {sys.argv[1]}{path} did not complete: {exc}")
+    finally:
+        conn.close()
+
+for path in ("/assets/images/logo.svg", "/field-notes/rss.xml"):
+    code, hdrs = req(path)
+    csp = hdrs.get("content-security-policy", "")
+    if code != 200 or "default-src 'none'" not in csp or "require-trusted-types-for 'script'" not in csp:
+        sys.exit(
+            f'GET {sys.argv[1]}{path} answered HTTP {code} with Content-Security-Policy "{csp or "absent"}" '
+            "— active XML/SVG must send default-src 'none' and Trusted Types"
+        )
+
+for path in ("/services.html/index.html", "//services.html/"):
+    code, hdrs = req(path)
+    loc = hdrs.get("location", "")
+    if code != 301 or loc != "https://automancer.uk/services/":
+        sys.exit(
+            f"GET {sys.argv[1]}{path} answered HTTP {code} (Location: {loc or 'absent'}), "
+            "expected 301 to https://automancer.uk/services/"
+        )
+
+print("SVG/XML carry default-src 'none' + Trusted Types, and legacy stub paths 301 cleanly at the edge")
+PY
+  ); then
+    printf '%s\n' "$(printf '%s' "$verdict" | tr '\n' ' ')"
+    return 1
+  fi
+  printf '%s\n' "$verdict"
+}
+
+# check_page_csp — every served HTML page (/, /contact/, and a 404) carries the
+# build's <meta http-equiv="content-security-policy"> starting from
+# default-src 'none', enforcing Trusted Types, scoping Turnstile and the intake
+# API to /contact/ alone, and matching connect-src to the exact Sentry DSN
+# origin served in the page's JavaScript bundle.
+check_page_csp() {
+  local home_file contact_file notfound_file combined out err code verdict
+  fetch_body "${BASE_URL}/" || return 1
+  home_file=$BODY_FILE
+  if ! fetch_body "${BASE_URL}/contact/"; then
+    rm -f "$home_file"
+    return 1
+  fi
+  contact_file=$BODY_FILE
+  notfound_file=$(need_tmp) out=$(need_tmp) err=$(need_tmp)
+  if ! curl -sS -L --max-redirs "$MAX_REDIRECTS" --max-time "$HTTP_TIMEOUT_SECS" \
+    -o "$notfound_file" -w '%{http_code}' "${BASE_URL}/this-route-must-not-exist-csp-$$-${RANDOM}" >"$out" 2>"$err"; then
+    printf 'GET 404 probe did not complete: %s\n' "$(tr -d '\n' <"$err")"
+    rm -f "$home_file" "$contact_file" "$notfound_file" "$out" "$err"
+    return 1
+  fi
+  code=$(cat "$out")
+  rm -f "$out" "$err"
+  if [[ $code != 404 ]]; then
+    printf 'GET 404 CSP probe answered HTTP %s, expected 404\n' "$code"
+    rm -f "$home_file" "$contact_file" "$notfound_file"
+    return 1
+  fi
+  combined=$(need_tmp)
+  if ! collect_homepage_bundles "$combined"; then
+    rm -f "$home_file" "$contact_file" "$notfound_file" "$combined"
+    return 1
+  fi
+  if ! verdict=$(python3 - "$PREVIEW_MODE" "$combined" "$home_file" "$contact_file" "$notfound_file" 2>&1 <<'PY'
+import re, sys
+from pathlib import Path
+from urllib.parse import urlparse
+
+preview = int(sys.argv[1]) == 1
+bundle = Path(sys.argv[2]).read_text(encoding="utf-8", errors="replace")
+origins = {
+    f"{u.scheme}://{u.hostname}" + (f":{u.port}" if u.port else "")
+    for m in re.findall(r"""["'`](https://[A-Za-z0-9]+@[^"'`/\s]+/\d+)["'`]""", bundle)
+    for u in [urlparse(m)]
+}
+if len(origins) > 1:
+    sys.exit(f"bundle carries more than one DSN origin: {', '.join(sorted(origins))}")
+report_origin = next(iter(origins), None)
+if not preview and not report_origin:
+    sys.exit("served JS bundle carries no Sentry DSN origin to match against connect-src")
+
+TURNSTILE = "https://challenges.cloudflare.com"
+ENQUIRY = "https://api.automancer.uk"
+BAD = re.compile(r"^\*|^https?://\*|^http:|unsafe-eval|^https?:$")
+
+def parse_meta(html):
+    m = re.search(r'<meta\s+http-equiv="content-security-policy"\s+content="([^"]*)"', html, re.I)
+    if not m:
+        return None
+    pol = {}
+    for part in m.group(1).split(";"):
+        toks = part.strip().split()
+        if toks:
+            pol[toks[0].lower()] = toks[1:]
+    return pol
+
+for route, path in (("/", sys.argv[3]), ("/contact/", sys.argv[4]), ("/404", sys.argv[5])):
+    pol = parse_meta(Path(path).read_text(encoding="utf-8", errors="replace"))
+    if pol is None:
+        sys.exit(f"{route} serves no <meta http-equiv=\"content-security-policy\">")
+    is_contact = route == "/contact/"
+    checks = [
+        ("default-src", ["'none'"]),
+        ("base-uri", ["'self'"]),
+        ("form-action", ["'self'"]),
+        ("img-src", ["'self'", "data:"]),
+        ("font-src", ["'self'"]),
+        ("script-src-attr", ["'none'"]),
+        ("require-trusted-types-for", ["'script'"]),
+        ("trusted-types", ["turnstile"] if is_contact else ["'none'"]),
+    ]
+    for name, want in checks:
+        if pol.get(name) != want:
+            sys.exit(f"{route} {name} is {pol.get(name)}, expected {want}")
+    want_connect = {"'self'"} | ({report_origin} if report_origin else set()) | ({ENQUIRY} if is_contact else set())
+    if set(pol.get("connect-src", [])) != want_connect:
+        sys.exit(f"{route} connect-src is {sorted(pol.get('connect-src', []))}, expected {sorted(want_connect)}")
+    if pol.get("frame-src") != ([TURNSTILE] if is_contact else None):
+        sys.exit(f"{route} frame-src is {pol.get('frame-src')}, expected {[TURNSTILE] if is_contact else None}")
+    if (TURNSTILE in pol.get("script-src", [])) != is_contact:
+        sys.exit(f"{route} script-src Turnstile presence is {not is_contact}, expected {is_contact}")
+    for name, srcs in pol.items():
+        for src in srcs:
+            if BAD.search(src):
+                sys.exit(f"{route} {name} allows forbidden source {src}")
+
+print(f"/, /contact/ and 404 enforce default-src 'none', Trusted Types and connect-src matching {report_origin or 'preview (no DSN)'}")
+PY
+  ); then
+    printf 'served page CSP check failed: %s\n' "$(printf '%s' "$verdict" | tr '\n' ' ')"
+    rm -f "$home_file" "$contact_file" "$notfound_file" "$combined"
+    return 1
+  fi
+  rm -f "$home_file" "$contact_file" "$notfound_file" "$combined"
+  printf '%s\n' "$verdict"
+}
+
 check_security_txt() {
   local url="${BASE_URL}${SECURITY_TXT_PATH}" verdict expected_canonical=''
   fetch_body "$url" || return 1
@@ -1093,7 +1257,21 @@ tls_expiry_ok() {
 }
 
 parse_tls_expiry() {
-  date -d "${1#notAfter=}" +%s 2>/dev/null
+  python3 - "${1#notAfter=}" <<'PY' 2>/dev/null
+import datetime, email.utils, sys
+raw = sys.argv[1].strip()
+for fmt in ("%b %d %H:%M:%S %Y %Z", "%b %d %H:%M:%S %Y GMT"):
+    try:
+        dt = datetime.datetime.strptime(raw, fmt).replace(tzinfo=datetime.timezone.utc)
+        print(int(dt.timestamp()))
+        sys.exit(0)
+    except ValueError:
+        pass
+dt = email.utils.parsedate_to_datetime(raw)
+if dt.tzinfo is None:
+    dt = dt.replace(tzinfo=datetime.timezone.utc)
+print(int(dt.timestamp()))
+PY
 }
 
 check_tls() {
@@ -1453,6 +1631,61 @@ self_test() {
   self_test_expect pass "security headers are sent on pages and on 404s" check_security_headers
   self_test_expect pass "security header values match exactly" check_security_headers
 
+  # Active XML/SVG CSP + legacy stub edge redirects.
+  local xml_csp="default-src 'none'; frame-ancestors 'none'; base-uri 'none'; object-src 'none'; form-action 'none'; require-trusted-types-for 'script'; trusted-types 'none'"
+  self_test_scenario '{"routes":{"/assets/images/logo.svg":{"status":200,"body":"<svg/>","headers":{"Content-Type":"image/svg+xml","Content-Security-Policy":"frame-ancestors '\''none'\''"}},"/field-notes/rss.xml":{"status":200,"body":"<rss/>","headers":{"Content-Type":"application/xml","Content-Security-Policy":"'"$xml_csp"'"}},"/services.html/index.html":{"status":301,"body":"","headers":{"Location":"https://automancer.uk/services/"}},"//services.html/":{"status":301,"body":"","headers":{"Location":"https://automancer.uk/services/"}}},"default":{"status":404,"body":""}}'
+  self_test_expect fail "active SVG and XML responses enforce default-src 'none' and Trusted Types" check_edge_active_surfaces
+  self_test_scenario '{"routes":{"/assets/images/logo.svg":{"status":200,"body":"<svg/>","headers":{"Content-Type":"image/svg+xml","Content-Security-Policy":"'"$xml_csp"'"}},"/field-notes/rss.xml":{"status":200,"body":"<rss/>","headers":{"Content-Type":"application/xml","Content-Security-Policy":"'"$xml_csp"'"}},"/services.html/index.html":{"status":200,"body":"<html>stub</html>"},"//services.html/":{"status":301,"body":"","headers":{"Location":"https://automancer.uk/services/"}}},"default":{"status":404,"body":""}}'
+  self_test_expect fail "legacy stub paths redirect 301 at the edge instead of serving static HTML" check_edge_active_surfaces
+  self_test_scenario '{"routes":{"/assets/images/logo.svg":{"status":200,"body":"<svg/>","headers":{"Content-Type":"image/svg+xml","Content-Security-Policy":"'"$xml_csp"'"}},"/field-notes/rss.xml":{"status":200,"body":"<rss/>","headers":{"Content-Type":"application/xml","Content-Security-Policy":"'"$xml_csp"'"}},"/services.html/index.html":{"status":301,"body":"","headers":{"Location":"https://automancer.uk/services/"}},"/services.html/":{"status":301,"body":"","headers":{"Location":"https://automancer.uk/services/"}},"//services.html/":{"status":301,"body":"","headers":{"Location":"https://automancer.uk/services/"}}},"default":{"status":404,"body":""}}'
+  self_test_expect pass "active SVG and XML responses enforce default-src 'none' and Trusted Types" check_edge_active_surfaces
+  self_test_expect pass "legacy stub paths redirect 301 at the edge instead of serving static HTML" check_edge_active_surfaces
+
+  # Served page <meta> CSP + Trusted Types + connect-src DSN-origin match.
+  local base_csp="default-src 'none'; connect-src 'self' https://o4511673494732800.ingest.de.sentry.io; img-src 'self' data:; font-src 'self'; manifest-src 'self'; form-action 'self'; base-uri 'self'; require-trusted-types-for 'script'; trusted-types 'none'; script-src 'self'; script-src-attr 'none'"
+  local contact_csp="default-src 'none'; connect-src 'self' https://o4511673494732800.ingest.de.sentry.io https://api.automancer.uk; img-src 'self' data:; font-src 'self'; manifest-src 'self'; form-action 'self'; base-uri 'self'; require-trusted-types-for 'script'; trusted-types turnstile; frame-src https://challenges.cloudflare.com; script-src 'self' https://challenges.cloudflare.com; script-src-attr 'none'"
+  local dsn_js='const dsn="https://0123456789abcdef0123456789abcdef@o4511673494732800.ingest.de.sentry.io/4511769898647632"'
+  python3 - "$SELFTEST_SCENARIO" "$base_csp" "$contact_csp" "$dsn_js" <<'PY'
+import json, sys
+out, base_csp, contact_csp, dsn_js = sys.argv[1:5]
+open(out, "w").write(json.dumps({
+  "routes": {
+    "/": {"status": 200, "body": f'<html><head></head><body><script src="/_astro/app.js"></script></body></html>'},
+    "/contact/": {"status": 200, "body": f'<html><head><meta http-equiv="content-security-policy" content="{contact_csp}"></head></html>'},
+    "/_astro/app.js": {"status": 200, "body": dsn_js},
+  },
+  "default": {"status": 404, "body": f'<html><head><meta http-equiv="content-security-policy" content="{base_csp}"></head></html>'},
+}))
+PY
+  self_test_expect fail "served pages carry <meta http-equiv=content-security-policy>" check_page_csp
+  python3 - "$SELFTEST_SCENARIO" "${base_csp/o4511673494732800.ingest.de.sentry.io/o999.ingest.sentry.io}" "$contact_csp" "$dsn_js" <<'PY'
+import json, sys
+out, bad_csp, contact_csp, dsn_js = sys.argv[1:5]
+open(out, "w").write(json.dumps({
+  "routes": {
+    "/": {"status": 200, "body": f'<html><head><meta http-equiv="content-security-policy" content="{bad_csp}"></head><body><script src="/_astro/app.js"></script></body></html>'},
+    "/contact/": {"status": 200, "body": f'<html><head><meta http-equiv="content-security-policy" content="{contact_csp}"></head></html>'},
+    "/_astro/app.js": {"status": 200, "body": dsn_js},
+  },
+  "default": {"status": 404, "body": f'<html><head><meta http-equiv="content-security-policy" content="{bad_csp}"></head></html>'},
+}))
+PY
+  self_test_expect fail "served page connect-src matches the bundled Sentry DSN origin" check_page_csp
+  python3 - "$SELFTEST_SCENARIO" "$base_csp" "$contact_csp" "$dsn_js" <<'PY'
+import json, sys
+out, base_csp, contact_csp, dsn_js = sys.argv[1:5]
+open(out, "w").write(json.dumps({
+  "routes": {
+    "/": {"status": 200, "body": f'<html><head><meta http-equiv="content-security-policy" content="{base_csp}"></head><body><script src="/_astro/app.js"></script></body></html>'},
+    "/contact/": {"status": 200, "body": f'<html><head><meta http-equiv="content-security-policy" content="{contact_csp}"></head></html>'},
+    "/_astro/app.js": {"status": 200, "body": dsn_js},
+  },
+  "default": {"status": 404, "body": f'<html><head><meta http-equiv="content-security-policy" content="{base_csp}"></head></html>'},
+}))
+PY
+  self_test_expect pass "served pages carry <meta http-equiv=content-security-policy>" check_page_csp
+  self_test_expect pass "served page connect-src matches the bundled Sentry DSN origin" check_page_csp
+
   DOH_URL="${BASE_URL}/dns-query"
   for mutation in mx_absent mx_real spf_softfail spf_twice dmarc_absent dmarc_none dmarc_sp_none servfail; do
     case $mutation in
@@ -1711,8 +1944,10 @@ main() {
     if ! poll_check "the /.well-known/ copies are served" check_well_known; then :; fi
     # The edge Worker sends these; the preview server has no Worker in front.
     if ! poll_check "the edge Worker's security headers are sent on pages, twins and 404s" check_security_headers; then :; fi
+    if ! poll_check "active XML/SVG carry default-src 'none' + Trusted Types and legacy stub paths 301 at the edge" check_edge_active_surfaces; then :; fi
     if ! poll_check "${NO_MAIL_DOMAINS[*]} refuses forged mail (null MX, SPF -all, DMARC p=reject)" check_no_mail_domains; then :; fi
   fi
+  if ! poll_check "served HTML pages enforce default-src 'none', Trusted Types and DSN-matched connect-src" check_page_csp; then :; fi
   if ! poll_check "homepage contains structural anchor \"${HOMEPAGE_ANCHOR}\"" check_homepage_anchor; then :; fi
   if [[ -n $EXPECTED_REVISION ]]; then
     if ! poll_check "homepage serves expected build revision ${EXPECTED_REVISION}" check_revision; then :; fi

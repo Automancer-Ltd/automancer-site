@@ -41,6 +41,11 @@ const SECURITY_HEADERS = {
   'Content-Security-Policy': "frame-ancestors 'none'; base-uri 'self'; object-src 'none'",
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
 };
+// SVG and XML are active documents in browsers when opened directly and carry no
+// <meta> tag, so the edge header gives them the same nothing-allowed floor.
+const XML_DOCUMENT_CSP =
+  "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; object-src 'none'; form-action 'none'; require-trusted-types-for 'script'; trusted-types 'none'";
+const XML_CONTENT_TYPE = /^(?:image\/svg\+xml|(?:application|text)\/(?:[a-z0-9.+-]+\+)?xml)\b/i;
 
 // The `redirects` in astro.config.mjs. Pages can only serve them as a 301 to
 // /x.html/ and then a meta-refresh stub, which a crawler or agent that follows
@@ -88,9 +93,9 @@ export function atOrigin(pathname, search = '') {
   return out;
 }
 
-/** The page a legacy URL moved to, with or without its stub's trailing slash, or null. */
+/** The page a legacy URL moved to (including /x.html/index.html or //x.html/), or null. */
 export function legacyRedirect(pathname) {
-  return LEGACY_REDIRECTS.get(pathname.replace(/\/$/, '')) ?? null;
+  return LEGACY_REDIRECTS.get(pathname.replace(/\/{2,}/g, '/').replace(/\/(?:index\.html)?$/, '')) ?? null;
 }
 
 /** q-value Accept gives a media type: the most specific matching range wins (RFC 9110 §12.5.1). */
@@ -155,6 +160,9 @@ function withVary(response) {
 function secured(response) {
   const out = new Response(response.body, response);
   for (const [name, value] of Object.entries(SECURITY_HEADERS)) out.headers.set(name, value);
+  if (XML_CONTENT_TYPE.test(out.headers.get('Content-Type') ?? '')) {
+    out.headers.set('Content-Security-Policy', XML_DOCUMENT_CSP);
+  }
   return out;
 }
 
