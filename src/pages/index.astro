@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
+import Bead from '../components/Bead.astro';
 import SpectrumGlow from '../components/SpectrumGlow.astro';
 import { getCollection } from 'astro:content';
 import { formatGBP, serviceById } from '../data/business';
@@ -47,7 +48,7 @@ const caps = [
       <SpectrumGlow class="hero__orb hero__orb--b" cycle="b" px={-22} />
     </div>
     <div class="hero__inner">
-      <p class="eyebrow eyebrow--live hero__eyebrow">AI &amp; automation consultancy · Bradford → UK-wide</p>
+      <p class="eyebrow eyebrow--live hero__eyebrow"><Bead />AI &amp; automation consultancy · Bradford → UK-wide</p>
       <h1 class="hero__headline">Your admin, automated into <span class="spectral-text">oblivion</span>.</h1>
       <p class="hero__reveal">We make small businesses run like magic.</p>
       <p class="hero__body">

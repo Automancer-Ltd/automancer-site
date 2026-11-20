@@ -1,0 +1,23 @@
+---
+/**
+ * The live bead: a small spectrum dot that pulses (global.css, "Live bead").
+ *
+ * It is three elements so the compositor can animate all of it: .bead__clip
+ * clips a spectrum strip that slides by transform, and .bead__ring behind it is
+ * the pulse ring, which grows and fades by scale and opacity. The old bead was
+ * one pseudo-element animating background-position and box-shadow, which made
+ * the page's main thread restyle and repaint it on every frame while it was on
+ * screen (ops/perf/idle-screen.mjs).
+ *
+ * `class` sets the size and timing where the host's own class gives them
+ * (live-dot, proof-strip__dot); inside .eyebrow--live and .sys--spectral the
+ * host places it.
+ */
+interface Props {
+  class?: string;
+}
+
+const { class: className } = Astro.props;
+---
+
+<span class:list={['bead', className]} aria-hidden="true"><span class="bead__ring"></span><span class="bead__clip"></span></span>

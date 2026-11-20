@@ -7,6 +7,7 @@
  * "deployed Nh ago" age and updates it while the page is open.
  */
 import { build, formatBuildStamp } from '../data/build';
+import Bead from './Bead.astro';
 import InlineScript from './InlineScript.astro';
 
 const stamp = formatBuildStamp();
@@ -27,7 +28,7 @@ const items = [
   <div class="proof-strip__track" aria-hidden="true">
     {[0, 1].map(() => (
       <div class="proof-strip__item-group" style="display:inline-flex;align-items:center;gap:var(--sp-8);">
-        <span class="proof-strip__dot"></span>
+        <Bead class="proof-strip__dot" />
         {items.map((it, i) => (
           <>
             <span class="proof-strip__item">

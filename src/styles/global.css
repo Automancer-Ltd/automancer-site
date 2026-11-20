@@ -169,12 +169,8 @@ strong { font-weight: 600; color: inherit; }
   -webkit-background-clip: text; background-clip: text; color: transparent;
   animation: spectral-pan 9s linear infinite;
 }
-/* Live status dot — pulsing spectrum bead */
-.live-dot {
-  display: inline-block; width: 0.5em; height: 0.5em; border-radius: 50%;
-  background: var(--spectrum); background-size: 300% 100%; flex: none;
-  animation: spectral-pan 7s linear infinite, live-pulse 2.2s ease-in-out infinite;
-}
+/* Live status dot — pulsing spectrum bead (Bead.astro; "Live bead" below) */
+.live-dot { --bead: 0.5em; --bead-slide: 3.5s; --bead-pulse: 2.2s; flex: none; }
 /* Ghost numeral — big dim Syne figure behind a card/row. Filled, not
    -webkit-text-stroke: the variable font's overlapping contours stroke as stray inner lines. */
 .ghost-num {
@@ -207,14 +203,8 @@ strong { font-weight: 600; color: inherit; }
   position: relative;
   padding-left: 1.1em;
 }
-.sys--spectral::before {
-  content: "";
-  position: absolute; left: 0; top: 50%;
-  width: .55em; height: .55em; margin-top: -.28em;
-  border-radius: 50%;
-  background: var(--spectrum);
-  background-size: 300% 100%;
-  animation: spectral-pan 8s linear infinite, live-pulse 2.4s ease-in-out infinite;
+.sys--spectral > .bead {
+  position: absolute; left: 0; top: 50%; margin-top: -.28em;
 }
 
 /* ─────────────────────────── Layout ─────────────────────────── */
@@ -439,12 +429,8 @@ strong { font-weight: 600; color: inherit; }
 .eyebrow::before {
   content: ""; width: 1.8rem; height: 1px; background: currentColor; opacity: .5;
 }
-/* Hero eyebrow: a live pulsing spectrum bead instead of the hairline */
-.eyebrow--live::before {
-  width: .55em; height: .55em; border-radius: 50%; opacity: 1;
-  background: var(--spectrum); background-size: 300% 100%;
-  animation: spectral-pan 8s linear infinite, live-pulse 2.4s ease-in-out infinite;
-}
+/* Hero eyebrow: a live pulsing spectrum bead (Bead.astro) instead of the hairline */
+.eyebrow--live::before { content: none; }
 
 /* Section head now spans the full content column (no 30ch cap). The eyebrow
    and an optional right-aligned machine-log annotation share a baseline row. */
@@ -604,10 +590,7 @@ strong { font-weight: 600; color: inherit; }
 .proof-strip:hover .proof-strip__track { animation-play-state: paused; }
 .proof-strip__item { display: inline-flex; align-items: center; gap: var(--sp-3); }
 .proof-strip__item b { color: var(--g-200); font-weight: 500; }
-.proof-strip__dot {
-  width: .5em; height: .5em; border-radius: 50%; background: var(--spectrum);
-  background-size: 300% 100%; animation: spectral-pan 7s linear infinite, live-pulse 2.2s ease-in-out infinite;
-}
+.proof-strip__dot { --bead: .5em; --bead-slide: 3.5s; --bead-pulse: 2.2s; }
 .proof-strip__sep { color: var(--g-600); }
 
 /* ─────────────────────── Proof grid (home meta-story) ─────────────────────── */
@@ -701,8 +684,8 @@ strong { font-weight: 600; color: inherit; }
    underline that echoes the nav's active language. */
 .offer__price { position: relative; display: flex; align-items: baseline; gap: var(--sp-3); flex-wrap: wrap;
   margin-top: var(--sp-5); padding-bottom: var(--sp-3); }
-.offer__price::after { content: ""; position: absolute; left: 0; bottom: 0; height: 2px; width: 5.5rem;
-  background: var(--spectrum); background-size: 300% 100%; animation: spectral-pan 8s linear infinite; }
+.offer__rule { position: absolute; left: 0; bottom: 0; height: 2px; width: 5.5rem; overflow: hidden; }
+.offer__rule::before { content: ""; animation-duration: 4s; }
 .offer__amt { font-family: var(--font-display); font-weight: 800; font-size: min(var(--t-3), 18cqi);
   letter-spacing: -0.03em; line-height: 1; font-variant-numeric: tabular-nums lining-nums; }
 .offer__price .note { font-family: var(--font-mono); font-size: 0.72rem; color: var(--muted); }
@@ -1186,10 +1169,56 @@ strong { font-weight: 600; color: inherit; }
    slides one gradient tile (three host widths) per cycle. The tile repeats, so
    it looks exactly like spectral-pan (two tiles per cycle) at twice the cycle:
    give it half the spectral-pan duration it replaces. */
-.rule--spectral::before, .hero__fold::before, .nav__current::before {
+.rule--spectral::before, .hero__fold::before, .nav__current::before, .offer__rule::before,
+.bead__clip::before, .hero__headline .spectral-text::before {
   position: absolute; top: 0; bottom: 0; left: 0; width: 400%; transform: none;
   background: var(--spectrum); background-size: 75% 100%;
   animation-name: spectral-slide; animation-timing-function: linear; animation-iteration-count: infinite;
+}
+
+/* Live bead (src/components/Bead.astro): .bead__clip clips a sliding
+   spectrum strip to the circle; .bead__ring behind it is the pulse ring.
+   The old bead pulsed box-shadow: 0 0 0 0 → 0 0 0 4px, white .35 → 0. The ring
+   is a white disc 4px larger on every side, behind the bead, scaled on each
+   axis from exactly the bead's box (container units, so a bead a flex row has
+   squeezed stays exact; a real element, because WebKit resolves a
+   pseudo-element's container units against an ancestor) to its own, and faded .35 → 0 on the same eased
+   keyframes, so its edge sits where the shadow's did at every moment. The host
+   sets --bead (size), --bead-slide (half the old spectral-pan duration) and
+   --bead-pulse. Like the old pseudo-element bead, it may shrink in a flex row. */
+/* Zero specificity, so a host class (.live-dot, .proof-strip__dot) overrides it wherever it sits. */
+:where(.bead) { --bead: .55em; --bead-slide: 4s; --bead-pulse: 2.4s; }
+.bead {
+  position: relative; display: inline-block; container-type: size;
+  width: var(--bead); height: var(--bead);
+}
+.bead__ring {
+  position: absolute; inset: -4px; border-radius: 50%;
+  background: #fff; opacity: 0;
+  --bead-ring-x: calc(100cqw / (100cqw + 8px)); --bead-ring-y: calc(100cqh / (100cqh + 8px));
+  animation: bead-ring var(--bead-pulse) ease-in-out infinite;
+}
+.bead__clip { position: absolute; inset: 0; border-radius: 50%; overflow: hidden; }
+.bead__clip::before { content: ""; animation-duration: var(--bead-slide); }
+
+/* The hero's spectral word: the spectrum slides under the word's own glyphs.
+   mask-clip: text cuts the word's box down to its letters once; the strip
+   inside slides by transform, so nothing is repainted while it moves. Only the
+   hero words, which are single words on one line: a phrase that wraps lays its
+   gradient along the joined lines, which a strip cannot follow, so the footer
+   and body phrases keep spectral-pan (main.js pauses them offscreen). Without
+   mask-clip: text (Firefox) the word keeps spectral-pan too. WebKit clips only
+   an inline-block's contents to its text; one word lays out the same either
+   way. The strip overhangs the box vertically so no glyph outruns it; the
+   gradient is horizontal, so that changes no colour. */
+@supports (-webkit-mask-clip: text) {
+  .hero__headline .spectral-text {
+    position: relative; display: inline-block; animation: none;
+    -webkit-mask-image: linear-gradient(#000 0 0); -webkit-mask-clip: text;
+  }
+  .hero__headline .spectral-text::before {
+    content: ""; top: -50%; bottom: -50%; pointer-events: none; background-image: inherit; animation-duration: 4.5s;
+  }
 }
 
 /* Spectrum glow (src/components/SpectrumGlow.astro): one static layer per
@@ -1229,7 +1258,7 @@ strong { font-weight: 600; color: inherit; }
 @keyframes reveal-x { from { opacity: 0; transform: translateX(26px); } to { opacity: 1; transform: none; } }
 @keyframes spectral-pan { from { background-position: 0% 50%; } to { background-position: 300% 50%; } }
 @keyframes spectral-pan-v { from { background-position: 50% 0%; } to { background-position: 50% 300%; } }
-@keyframes live-pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(255,255,255,0.35); } 50% { box-shadow: 0 0 0 4px rgba(255,255,255,0); } }
+@keyframes bead-ring { 0%, 100% { opacity: .35; scale: var(--bead-ring-x) var(--bead-ring-y); } 50% { opacity: 0; scale: 1; } }
 @keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 @keyframes caret-blink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
 @keyframes cue-drop {

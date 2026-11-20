@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
+import Bead from '../../components/Bead.astro';
 import SpectrumGlow from '../../components/SpectrumGlow.astro';
 import { getCollection } from 'astro:content';
 import { formatGBP, serviceById } from '../../data/business';
@@ -47,7 +48,7 @@ const rest = studies.filter((e) => e.id !== feature?.id);
         {feature && (
           <a href={`/work/${feature.id}/`} class="case-card case-card--feature" data-spot>
             <span class="case-card__tag">
-              {feature.data.status && <span class="live-dot" aria-hidden="true"></span>}
+              {feature.data.status && <Bead class="live-dot" />}
               {feature.data.sector}{feature.data.status ? ` · ${feature.data.status}` : ''}
             </span>
             <h2 class="case-card__title">{feature.data.title}</h2>

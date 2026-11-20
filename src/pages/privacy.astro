@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
+import Bead from '../components/Bead.astro';
 import SpectrumGlow from '../components/SpectrumGlow.astro';
 import { business } from '../data/business';
 // The published "last updated" date is written once, in site-content.ts, so
@@ -28,7 +29,7 @@ const lastUpdated = staticPages.find((p) => p.path === '/privacy/')!.lastUpdated
 
   <section class="section on-dark">
     <div class="wrap wrap--text prose" style="margin-inline:auto">
-      <p class="sys sys--spectral">Last updated: {lastUpdated}</p>
+      <p class="sys sys--spectral"><Bead />Last updated: {lastUpdated}</p>
 
       <h2>The short version</h2>
       <p>

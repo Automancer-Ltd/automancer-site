@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
+import Bead from '../../components/Bead.astro';
 import SpectrumGlow from '../../components/SpectrumGlow.astro';
 import { getCollection } from 'astro:content';
 import { formatGBP, serviceById } from '../../data/business';
@@ -54,7 +55,7 @@ const fmt = (d: Date) =>
         </>
       ) : (
         <div class="empty-state reveal">
-          <span class="sys sys--spectral">writing in progress</span>
+          <span class="sys sys--spectral"><Bead />writing in progress</span>
           <h3 style="margin-top: var(--sp-4)">The first notes are being written as we speak.</h3>
           <p>
             Check back shortly — or get on with your day and let the agents get on with theirs. When
