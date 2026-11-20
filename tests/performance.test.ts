@@ -153,11 +153,15 @@ describe('page-weight budgets', () => {
 });
 
 describe('asset integrity behind the budgets', () => {
-  it('lets the browser discover the critical fonts and each stylesheet early under the page CSP', () => {
+  it('ships homepage styles with the document and starts font and stylesheet requests early under CSP', () => {
     for (const page of pageCheckPages()) {
       const head = page.doc.querySelector('head')!;
       const styles = head.querySelectorAll('link[rel="stylesheet"]');
-      expect(styles.length, page.route).toBeGreaterThan(0);
+      if (page.route === '/') {
+        expect(styles, 'the homepage should paint without a stylesheet request').toHaveLength(0);
+      } else {
+        expect(styles.length, page.route).toBeGreaterThan(0);
+      }
 
       const preloads = head.querySelectorAll('link[rel="preload"][as="style"]');
       const fonts = head.querySelectorAll('link[rel="preload"][as="font"]');
@@ -170,7 +174,9 @@ describe('asset integrity behind the budgets', () => {
         expect(preload.range[0], page.route).toBeGreaterThanOrEqual(policy.range[1]);
         expect(preload.range[1], page.route).toBeLessThanOrEqual(metadata.range[0]);
       }
-      expect(fonts.at(-1)!.range[1], page.route).toBeLessThanOrEqual(preloads[0].range[0]);
+      if (preloads.length) {
+        expect(fonts.at(-1)!.range[1], page.route).toBeLessThanOrEqual(preloads[0].range[0]);
+      }
     }
   });
 

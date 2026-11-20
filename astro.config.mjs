@@ -3,7 +3,7 @@ import { defineConfig } from 'astro/config';
 import { readFileSync, writeFileSync } from 'node:fs';
 import sitemap from '@astrojs/sitemap';
 import { pageDates } from './src/integrations/page-dates';
-import { preloadStylesheets } from './src/integrations/preload-stylesheets';
+import { deliverStylesheets } from './src/integrations/deliver-stylesheets';
 
 /**
  * Where browser error reports go: the origin of the Sentry DSN this build
@@ -166,5 +166,5 @@ export default defineConfig({
   // draft is never emitted as a page and therefore never enters the sitemap.
   // pageDates must come before sitemap: its build:done hook dates
   // dist/api/pages.json, which the sitemap's build:done hook then reads.
-  integrations: [pageDates(), sitemap({ serialize: withLastmod }), wellKnownRoutes, stubCsp, preloadStylesheets()],
+  integrations: [pageDates(), sitemap({ serialize: withLastmod }), wellKnownRoutes, stubCsp, deliverStylesheets()],
 });
