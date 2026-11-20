@@ -146,9 +146,9 @@ const caps = [
         </p>
       </div>
       <div class="ladder reveal-stagger">
-        {ladder.map((r) => (
+        {ladder.map((r, i) => (
           <div class="rung">
-            <span class="rung__step"></span>
+            <span class="rung__step" data-step={String(i + 1).padStart(2, '0')} aria-hidden="true"></span>
             <div class="rung__main">
               <h3 class="rung__name">{r.name}</h3>
               <p class="rung__desc">{r.desc}</p>

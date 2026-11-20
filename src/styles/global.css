@@ -567,11 +567,20 @@ strong { font-weight: 600; color: inherit; }
   position: relative; overflow: hidden; background: var(--black);
 }
 .page-hero__inner { max-width: calc(var(--w-content) - 2 * var(--pad-x)); margin-inline: auto; position: relative; z-index: 2; }
-/* A case study's eyebrow (sector · anonymised · status) shrinks to fit on a
-   phone. When the column is narrow for its text (a 320px screen, or enlarged
-   text: under 18rem), the notes wrap to a new line instead of running off it. */
+/* A case study's eyebrow: sector · anonymised · status. On one line where the
+   longest (about 48rem) fits; in a narrower column (phones, tablets, enlarged
+   text) the notes take a second line under the sector, without a leading dot,
+   instead of squeezing into three ragged columns. */
 .case-hero { container-type: inline-size; }
-@container (max-width: 18rem) { .eyebrow--case { flex-wrap: wrap; } }
+.case-meta__notes { margin-inline-start: .5rem; }
+.case-meta__more { margin-inline-start: calc(var(--sp-3) + .5rem); }
+@container (max-width: 50rem) {
+  .eyebrow--case { display: grid; grid-template-columns: 1.8rem minmax(0, 1fr); row-gap: var(--sp-2); }
+  .eyebrow--case::before { align-self: center; }
+  .case-meta__notes { grid-column: 2; margin-inline-start: 0; }
+  .case-meta__lead { display: none; }
+  .case-meta__more { margin-inline-start: .5rem; }
+}
 .page-hero__title { font-size: var(--t-display); line-height: 1.02; letter-spacing: -0.04em;
   max-width: 26ch; margin-top: var(--sp-5); text-wrap: balance; }
 .page-hero__sub { margin-top: var(--sp-6); max-width: 54ch; font-size: var(--t-1); color: var(--muted); }
@@ -635,7 +644,7 @@ strong { font-weight: 600; color: inherit; }
 .on-dark .cap-row__desc, .on-near .cap-row__desc { color: var(--muted); }
 
 /* ─────────────────────── Price ladder (the centrepiece) ─────────────────────── */
-.ladder { display: flex; flex-direction: column; gap: var(--sp-4); counter-reset: rung; }
+.ladder { display: flex; flex-direction: column; gap: var(--sp-4); }
 .rung {
   --accent: var(--white);
   /* Bound display amounts to the card; never cut a digit off at enlarged text sizes. */
@@ -658,7 +667,9 @@ strong { font-weight: 600; color: inherit; }
 .rung:hover::before { opacity: 1; animation: spectral-pan-v 6s linear infinite; }
 .rung__step { font-family: var(--font-display); font-weight: 800; line-height: 1;
   font-size: clamp(2rem, 1.6rem + 1.4vw, 3rem); color: var(--border-strong); min-width: 2.3em; }
-.rung__step::before { counter-increment: rung; content: "0" counter(rung); }
+/* The number is an attribute, not a CSS counter: each rung is a size container,
+   and containment scopes counters to the rung, so every card read "01". */
+.rung__step::before { content: attr(data-step); }
 .rung__main { min-width: 0; }
 .rung__name { font-family: var(--font-display); font-size: var(--t-2); font-weight: 700; letter-spacing: -0.03em; }
 .rung__desc { color: var(--muted); margin-top: var(--sp-2); font-size: var(--t-0); max-width: 52ch; }
@@ -852,12 +863,20 @@ strong { font-weight: 600; color: inherit; }
    With enlarged text the 150px minimum grows twice as fast as the text
    (18.75rem - 150px: 150px at a 16px root, 450px at 32px), giving fewer,
    wider cells; max-width keeps a cell inside a narrow screen. */
-.statband { display: flex; flex-wrap: wrap;
+.statband { display: flex; flex-wrap: wrap; container-type: inline-size;
   gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
-.stat { flex: 1 1 max(150px, 18.75rem - 150px); max-width: 100%;
-  background: var(--near); padding: clamp(1.25rem, 2.5vw, 2rem); }
+/* Decorative space keeps its size when the reader enlarges the text. */
+.stat { --stat-pad: clamp(20px, 2.5vw, 2rem);
+  flex: 1 1 max(150px, 18.75rem - 150px); max-width: 100%;
+  background: var(--near); padding: var(--stat-pad); }
+/* A cell widens to its longest word, up to the band. Where that word would not
+   fit even a full-width cell (a phone with enlarged text: "Compu|ted",
+   "200/h|r"), the figure shrinks until it does instead of breaking inside the
+   word. --stat-word is the word's length in characters, set by the page;
+   1.1em a character covers this face's widest words ("Computed" is 8.55em). */
 .stat__v { font-family: var(--font-display); font-weight: 800;
-  font-size: clamp(1.45rem, 1.1rem + 1.5vw, 2.05rem);
+  font-size: min(clamp(1.45rem, 1.1rem + 1.5vw, 2.05rem),
+    (100cqi - 2 * var(--stat-pad) - 2px) / (var(--stat-word, 8) * 1.1));
   letter-spacing: -0.03em; line-height: 1.08; text-wrap: balance;
   font-variant-numeric: lining-nums; }
 .stat__l { margin-top: var(--sp-3); font-size: var(--t--1); color: var(--muted); line-height: 1.4; }

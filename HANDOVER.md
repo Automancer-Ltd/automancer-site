@@ -7,7 +7,7 @@ It does not outrank anything: `VISION.md` is authority 0 and `SPEC.md` describes
 When this file and `SPEC.md` disagree about what exists, `SPEC.md` and the code are right and this
 file is out of date.
 
-Last updated: 20 November 2026 (every page readable at 320px and at 200% text, t21036).
+Last updated: 20 November 2026 (price ladder numbered, case-study label and figures fit phones, t21223).
 
 ## Where the site stands against the vision
 
@@ -117,11 +117,10 @@ form's fields, limits and what happens after sending were not data an agent coul
    changed (`contentSha256`, t19631). estate-watch could alert when a page's hash changes without a
    deploy, or when a deploy re-dates pages whose words did not change.
 
-3. **Fit case-study figures to their cell instead of breaking a word.** Since t21036 no figure is
-   clipped, but on a 390px phone at normal text "Hours → minutes" still sets "minutes" against the
-   cell edge, and at 200% text it breaks inside the word. Sizing `.stat__v` to its cell (a
-   container-query cap that binds only where the longest word would not fit) would end both; it
-   changes the figures' size, so show before/after.
+3. **Close the gap above a field note's first paragraph on phones.** At 390px the article header's
+   spectrum rule is followed by about 130px of empty space before the body starts, so the first
+   screen shows the title and little else. Measure the header-to-body spacing against the case
+   studies' and tighten it on narrow screens only; show before/after.
 
 The former cache and release-note slices shipped in PRs #164 and #165 respectively.
 
@@ -170,6 +169,36 @@ columns shrink to their container instead of stretching to the longest word. All
   320px, 390px and desktop. A document-width check alone missed the old clipped content.
 - The shared hero fix also covers /developers/; its long code and URL examples remain a next slice.
 - Undo: revert this slice's merge commit and merge the revert; Pages restores the prior CSS.
+
+## Frontend slice: price ladder numbered, case studies fit phones (20 November 2026, t21223)
+
+Three faults a visitor could see, on the home page's centrepiece and on every case study:
+
+- **The home price ladder read "01 01 01 01".** t19571 made each `.rung` a size container so its
+  price fits the card; `container-type` brings style containment, which scopes CSS counters to the
+  rung, so the `rung` counter restarted on every card. The number is now `data-step` on the step
+  (`content: attr(data-step)`), aria-hidden as before (pseudo content was never in the text). Live on
+  automancer.uk from t19571 until this merge.
+- **A case study's label broke into ragged columns on a phone.** "Social care / supported living ·
+  anonymised · Live production pilot" was three flex items side by side, each wrapped in its own
+  narrow column with its "·" stranded. Under a 50rem column (the longest label is about 48rem on one
+  line: phones, tablets, or enlarged text on a desktop) the label is now a grid: the hairline and
+  sector on the first line, the notes on the second under the sector, without the leading dot. Wider,
+  it is one line as before (pixel-identical at 1280px; only the decorative glow differs).
+- **Figures broke inside a word with text at 200% on a phone** ("Compu|ted", "minut|es",
+  "200/h|r", 8 at 390px and 14 at 320px). The band is now the size container and each figure is
+  capped so its longest unbroken run fits a full-width cell: `--stat-word` (characters, set by the
+  page) × 1.1em, the widest this face sets ("Computed" is 8.55em). It binds only where the word
+  would not fit, so normal-size figures are unchanged at 320/390/1280px. The cells' padding stays
+  20px as text grows (as `.rung` does), so the words get the room. Now 0 mid-word breaks at
+  320/390/768/1280px, normal and 200% text. Trade-off: at 320px and 200% text "Computed" sets at
+  about the size of its label.
+- **Words unchanged:** the `<main>` text (the page-dates hash) is identical on all 36 built pages,
+  so no page is re-dated; the label keeps its "·" separators in the same text order.
+- Tests (`tests/journey/visitor.spec.ts`): the ladder numbers 01 to 04 and is not a CSS counter;
+  each case study's notes sit on their own line on a phone and share the line at 1280px; no figure
+  breaks inside a word at 320/390/1280px, normal and 200% text. All failed on the old build.
+- Undo: revert this slice's merge commit; Pages restores the previous CSS and markup.
 
 ## Frontend slice: every page readable at 320px and at 200% text (20 November 2026, t21036)
 
