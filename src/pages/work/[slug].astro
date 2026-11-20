@@ -22,6 +22,12 @@ export async function getStaticPaths() {
 const { entry, next } = Astro.props;
 const { Content } = await render(entry);
 const d = entry.data;
+// Characters in a figure's longest unbroken run ("Computed"; "£300–400" may
+// break after its dash). The figure is sized so that run fits the band.
+const longestWord = (v: string) => Math.max(...(v.match(/[^\s–-]+[–-]?/g) ?? ['']).map((w) => [...w].length));
+// Notes after the sector, in order. The text keeps the '· ' separators the page
+// has always carried, so its words (and published page date) do not change.
+const notes = [d.anonymised && 'anonymised', d.status].filter((n): n is string => Boolean(n));
 ---
 
 {/* SERP metadata is length-fitted (see src/lib/meta.ts); the visible
@@ -33,9 +39,12 @@ const d = entry.data;
       <div class="page-hero__glow" aria-hidden="true" data-px="26"></div>
       <div class="page-hero__inner case-hero">
         <p class="eyebrow eyebrow--case">
-          {d.sector}
-          {d.anonymised && <span class="sys" style="margin-left:.5rem">· anonymised</span>}
-          {d.status && <span class="sys" style="margin-left:.5rem">· {d.status}</span>}
+          <span class="case-meta__sector">{d.sector}</span>
+          {notes.length > 0 && (
+            <span class="case-meta__notes sys">
+              <span class="case-meta__lead">·</span> {notes[0]}{notes.slice(1).map((n) => <span class="case-meta__more">· {n}</span>)}
+            </span>
+          )}
         </p>
         <h1 class="page-hero__title">{d.headline ?? d.title}</h1>
         {d.subhead && <p class="page-hero__sub">{d.subhead}</p>}
@@ -54,7 +63,7 @@ const d = entry.data;
           <div class="statband reveal-stagger">
             {d.stats.map((s) => (
               <div class="stat">
-                <div class="stat__v">{s.v}</div>
+                <div class="stat__v" style={`--stat-word: ${longestWord(s.v)}`}>{s.v}</div>
                 <div class="stat__l">{s.l}</div>
               </div>
             ))}

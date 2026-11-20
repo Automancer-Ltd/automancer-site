@@ -119,6 +119,83 @@ test('enlarged text keeps the headline, service names and prices inside their pa
   }
 });
 
+test('the price ladder counts its rungs 01 to 04 in order', async ({ page }) => {
+  await page.goto('/');
+  const steps = page.locator('.ladder .rung__step');
+  await expect(steps).toHaveCount(services.length);
+  const painted = await steps.evaluateAll((els) =>
+    els.map((el) => ({ step: (el as HTMLElement).dataset.step, content: getComputedStyle(el, '::before').content })),
+  );
+  // Each rung is a size container, which scopes CSS counters to the rung: a
+  // counter read "01" on every card (t21223). The number comes from the markup.
+  expect(painted.map((p) => p.step)).toEqual(services.map((_, i) => String(i + 1).padStart(2, '0')));
+  for (const p of painted) expect(p.content, 'rung number is a CSS counter again').not.toContain('counter(');
+});
+
+test("a case study's sector and notes read as whole lines, not ragged columns", async ({ page }, info) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const xml = await (await page.request.get('/sitemap-0.xml')).text();
+  const studies = [...xml.matchAll(/<loc>([^<]+\/work\/[^<]+\/)<\/loc>/g)].map((m) => new URL(m[1]!).pathname);
+  expect(studies.length, 'no case studies in the sitemap').toBeGreaterThan(0);
+  for (const width of info.project.name === 'mobile' ? [320, 390] : [1280]) {
+    await page.setViewportSize({ width, height: 844 });
+    for (const path of studies) {
+      await page.goto(path);
+      const label = await page.locator('.eyebrow--case').evaluate((el) => {
+        const sector = el.querySelector('.case-meta__sector')!.getBoundingClientRect();
+        const notes = el.querySelector('.case-meta__notes');
+        const box = notes?.getBoundingClientRect();
+        return {
+          sectorBottom: sector.bottom,
+          sectorTop: sector.top,
+          notesTop: box?.top,
+          leadShown: notes ? getComputedStyle(notes.querySelector('.case-meta__lead')!).display !== 'none' : false,
+        };
+      });
+      if (label.notesTop === undefined) continue;
+      if (width >= 1280) {
+        // Wide enough for the longest label: one line, as it always was.
+        expect(Math.abs(label.notesTop - label.sectorTop), `${path} label splits at ${width}px`).toBeLessThan(4);
+      } else {
+        // A phone: the notes take their own line under the sector, with no stray leading dot.
+        expect(label.notesTop, `${path} notes squeeze beside the sector at ${width}px`).toBeGreaterThanOrEqual(label.sectorBottom - 1);
+        expect(label.leadShown, `${path} notes line starts with a dot at ${width}px`).toBe(false);
+      }
+    }
+  }
+});
+
+test("a case study's figures never break inside a word, even with text at 200%", async ({ page }, info) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const xml = await (await page.request.get('/sitemap-0.xml')).text();
+  const studies = [...xml.matchAll(/<loc>([^<]+\/work\/[^<]+\/)<\/loc>/g)].map((m) => new URL(m[1]!).pathname);
+  for (const width of info.project.name === 'mobile' ? [320, 390] : [1280]) {
+    await page.setViewportSize({ width, height: 844 });
+    for (const path of studies) {
+      for (const text of ['100%', '200%']) {
+        await page.goto(path);
+        await page.evaluate((size) => document.documentElement.style.setProperty('font-size', size), text);
+        await page.evaluate(() => document.fonts.ready);
+        // A run may break after its dash ("Near-" / "zero"); anywhere else is mid-word ("Compu" / "ted").
+        const broken = await page.evaluate(() => {
+          const out: string[] = [];
+          for (const v of document.querySelectorAll('.stat__v')) {
+            const node = v.firstChild as Text;
+            for (const m of node.textContent!.matchAll(/[^\s–-]+[–-]?/g)) {
+              const range = document.createRange();
+              range.setStart(node, m.index!);
+              range.setEnd(node, m.index! + m[0].length);
+              if (range.getClientRects().length > 1) out.push(m[0]);
+            }
+          }
+          return out;
+        });
+        expect(broken, `${path} at ${width}px, ${text} text`).toEqual([]);
+      }
+    }
+  }
+});
+
 test('the enquiry form starts on the first screen, and still works with text at 200%', async ({ page }, info) => {
   await stubIntake(page, { status: 200, body: { ok: true } });
   await page.emulateMedia({ reducedMotion: 'reduce' });
