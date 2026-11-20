@@ -77,17 +77,26 @@ test('decorative motion pauses while reading and resumes when scrolled back into
 });
 
 // The spectrum effects that run while a visitor reads (the glow, the spectral
-// rules, the nav's current-page underline) move only by transform and opacity,
-// which the compositor runs without the main thread. An animated color or
-// background-position restyles and repaints on every frame instead
-// (ops/perf/idle-screen.mjs). The home and /developers/ heroes keep two such
-// effects (the spectral word and the eyebrow bead), so they are not listed here.
-test('decorative motion on interior pages runs on the compositor', async ({ page }) => {
-  for (const path of ['/about/', '/services/', '/field-notes/what-does-an-ai-agent-actually-cost/', '/work/fast-small-business-websites/']) {
+// rules, the nav's current-page underline, the live beads, the hero's spectral
+// word, the price underline) move only by transform, scale and opacity, which
+// the compositor runs without the main thread. An animated color, box-shadow
+// or background-position restyles and repaints on every frame instead
+// (ops/perf/idle-screen.mjs). Every page below showed one such effect on its
+// first screen before t21746 or t21966.
+test('decorative motion runs on the compositor', async ({ page }) => {
+  // A page and, where its effect sits below the first screen, what to scroll to.
+  for (const [path, reading] of [
+    ['/'], ['/developers/'], ['/contact/'], ['/work/'], ['/privacy/'], ['/terms/'], ['/404.html'], ['/about/'],
+    ['/services/', '.offer__price'],
+    ['/field-notes/what-does-an-ai-agent-actually-cost/'], ['/work/fast-small-business-websites/'],
+  ]) {
     await page.goto(path);
-    await expect(page.locator('.page-hero')).toBeInViewport();
-    // main.js has paused what is offscreen (the closing call to action is).
-    await expect(page.locator('.cta').first()).toHaveClass(/motion-paused/);
+    if (reading) {
+      await page.locator(reading).first().scrollIntoViewIfNeeded();
+      await expect(page.locator(reading).first()).not.toHaveClass(/motion-paused/);
+    }
+    // main.js has paused what is offscreen (the footer's tagline always is).
+    await expect(page.locator('.footer .spectral-text')).toHaveClass(/motion-paused/);
     const repainting = await page.evaluate(() =>
       document.getAnimations()
         // Running keyframe animations; a hover or focus transition ends by itself.
@@ -95,7 +104,7 @@ test('decorative motion on interior pages runs on the compositor', async ({ page
         .flatMap((a) => {
           const effect = a.effect as KeyframeEffect;
           const props = new Set(effect.getKeyframes().flatMap((k) => Object.keys(k)));
-          ['offset', 'computedOffset', 'easing', 'composite', 'transform', 'opacity'].forEach((k) => props.delete(k));
+          ['offset', 'computedOffset', 'easing', 'composite', 'transform', 'scale', 'opacity'].forEach((k) => props.delete(k));
           const el = effect.target as Element;
           return props.size ? [`${el.className}${effect.pseudoElement ?? ''} animates ${[...props].join(', ')}`] : [];
         }),

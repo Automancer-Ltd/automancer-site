@@ -3,7 +3,7 @@
 // Each round opens the page in a fresh browser context (4x CPU throttle), waits <settle>
 // seconds, then reads Chromium's TaskDuration (main-thread task time) over a <window>-second idle
 // window and counts the animations still running and which properties they animate. A property a
-// compositor can run alone (transform, opacity) costs the main thread nothing per frame; anything
+// compositor can run alone (transform, translate, scale, rotate, opacity) costs the main thread nothing per frame; anything
 // else (background-position, color, box-shadow) is restyled and repainted on every frame.
 // usage, from the repository root (needs `pnpm exec playwright install chromium`):
 //   node ops/perf/idle-screen.mjs <base-url> <label> [rounds=5] [paths=/,/services/,/about/,/field-notes/,/404.html] [phone|desktop]
@@ -53,7 +53,7 @@ for (let round = 0; round < rounds; round++) {
     await page.waitForTimeout(WINDOW_MS);
     const b = await metric();
     const anims = await page.evaluate(running);
-    const compositorOnly = anims.filter((p) => p.split('+').every((x) => x === 'transform' || x === 'opacity' || x === 'translate')).length;
+    const compositorOnly = anims.filter((p) => p.split('+').every((x) => ['transform', 'opacity', 'translate', 'scale', 'rotate'].includes(x))).length;
     (results[path] ??= []).push({
       mainThreadMsPerS: Math.round(((b.TaskDuration - a.TaskDuration) * 1000) / (WINDOW_MS / 1000)),
       layoutsPerS: Math.round((b.LayoutCount - a.LayoutCount) / (WINDOW_MS / 1000)),
