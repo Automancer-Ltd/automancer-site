@@ -151,3 +151,17 @@ const agentPaths = [
     </div>
   </section>
 </BaseLayout>
+
+<style is:global>
+/* ─────────────────────── 404 ─────────────────────── */
+.notfound { min-height: 100svh; display: grid; place-items: center; text-align: center;
+  padding: 8rem var(--pad-x) 4rem; position: relative; overflow: hidden; }
+.notfound__code { font-family: var(--font-display); font-weight: 800; font-size: clamp(5rem, 18vw, 12rem);
+  letter-spacing: -0.06em; line-height: 0.9; color: var(--ink); position: relative; z-index: 1; }
+.notfound > .notfound__glow { position: absolute; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+.notfound__orb { position: absolute; top: 50%; left: 50%; width: 46vw; height: 46vw;
+  max-width: 560px; max-height: 560px; transform: translate(-50%, -60%); border-radius: 50%;
+  mix-blend-mode: screen; filter: blur(12px); opacity: .18; --glow-fade: 66%; --glow-cycle: 20s; }
+.notfound__msg { font-size: var(--t-2); margin-top: var(--sp-4); }
+.notfound__sub { color: var(--muted); margin-top: var(--sp-4); max-width: 44ch; margin-inline: auto; }
+</style>

@@ -1,11 +1,9 @@
 /**
  * Page-weight budgets — the gate that makes regressions impossible to miss.
  *
- * Every layout page ships the same shared payload (CSS, main.js, the Sentry
- * bootstrap, four variable woff2 fonts, favicons: 155,286 B on 2026-11-20) plus
- * its own HTML, so one
- * default total budget covers them all. The population is whatever the build
- * emits: a new page is budgeted the moment it exists, with no entry to add.
+ * Every layout page ships the shared layout assets plus its own HTML and
+ * styles. One default total budget covers the whole build, including new
+ * pages without a budget entry.
  *
  * Budgets are MEASURED, never guessed: `node tests/support/perf-cli.ts --csv`
  * against the build `pnpm run test` makes (monitoring on, as production ships
@@ -25,8 +23,8 @@ import { describe, expect, it } from 'vitest';
 import { allHtmlFiles } from './support/dist';
 import { DIST, measureAllPages } from './support/perf';
 
-/** Measured 2026-11-20: heaviest layout page (/contact/, 188,339 B), with the compositor-only glow and spectral lines in the shared CSS (t21746). */
-const LAYOUT_MEASURED = 188339;
+/** Measured 2026-11-20: heaviest fixed-budget page (/contact/, 163,490 B), after splitting page styles out of the shared stylesheet (t22218). */
+const LAYOUT_MEASURED = 163490;
 
 /**
  * Layout pages that genuinely need more than the default, each with its own

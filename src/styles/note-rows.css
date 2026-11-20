@@ -1,0 +1,17 @@
+/* ─────────────────────── Field notes index ─────────────────────── */
+.note-list { border-top: 1px solid var(--border); }
+.note-row { display: block; position: relative; padding-block: clamp(1.5rem, 3vw, 2.25rem); border-bottom: 1px solid var(--border); }
+.note-row__head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--sp-4) var(--sp-8); flex-wrap: wrap; }
+.note-row__title { font-family: var(--font-display); font-weight: 700; font-size: var(--t-2); letter-spacing: -0.03em;
+  color: var(--g-200); max-width: 32ch; transition: color var(--dur-1); }
+.note-row:hover .note-row__title { color: var(--white); }
+.note-row__meta { font-family: var(--font-mono); font-size: 0.72rem; color: var(--faint); }
+.note-row__sum { color: var(--muted); margin-top: var(--sp-3); max-width: 62ch; line-height: 1.6; }
+.note-row__read { display: inline-flex; align-items: center; gap: var(--sp-2); margin-top: var(--sp-4);
+  font-family: var(--font-mono); font-size: 0.8rem; font-weight: 500; color: var(--ink); }
+.note-row__read .btn__arrow { transition: transform var(--dur-2) var(--ease-out-expo); }
+.note-row:hover .note-row__read .btn__arrow { transform: translateX(5px); }
+.note-row__line { position: absolute; left: 0; right: 0; bottom: -1px; height: 1px;
+  background: var(--spectrum); background-size: 300% 100%; transform: scaleX(0); transform-origin: left;
+  transition: transform var(--dur-3) var(--ease-out-expo); }
+.note-row:hover .note-row__line { transform: scaleX(1); animation: spectral-pan 6s linear infinite; }

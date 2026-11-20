@@ -126,6 +126,9 @@ function shown(): Map<string, Set<string>> {
   };
   for (const page of allHtmlFiles()) {
     if (page.isRedirectStub) continue;
+    for (const style of page.doc.querySelectorAll('style')) {
+      for (const [, text] of style.rawText.matchAll(/content:\s*"([^"]*)"/g)) add(text!, page.route);
+    }
     const body = page.doc.querySelector('body');
     if (!body) continue;
     for (const el of body.querySelectorAll('script, style, template')) el.remove();

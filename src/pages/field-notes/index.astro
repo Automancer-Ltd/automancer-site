@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
+import '../../styles/note-rows.css';
 import Bead from '../../components/Bead.astro';
 import SpectrumGlow from '../../components/SpectrumGlow.astro';
 import { getCollection } from 'astro:content';
@@ -80,3 +81,10 @@ const fmt = (d: Date) =>
     </div>
   </section>
 </BaseLayout>
+
+<style is:global>
+.empty-state { text-align: left; padding: clamp(2.5rem, 6vw, 4.5rem); border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-lg); background: var(--g-975); max-width: 60ch; }
+.empty-state h3 { font-size: var(--t-2); }
+.empty-state p { color: var(--muted); margin-top: var(--sp-4); }
+</style>

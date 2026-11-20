@@ -1,5 +1,7 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
+import '../../styles/note-rows.css';
+import '../../styles/prose.css';
 import Bead from '../../components/Bead.astro';
 import SpectrumGlow from '../../components/SpectrumGlow.astro';
 import JsonLd from '../../components/JsonLd.astro';
@@ -117,3 +119,37 @@ const next = relatedNotes(asRelatable(entry), published).map((r) => r.note);
     </section>
   </article>
 </BaseLayout>
+
+<style is:global>
+/* Article meta header */
+.article-head { max-width: var(--w-read); margin-inline: auto; }
+.article-back { display: inline-flex; align-items: center; gap: var(--sp-2); margin-bottom: var(--sp-6);
+  font-family: var(--font-mono); font-size: 0.72rem; font-weight: 500; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--faint); transition: color var(--dur-1); }
+.article-back:hover { color: var(--white); }
+.article-back .btn__arrow { transition: transform var(--dur-2) var(--ease-out-expo); }
+.article-back:hover .btn__arrow { transform: translateX(-4px); }
+
+/* Capped below the page-hero size: at --t-display a laptop's first screen
+   (1280x800) was all title, and the note's opening line sat below the fold.
+   The cap binds from about 1,000px wide; phones keep --t-display. */
+.article-title { font-size: min(var(--t-display), 3.25rem); line-height: 1.04; letter-spacing: -0.04em;
+  text-wrap: balance; margin-bottom: var(--sp-6); }
+
+/* ─────────────────── Article contents (field notes, case studies) ───────────────────
+   The header hands straight on to the text (its full padding left ~120px of
+   black on a phone, 205px on desktop). Wide screens keep the note's contents
+   beside the text; narrower ones offer them closed above the first paragraph
+   (src/components/ArticleContents.astro). */
+.page-hero.page-hero--article { padding-top: clamp(7.5rem, 10vw, 8.5rem); padding-bottom: clamp(1.25rem, 3vw, 2.5rem); }
+.section.article-body { padding-top: clamp(1.5rem, 4vw, 3.5rem); }
+
+/* "Keep reading" at the end of a field note: the next notes on its subject
+   (src/data/related-notes.ts), in the index's row style at the reading measure. */
+.read-next { margin-top: clamp(3.5rem, 7vw, 5.5rem); }
+.read-next__title { font-size: var(--t-3); letter-spacing: -0.03em; margin-bottom: var(--sp-6); }
+.note-row--compact { padding-block: clamp(1.25rem, 2.5vw, 1.75rem); }
+.note-row--compact .note-row__title { font-size: var(--t-1); line-height: 1.3; max-width: 30ch; text-wrap: balance; }
+.note-row--compact .note-row__sum { margin-top: var(--sp-2); font-size: .95rem; }
+.read-next__all { margin-top: var(--sp-8); }
+</style>

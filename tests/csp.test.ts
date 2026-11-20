@@ -13,11 +13,13 @@
  *   - any page but /contact/ may frame or script Turnstile;
  *   - a page lets plain strings into HTML or script sinks (Trusted Types), or
  *     may create a Trusted Types policy (only /contact/'s Turnstile loader);
+ *   - inline styles are blocked or allowed without a hash;
  *   - any source is a wildcard, plain http, or allows eval.
  *
  * The browser-level proof (a refused request actually being refused) is in
  * tests/journey/security.spec.ts.
  */
+import { createHash } from 'node:crypto';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -90,6 +92,13 @@ describe('page Content Security Policy', () => {
 
       expect(policy.get('frame-src') ?? null).toEqual(isContact ? [TURNSTILE] : null);
       expect(policy.get('script-src')?.includes(TURNSTILE)).toBe(isContact);
+
+      const styleSources = policy.get('style-src-elem') ?? policy.get('style-src') ?? [];
+      expect(styleSources).not.toContain("'unsafe-inline'");
+      for (const style of page.doc.querySelectorAll('style')) {
+        const hash = createHash('sha256').update(style.rawText).digest('base64');
+        expect(styleSources, `${route} has a stylesheet the browser would block`).toContain(`'sha256-${hash}'`);
+      }
     }
 
     for (const [name, sources] of policy) {

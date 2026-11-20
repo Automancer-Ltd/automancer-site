@@ -1,0 +1,25 @@
+/* ─────────────────────── Stat band ─────────────────────── */
+/* A wrapping row, not a grid: cells are at least 150px and share the row
+   equally (the same widths as the old repeat(auto-fit, minmax(150px, 1fr))
+   grid), but a cell is never narrower than its longest word, so "Computed"
+   widens its cell or takes a new row instead of being clipped by the next one.
+   With enlarged text the 150px minimum grows twice as fast as the text
+   (18.75rem - 150px: 150px at a 16px root, 450px at 32px), giving fewer,
+   wider cells; max-width keeps a cell inside a narrow screen. */
+.statband { display: flex; flex-wrap: wrap; container-type: inline-size;
+  gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+/* Decorative space keeps its size when the reader enlarges the text. */
+.stat { --stat-pad: clamp(20px, 2.5vw, 2rem);
+  flex: 1 1 max(150px, 18.75rem - 150px); max-width: 100%;
+  background: var(--near); padding: var(--stat-pad); }
+/* A cell widens to its longest word, up to the band. Where that word would not
+   fit even a full-width cell (a phone with enlarged text: "Compu|ted",
+   "200/h|r"), the figure shrinks until it does instead of breaking inside the
+   word. --stat-word is the word's length in characters, set by the page;
+   1.1em a character covers this face's widest words ("Computed" is 8.55em). */
+.stat__v { font-family: var(--font-display); font-weight: 800;
+  font-size: min(clamp(1.45rem, 1.1rem + 1.5vw, 2.05rem),
+    (100cqi - 2 * var(--stat-pad) - 2px) / (var(--stat-word, 8) * 1.1));
+  letter-spacing: -0.03em; line-height: 1.08; text-wrap: balance;
+  font-variant-numeric: lining-nums; }
+.stat__l { margin-top: var(--sp-3); font-size: var(--t--1); color: var(--muted); line-height: 1.4; }
