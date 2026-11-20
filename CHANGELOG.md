@@ -1,5 +1,21 @@
 # Release notes
 
+## v2026.11.20.5 — 20 November 2026
+
+The main pages get to their content sooner, and field notes are easier to explore.
+
+### Improvements
+
+- The home and developer pages show their main actions straight away.
+- Pages load the styles they need, helping the first screen appear sooner on a fresh visit.
+- Field notes show their opening paragraph sooner on laptops and suggest three more notes to read.
+
+### Security
+
+- Pages opened from automancer.uk cannot message or inspect the site through that window.
+- XML, SVG and redirect pages apply additional browser security restrictions.
+
+
 ## v2026.11.20.4 — 20 November 2026
 
 Home and services pages now show their published starting prices when shared.
