@@ -14,6 +14,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import crypto from 'node:crypto';
 
 const [distArg, label, roundsArg, delayArg] = process.argv.slice(2);
 const upstream = /^https?:\/\//.test(distArg) ? distArg.replace(/\/$/, '') : null; // live origin through a local probe proxy
@@ -31,6 +32,11 @@ setTimeout(function(){navigator.sendBeacon('/__m',JSON.stringify({path:location.
 function go(){if(document.readyState==='complete')send();else addEventListener('load',send,{once:true})}
 if(document.prerendering)document.addEventListener('prerenderingchange',go,{once:true});else go();})();</script>`;
 
+// Pages carry a hash-based script policy (security.csp): name the probe's hash in it, or the
+// browser refuses the probe and no beacon ever arrives.
+const PROBE_HASH = `'sha256-${crypto.createHash('sha256').update(PROBE.slice('<script>'.length, -'</script>'.length)).digest('base64')}'`;
+const withProbe = (html) => html.replace(/(script-src(?:-elem)? )/g, `$1${PROBE_HASH} `).replace('</head>', PROBE + '</head>');
+
 const types = { '.html': 'text/html; charset=utf-8', '.css': 'text/css', '.js': 'text/javascript', '.woff2': 'font/woff2', '.svg': 'image/svg+xml', '.png': 'image/png', '.json': 'application/json' };
 let waiter = null;
 const purposes = [];
@@ -47,7 +53,7 @@ const server = http.createServer((req, res) => {
     fetch(upstream + url.pathname + url.search).then(async (up) => {
       let buf = Buffer.from(await up.arrayBuffer());
       const type = up.headers.get('content-type') ?? 'application/octet-stream';
-      if (type.startsWith('text/html')) buf = Buffer.from(buf.toString().replace('</head>', PROBE + '</head>'));
+      if (type.startsWith('text/html')) buf = Buffer.from(withProbe(buf.toString()));
       res.writeHead(up.status, { 'content-type': type, 'cache-control': up.headers.get('cache-control') ?? 'no-store' });
       res.end(buf);
     }, () => { res.writeHead(502); res.end(); });
@@ -56,7 +62,7 @@ const server = http.createServer((req, res) => {
   const f = path.join(distSrc, p);
   setTimeout(() => fs.readFile(f, (err, buf) => {
     if (err) { res.writeHead(404); res.end(); return; }
-    if (f.endsWith('.html')) buf = Buffer.from(buf.toString().replace('</head>', PROBE + '</head>'));
+    if (f.endsWith('.html')) buf = Buffer.from(withProbe(buf.toString()));
     res.writeHead(200, { 'content-type': types[path.extname(f)] ?? 'application/octet-stream', 'cache-control': 'max-age=600' });
     res.end(buf);
   }), delay);
@@ -66,7 +72,8 @@ const base = `http://127.0.0.1:${server.address().port}`;
 const next = (ms = 15000) => new Promise((resolve, reject) => { const t = setTimeout(() => reject(new Error('no beacon from the page')), ms); waiter = (m) => { clearTimeout(t); waiter = null; resolve(m); }; });
 const xdo = (...a) => execFileSync('xdotool', a.map(String));
 
-const journey = ['/services/', '/work/', '/about/', '/field-notes/', '/'];
+// JOURNEY=/services/,/contact/,/ (env) clicks a different path; each must be a visible nav link.
+const journey = process.env.JOURNEY ? process.env.JOURNEY.split(',') : ['/services/', '/work/', '/about/', '/field-notes/', '/'];
 const results = [];
 for (let r = 0; r < rounds; r++) {
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'xjourney-'));

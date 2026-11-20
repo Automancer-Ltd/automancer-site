@@ -40,10 +40,11 @@ const jsonLdType = pageType ?? (listedType && SCHEMA_PAGE_TYPES.has(listedType) 
 // When a visitor hovers a link to one of our pages (or presses it on a touch
 // screen), the browser renders that page in the background, so the click shows
 // it at once instead of waiting a round trip to GitHub Pages. Same origin only:
-// no request goes anywhere a normal click would not. /contact/ is fetched but
-// never prerendered, because rendering it would load the third-party security
-// check before the visitor chose to open the form. Files (.md, .json, .txt,
-// .xml, images) are never speculated. Browsers without support ignore it.
+// no request goes anywhere a normal click would not. /contact/ is prerendered
+// too: its third-party security check loads only after the page is seen and
+// loaded (t21450), so rendering it in the background requests nothing from
+// another site. Files (.md, .json, .txt, .xml, images) are never speculated.
+// Browsers without support ignore it.
 const SPECULATION_RULES = {
   prerender: [
     {
@@ -51,7 +52,6 @@ const SPECULATION_RULES = {
         and: [
           { href_matches: '/*' },
           { not: { href_matches: '/*.*' } },
-          { not: { href_matches: '/contact/' } },
           { not: { selector_matches: '[download], [target=_blank], [rel~=nofollow]' } },
         ],
       },
