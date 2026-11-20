@@ -4,6 +4,7 @@
 // src/data/api.ts, the same registry behind /api/index.json and
 // /openapi.json, so the three can never disagree.
 import BaseLayout from '../layouts/BaseLayout.astro';
+import Bead from '../components/Bead.astro';
 import { business } from '../data/business';
 import { API_ENDPOINTS } from '../data/api';
 
@@ -19,7 +20,7 @@ const url = (path: string) => `${business.url}${path}`;
     <div class="hero__glow" aria-hidden="true"></div>
     <div class="hero__fold" aria-hidden="true"></div>
     <div class="hero__inner">
-      <p class="eyebrow eyebrow--live hero__eyebrow">For developers, agents & LLMs</p>
+      <p class="eyebrow eyebrow--live hero__eyebrow"><Bead />For developers, agents & LLMs</p>
       <h1 class="hero__headline">Everything here is also <span class="spectral-text">data</span>.</h1>
       <p class="hero__body">
         This site publishes its own facts through a small, static JSON API. It is public,

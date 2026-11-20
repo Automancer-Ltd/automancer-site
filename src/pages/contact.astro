@@ -21,6 +21,7 @@
 //   submissions only succeed from production. Local dev/preview will hit a
 //   CORS wall and fall through to the mailto fallback (expected).
 import BaseLayout from '../layouts/BaseLayout.astro';
+import Bead from '../components/Bead.astro';
 import SpectrumGlow from '../components/SpectrumGlow.astro';
 import InlineScript from '../components/InlineScript.astro';
 import { ENDPOINT_URL, TURNSTILE_SITE_KEY, FIELD_LIMITS, LEAD_ERROR_COPY, LEAD_ERROR_FALLBACK } from '../config/site';
@@ -131,7 +132,7 @@ Astro.csp.insertDirective(`connect-src ${new URL(ENDPOINT_URL).origin}`);
           </form>
 
           <div id="form-confirm" class="form-confirm" style="display:none" role="status" aria-live="polite">
-            <p class="sys sys--spectral" style="margin-bottom: var(--sp-4)">received</p>
+            <p class="sys sys--spectral" style="margin-bottom: var(--sp-4)"><Bead />received</p>
             <h2 tabindex="-1">Thanks — that's landed with Waseem.</h2>
             <p>
               He reads these himself, and you'll get a personal reply. We promise a meeting within one
@@ -142,7 +143,7 @@ Astro.csp.insertDirective(`connect-src ${new URL(ENDPOINT_URL).origin}`);
         <!-- The promise and the other routes: beside the form on desktop, after it on phones. -->
         <div class="contact-grid__aside">
           <div class="promise reveal">
-            <p class="sys sys--spectral" style="margin-bottom: var(--sp-4)">the one-week promise</p>
+            <p class="sys sys--spectral" style="margin-bottom: var(--sp-4)"><Bead />the one-week promise</p>
             <p class="promise__big">1 week<span class="u">to a meeting, from first contact</span></p>
             <p>
               Not a number in the diary three weeks out, not an automated "someone will be in touch" —

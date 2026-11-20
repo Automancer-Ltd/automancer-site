@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
+import Bead from '../components/Bead.astro';
 import SpectrumGlow from '../components/SpectrumGlow.astro';
 import { formatGBP, serviceById } from '../data/business';
 import { serviceCatalogNode } from '../data/jsonld';
@@ -141,6 +142,7 @@ const faqs = [
             <p class="offer__price">
               <span class="offer__amt">{o.amt}</span>{o.per && <span class="offer__amt" style="font-size:var(--t-1)">{o.per}</span>}
               <span class="note">{o.note}</span>
+              <span class="offer__rule" aria-hidden="true"></span>
             </p>
             <p class="offer__one">{o.one}</p>
             <p class="offer__who">{o.who}</p>

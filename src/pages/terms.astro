@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
+import Bead from '../components/Bead.astro';
 import SpectrumGlow from '../components/SpectrumGlow.astro';
 import { staticPages } from '../data/site-content';
 
@@ -17,7 +18,7 @@ const lastUpdated = staticPages.find((p) => p.path === '/terms/')!.lastUpdated!;
 
   <section class="section on-dark">
     <div class="wrap wrap--text prose" style="margin-inline:auto">
-      <p class="sys sys--spectral">Last updated: <time datetime="2026-07-03">{lastUpdated}</time></p>
+      <p class="sys sys--spectral"><Bead />Last updated: <time datetime="2026-07-03">{lastUpdated}</time></p>
 
       <h2>Who we are</h2>
       <p>
