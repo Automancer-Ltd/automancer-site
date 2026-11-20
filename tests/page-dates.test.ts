@@ -55,6 +55,12 @@ describe('dating pages against what production serves', () => {
     expect(a).toBe(b);
     expect(pageWords(home.page, html('<h1>Hello</h1><p>From £500</p>'))).not.toBe(b);
   });
+
+  it("a contents list that repeats the page's headings does not count as new words", () => {
+    const body = '<h1>Note</h1><h2 id="a">Why</h2><p>Because.</p>';
+    const contents = '<nav data-page-words="skip"><a href="#a">Why</a></nav>';
+    expect(pageWords(home.page, html(body.replace('<h2', `${contents}<h2`)))).toBe(pageWords(home.page, html(body)));
+  });
 });
 
 describe('the built page index and sitemap', () => {

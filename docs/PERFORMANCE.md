@@ -147,3 +147,10 @@ exact `dist/` it publishes, so a heavier production build fails the release inst
   on mobile data), where the load event moved 547 → 197 ms.
 - **Images cannot shift layout:** the only `<img>` elements are the nav and footer logos, both
   with explicit dimensions.
+- **A field note's contents list costs every page 2.7 KB (t21607, 20 Nov 2026).** The contents
+  rail and its phone disclosure (`ArticleContents.astro`) add 1,845 B to the shared stylesheet and
+  870 B to `main.js` (the scroll marker), unminified as `main.js` always is. Re-measured with
+  `perf-cli.ts` against main built the same way: `/contact/` 182,433 → 185,148 B, JS 9,761 →
+  10,631 B; nothing else moved. Putting the CSS in a field-note-only stylesheet would save other
+  pages the 1.8 KB but add a request to every note; the shared file is already cached after the
+  first page.

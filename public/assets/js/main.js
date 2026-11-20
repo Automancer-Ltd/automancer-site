@@ -102,6 +102,25 @@
       }, 1400);
     }
 
+    /* ── Article contents: mark the section above the top quarter of the screen ── */
+    var toc = document.querySelectorAll('[data-toc] a'), heads = document.querySelectorAll('.prose h2[id]');
+    if (toc.length) {
+      var tocId, tocQueued;
+      var markToc = function () {
+        tocQueued = false;
+        var id = null;
+        heads.forEach(function (h) { if (h.getBoundingClientRect().top <= innerHeight / 4) id = h.id; });
+        if (id === tocId) return;
+        tocId = id;
+        toc.forEach(function (a) {
+          if (decodeURIComponent(a.hash.slice(1)) === id) a.setAttribute('aria-current', 'location');
+          else a.removeAttribute('aria-current');
+        });
+      };
+      addEventListener('scroll', function () { if (!tocQueued) { tocQueued = true; requestAnimationFrame(markToc); } }, { passive: true });
+      markToc();
+    }
+
     if (reduce) return;
 
     /* ── Orb cursor-parallax ──

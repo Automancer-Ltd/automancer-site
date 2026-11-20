@@ -1,0 +1,45 @@
+---
+/**
+ * A field note's contents: one link per section (its <h2>), so a reader can
+ * see the shape of a long note and jump to the part they came for.
+ *
+ * Two forms of the same list, chosen by width in CSS (global.css, "Article
+ * contents"): `inline` is a closed disclosure above the first paragraph on
+ * phones and tablets; `rail` sits beside the text on wide screens and stays in
+ * view while reading. main.js marks the section being read (aria-current).
+ *
+ * The list repeats the note's own headings, so it is not counted as the page's
+ * words (data-page-words="skip", src/integrations/page-dates.ts): adding it
+ * changes no page's date.
+ */
+import type { MarkdownHeading } from 'astro';
+
+interface Props {
+  headings: MarkdownHeading[];
+  variant: 'inline' | 'rail';
+}
+
+const { headings, variant } = Astro.props;
+const sections = headings.filter((h) => h.depth === 2);
+---
+
+{sections.length >= 3 && (
+  variant === 'inline' ? (
+    <details class="toc toc--inline" data-toc data-page-words="skip">
+      <summary>
+        <span class="toc__label">On this page</span>
+        <span class="toc__count">{sections.length} sections</span>
+      </summary>
+      <ol>
+        {sections.map((h) => <li><a href={`#${h.slug}`}>{h.text}</a></li>)}
+      </ol>
+    </details>
+  ) : (
+    <nav class="toc toc--rail" aria-label="On this page" data-toc data-page-words="skip">
+      <p class="toc__label" aria-hidden="true">On this page</p>
+      <ol>
+        {sections.map((h) => <li><a href={`#${h.slug}`}>{h.text}</a></li>)}
+      </ol>
+    </nav>
+  )
+)}

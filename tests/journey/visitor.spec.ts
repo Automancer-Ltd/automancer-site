@@ -427,6 +427,30 @@ test.describe('with JavaScript off', () => {
   });
 });
 
+test("a field note's contents jump to each section and mark the one being read", async ({ page }, info) => {
+  await page.goto('/field-notes/what-does-an-ai-agent-actually-cost/');
+  const ids = await page.locator('.prose h2[id]').evaluateAll((hs) => hs.map((h) => h.id));
+  expect(ids.length).toBeGreaterThanOrEqual(3);
+  const phone = info.project.name === 'mobile';
+  const contents = page.locator(phone ? 'details.toc' : 'nav.toc');
+  await expect(page.locator(phone ? 'nav.toc' : 'details.toc')).toBeHidden();
+
+  if (phone) await contents.locator('summary').click();
+  const links = contents.getByRole('link');
+  expect(await links.evaluateAll((as) => as.map((a) => (a as HTMLAnchorElement).hash.slice(1)))).toEqual(ids);
+
+  for (const n of [2, ids.length - 1]) {
+    await links.nth(n).click();
+    const heading = page.locator(`[id="${ids[n]}"]`);
+    // It scrolls (smoothly) to just below the fixed nav, not under it, and is marked as being read.
+    await expect.poll(async () => (await heading.boundingBox())!.y).toBeLessThan(200);
+    expect((await heading.boundingBox())!.y).toBeGreaterThan(40);
+    await expect(contents.locator('a[aria-current="location"]')).toHaveText((await heading.textContent())!.trim());
+  }
+  await expect(contents).toBeVisible();
+  await expectNoSidewaysScroll(page);
+});
+
 test('a page that does not exist is a real 404 with a way back', async ({ page }) => {
   const res = await page.goto('/no-such-page-journey/');
   expect(res?.status()).toBe(404);
