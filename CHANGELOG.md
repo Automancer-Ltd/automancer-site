@@ -1,5 +1,15 @@
 # Release notes
 
+## v2026.11.20.1 — 20 November 2026
+
+The mobile layout is easier to read, with clearer spacing and less crowded text.
+
+### Improvements
+
+- On phones, the home page price ladder shows its steps in order, and case-study labels and figures fit more clearly.
+- Text stays on screen across the site at narrow widths and when enlarged to 200%.
+
+
 ## v2026.11.19.2 — 19 November 2026
 
 A new field note helps prospective clients consider whether a workflow sprint or a custom build fits their needs.
