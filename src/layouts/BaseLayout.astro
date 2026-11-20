@@ -5,6 +5,7 @@ import Nav from '../components/Nav.astro';
 import Footer from '../components/Footer.astro';
 import InlineScript from '../components/InlineScript.astro';
 import { founderNode, organizationNode, websiteNode, webPageNode } from '../data/jsonld';
+import { cardAlt, pageCardFor } from '../data/share-cards';
 import { markdownTwinPath, staticPages } from '../data/site-content';
 import { abs, pagePath } from '../data/urls';
 import { build } from '../data/build';
@@ -16,6 +17,7 @@ import syneUrl from '../assets/fonts/syne.woff2?url';
 export interface Props {
   title: string;
   description: string;
+  /** The page's share card; a hand-authored page's own card (pageCards) when left out. */
   image?: string;
   /** Alt text for `image` (og:image:alt, twitter:image:alt). */
   imageAlt?: string;
@@ -34,7 +36,12 @@ export interface Props {
   trustedTypes?: string[];
 }
 
-const { title, description, image, imageAlt, ogType = 'website', schema = [], pageType, markdown, trustedTypes = [] } = Astro.props;
+const { title, description, ogType = 'website', schema = [], pageType, markdown, trustedTypes = [] } = Astro.props;
+// A field note or case study names its own card; every other page has one
+// drawn from its own words (src/data/share-cards.ts), the 404 page home's.
+const ownCard = Astro.props.image ? undefined : await pageCardFor(Astro.url.pathname);
+const image = Astro.props.image ?? ownCard!.image;
+const imageAlt = Astro.props.imageAlt ?? cardAlt(ownCard!.card);
 Astro.csp.insertDirective(`trusted-types ${trustedTypes.length ? trustedTypes.join(' ') : "'none'"}`);
 const markdownUrl = markdown ? abs(markdown) : markdownTwinPath(Astro.url.pathname);
 
@@ -117,7 +124,7 @@ const SPECULATION_RULES = {
       nodes={[
         organizationNode(),
         websiteNode(),
-        webPageNode({ path: Astro.url.pathname, title, description, type: jsonLdType }),
+        webPageNode({ path: Astro.url.pathname, title, description, type: jsonLdType, image, imageAlt }),
         founderNode(),
         ...schema,
       ]}

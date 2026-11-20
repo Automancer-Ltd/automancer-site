@@ -7,7 +7,7 @@ It does not outrank anything: `VISION.md` is authority 0 and `SPEC.md` describes
 When this file and `SPEC.md` disagree about what exists, `SPEC.md` and the code are right and this
 file is out of date.
 
-Last updated: 20 November 2026 (share cards for every field note and case study, t21825).
+Last updated: 20 November 2026 (share cards for every page, t22092).
 
 ## Where the site stands against the vision
 
@@ -143,6 +143,27 @@ title), and its date and author or its status, on the site's black with the spec
   and study names its own card; alt carries the headline; BlogPosting image) and a journey test that
   fetches two cards from the origin under test (failed on production before this merge, both widths).
 - Undo: revert this slice's merge commit; pages name the generic image again.
+
+## Slice: share cards for every other page, prices on the home and services cards (20 November 2026, t22092)
+
+t21825 gave field notes and case studies their own cards; every other page (home, /services/,
+/work/, /field-notes/, /about/, /contact/, /releases/, /developers/, privacy, terms) still shared one
+hand-made image. It showed home's headline on every page, its "oblivion" was pink-to-magenta while
+the site's is yellow-green-blue, and it said "sensible prices" without showing one. Each of those
+pages now has its own card from the same renderer (`/og/pages/<name>.png`): the page's eyebrow and
+h1, its spectral word in the site's colours, and one fact the page shows. The home and /services/
+cards carry the four published from-prices as a row, so a shared link answers "what does it cost?"
+before anyone clicks. Each page's WebPage JSON-LD names its card as `primaryImageOfPage`.
+
+- `src/lib/og-card.ts`: `CardInput` is now `eyebrow`, `title`, optional `accent` and `prices`, and
+  `meta`; a priced card uses smaller title steps and the build stops if the block does not fit.
+  The Space Grotesk instance is named "Space Grotesk Light" in its name table, so the card asks for
+  that family (the old default name matched nothing, harmless while no text used it).
+- `→` is in `charset.txt` but in none of the web fonts (the page falls back to a system glyph), so
+  home's card eyebrow is "AI & automation consultancy" without "· Bradford → UK-wide".
+- The 21 existing cards are byte-identical, and all 30 `contentSha256` values are unchanged.
+- Undo: revert this slice's merge commit; the revert restores og-image.png and its source, and
+  pages name it again.
 
 ## Frontend slice: prices on arrival (12 November 2026, t19164)
 

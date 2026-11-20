@@ -535,12 +535,17 @@ test('a page that does not exist is a real 404 with a way back', async ({ page }
   await expect(page.getByRole('link', { name: /home|automancer/i }).first()).toBeVisible();
 });
 
-test('a shared field note or case study previews with its own card, not the generic image', async ({ page }) => {
-  for (const path of ['/field-notes/what-does-an-ai-agent-actually-cost/', '/work/care-provider-transformation/']) {
+test('a shared page previews with its own card, not the generic image', async ({ page }) => {
+  const cards: Array<[string, string]> = [
+    ['/field-notes/what-does-an-ai-agent-actually-cost/', '/og/field-notes/what-does-an-ai-agent-actually-cost.png'],
+    ['/work/care-provider-transformation/', '/og/work/care-provider-transformation.png'],
+    ['/services/', '/og/pages/services.png'],
+  ];
+  for (const [path, card] of cards) {
     await page.goto(path);
     const og = (p: string) => page.locator(`meta[property="og:${p}"]`).getAttribute('content');
     const image = new URL((await og('image'))!);
-    expect(image.pathname, `${path} shares the generic image`).toBe(`/og${path.replace(/\/$/, '')}.png`);
+    expect(image.pathname, `${path} shares the generic image`).toBe(card);
     // The tags are absolute production URLs; fetch the same path from the origin under test.
     const res = await page.request.get(image.pathname);
     expect(res.status()).toBe(200);
