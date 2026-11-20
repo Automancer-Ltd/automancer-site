@@ -28,7 +28,7 @@ Provide a truthful public front door for Automancer. Give people and machines th
 
 ### Published content
 
-- What it does: Builds case studies and field notes from typed Markdown collections. It excludes drafts from production indexes, feeds, mirrors, and generated routes.
+- What it does: Builds case studies and field notes from typed Markdown collections. It excludes drafts from production indexes, feeds, mirrors, and generated routes. A field note with three or more sections lists them (t21607): beside the text on screens 64rem and wider, where the list stays in view and marks the section being read (`aria-current`, set by `main.js`), and as a closed disclosure above the first paragraph on narrower screens. The list repeats the note's headings, so `page-dates` leaves it out of the page's words and no page date moves.
 - State: built
 - Shaped by: `src/content.config.ts`, `src/content/`, and `src/data/site-content.ts`.
 

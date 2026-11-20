@@ -1,6 +1,7 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import JsonLd from '../../components/JsonLd.astro';
+import ArticleContents from '../../components/ArticleContents.astro';
 import { articleNode } from '../../data/jsonld';
 import { getCollection, render } from 'astro:content';
 import { fitDescription, fitTitle } from '../../lib/meta';
@@ -18,7 +19,7 @@ export async function getStaticPaths() {
 }
 
 const { entry } = Astro.props;
-const { Content } = await render(entry);
+const { Content, headings } = await render(entry);
 const d = entry.data;
 
 const fmt = (dt: Date) =>
@@ -35,7 +36,7 @@ const fmt = (dt: Date) =>
   </Fragment>
 
   <article>
-    <header class="page-hero hatch">
+    <header class="page-hero page-hero--article hatch">
       <div class="page-hero__glow" aria-hidden="true" data-px="26"></div>
       <div class="page-hero__inner">
         <div class="article-head" style="margin-inline:0">
@@ -55,13 +56,15 @@ const fmt = (dt: Date) =>
       </div>
     </header>
 
-    <section class="section on-dark">
-      <div class="wrap">
+    <section class="section on-dark article-body">
+      <div class="wrap article-layout">
+        <ArticleContents headings={headings} variant="inline" />
         <div class="prose" style="margin-inline:0">
           <Content />
         </div>
+        <ArticleContents headings={headings} variant="rail" />
 
-        <footer class="article-head" style="margin-inline:0; margin-top: clamp(3rem,6vw,5rem)">
+        <footer class="article-head article-foot" style="margin-inline:0; margin-top: clamp(3rem,6vw,5rem)">
           <div class="rule--spectral" style="margin-bottom: var(--sp-8)"></div>
           <p class="form__micro" style="margin-bottom: var(--sp-6)">
             Written by an Automancer agent · reviewed and published by {d.author}. Agents do the work;
