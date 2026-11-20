@@ -176,6 +176,34 @@ exact `dist/` it publishes, so a heavier production build fails the release inst
   CSS and about 90 B of HTML per glow; `/contact/` is 188,339 B (re-measured with `perf-cli.ts`,
   which also re-pinned `MEASURED_JS` to the 7,236 B `main.js` t21709 left). The journey test
   "decorative motion on interior pages runs on the compositor" fails on main at both widths.
+- **Every first screen is quiet while a visitor reads (t21966, 20 Nov 2026).** The effects t21746
+  left repainting now run on the compositor too. Each pulsing bead (`Bead.astro`: the hero
+  eyebrow, the `.sys--spectral` labels, the case-study `.live-dot`, the proof-strip dot) is a
+  clipped strip sliding by `transform` plus a white ring behind it. The ring scales on each axis
+  from the bead's own box (container units) to 4px larger all round and fades .35 → 0 on the old
+  `box-shadow` pulse's eased keyframes, so its edge sits where the shadow's did. The hero's
+  spectral word (home "oblivion", /developers/ "data") clips the shared sliding strip to its
+  glyphs with `mask-clip: text`. It is an inline-block because WebKit clips only an inline-block's
+  contents to its text. Firefox, which lacks `mask-clip: text`, keeps `spectral-pan`, as do the
+  phrases that can wrap (the footer tagline, the home page's "the same tools…"), which main.js
+  pauses offscreen. The service price's underline is a clipping host for the sliding strip.
+  `ops/perf/idle-screen.mjs` (390 px phone, 4x CPU throttle, main and this change interleaved for
+  5 rounds, medians; main-thread ms per second / style recalculations per second): home 14 / 15
+  → 0 / 0, /developers/ 12 / 15 → 0 / 0, contact 7 / 14 → 0 / 0, /work/ 10 / 17 → 0 / 0,
+  privacy 10 / 15 → 0 / 0, terms 7 / 15 → 0 / 0, the 404 page 8 / 16 → 0 / 0. Headless Chromium
+  draws about 15 frames a second, so a 60 Hz phone saved about four times that.
+  Frozen-frame screenshots of both builds at the same animation times (nine pages; 390 and
+  1280 px; normal and reduced motion; Chromium, WebKit and Firefox) differ only in the beads, by up
+  to one device pixel where the composited layer snaps, and in the footer's build clock. With
+  reduced motion the phone shots are identical. Every element's box matched to a thousandth of a
+  pixel on ten page/width pairs, apart from the hero word's own span. All 30 `contentSha256`
+  values are unchanged. Cost: shared CSS +288 B (+197 B gzip), about +300 B of HTML (+30 B gzip)
+  on pages with beads; both stay inside the budgets' headroom. The journey test "decorative
+  motion runs on the compositor" now covers home, /developers/, contact, /work/, privacy, terms,
+  the 404 page and a /services/ price, and fails on main at both widths. One visible difference,
+  accepted: when a visitor selects the hero headline, the word shows its spectrum letters on the
+  page's dark background inside the white highlight, where it used to show black letters on white,
+  because the word's mask also clips the selection box.
 - **A field note's contents list costs every page 2.7 KB (t21607, 20 Nov 2026).** The contents
   rail and its phone disclosure (`ArticleContents.astro`) add 1,845 B to the shared stylesheet and
   870 B to `main.js` (the scroll marker), unminified as `main.js` always is. Re-measured with
