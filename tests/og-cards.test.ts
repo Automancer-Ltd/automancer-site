@@ -13,6 +13,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { DIST, SITE_URL, distHasFile, pageCheckPages, type BuiltPage } from './support/dist';
 import { textWidth, wrap } from '../src/lib/og-card';
+import { formatGBP, services } from '../src/data/business';
 
 const pages = pageCheckPages().filter((p) => !p.is404);
 const meta = (page: BuiltPage, selector: string) => page.doc.querySelector(selector)?.getAttribute('content')?.trim() ?? '';
@@ -26,6 +27,13 @@ function pngSize(bytes: Buffer): { width: number; height: number } | null {
 }
 
 const articles = pages.filter((p) => /^\/(field-notes|work)\/[^/]+\/$/.test(p.route));
+const handAuthored = pages.filter((p) => !articles.includes(p));
+const h1Of = (page: BuiltPage) => decode(page.doc.querySelector('h1')!.text.trim().replace(/\s+/g, ' '));
+const graphOf = (page: BuiltPage) =>
+  page.doc
+    .querySelectorAll('script[type="application/ld+json"]')
+    .map((s) => JSON.parse(s.text) as { '@graph'?: Array<Record<string, unknown>> })
+    .flatMap((g) => g['@graph'] ?? []);
 
 describe('share cards', () => {
   it('cover every field note and case study', () => {
@@ -56,18 +64,49 @@ describe('share cards', () => {
       const own = `${SITE_URL}/og/${collection}/${slug}.png`;
       expect(meta(page, 'meta[property="og:image"]'), `${page.route}: shares the generic image, not its card`).toBe(own);
       expect(pngSize(readFileSync(join(DIST, `og/${collection}/${slug}.png`)))).toEqual({ width: 1200, height: 630 });
-      const h1 = decode(page.doc.querySelector('h1')!.text.trim().replace(/\s+/g, ' '));
+      const h1 = h1Of(page);
       const alt = decode(meta(page, 'meta[property="og:image:alt"]'));
       expect(alt.endsWith(`: ${h1}`), `${page.route}: card alt "${alt}" does not end with the page's headline "${h1}"`).toBe(true);
     }
   });
 
+  it('every other page names its own card, headed by its own h1', () => {
+    expect(handAuthored.map((p) => p.route)).toEqual(expect.arrayContaining(['/', '/services/', '/contact/', '/about/', '/privacy/']));
+    const seen = new Map<string, string>();
+    for (const page of handAuthored) {
+      const url = meta(page, 'meta[property="og:image"]');
+      expect(url, `${page.route}: shares an image that is not a page card`).toMatch(new RegExp(`^${SITE_URL}/og/pages/[a-z-]+\\.png$`));
+      expect(seen.get(url), `${page.route} shares its card with ${seen.get(url)}`).toBeUndefined();
+      seen.set(url, page.route);
+      const alt = decode(meta(page, 'meta[property="og:image:alt"]'));
+      expect(alt.includes(`: ${h1Of(page)}`), `${page.route}: card alt "${alt}" does not carry the page's headline "${h1Of(page)}"`).toBe(true);
+    }
+  });
+
+  it('the home and /services/ cards show every published from-price, and nothing else does', () => {
+    const priced = ['/', '/services/'];
+    for (const page of handAuthored) {
+      const alt = decode(meta(page, 'meta[property="og:image:alt"]'));
+      for (const s of services) {
+        const price = `${s.name} from ${formatGBP(s.priceFrom)}${s.priceUnit === 'month' ? '/mo' : ''}`;
+        expect(alt.includes(price), `${page.route}: card alt and "${price}"`).toBe(priced.includes(page.route));
+      }
+    }
+  });
+
+  it("every page's WebPage primaryImageOfPage is its share card", () => {
+    for (const page of pages) {
+      const webPage = graphOf(page).find((n) => typeof n['@id'] === 'string' && (n['@id'] as string).endsWith('#webpage'));
+      const image = webPage?.primaryImageOfPage as { url?: string; width?: number; height?: number; caption?: string } | undefined;
+      expect(image?.url, `${page.route}: primaryImageOfPage`).toBe(meta(page, 'meta[property="og:image"]'));
+      expect([image?.width, image?.height]).toEqual([1200, 630]);
+      expect(image?.caption).toBe(decode(meta(page, 'meta[property="og:image:alt"]')));
+    }
+  });
+
   it("a field note's BlogPosting image is its card", () => {
     for (const page of articles.filter((p) => p.route.startsWith('/field-notes/'))) {
-      const graphs = page.doc
-        .querySelectorAll('script[type="application/ld+json"]')
-        .map((s) => JSON.parse(s.text) as { '@graph'?: Array<Record<string, unknown>> });
-      const post = graphs.flatMap((g) => g['@graph'] ?? []).find((n) => n['@type'] === 'BlogPosting');
+      const post = graphOf(page).find((n) => n['@type'] === 'BlogPosting');
       expect(post?.image, `${page.route}: BlogPosting image`).toBe(meta(page, 'meta[property="og:image"]'));
     }
   });

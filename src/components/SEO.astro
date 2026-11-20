@@ -7,17 +7,18 @@
 export interface Props {
   title: string;
   description: string;
-  image?: string;
+  /** The page's 1200×630 share card (src/data/share-cards.ts). */
+  image: string;
   /** What the image shows, for people who cannot see it. */
-  imageAlt?: string;
+  imageAlt: string;
   type?: 'website' | 'article';
 }
 
 const {
   title,
   description,
-  image = '/assets/images/og-image.png',
-  imageAlt = 'Automancer: Your admin, automated into oblivion.',
+  image,
+  imageAlt,
   type = 'website',
 } = Astro.props;
 

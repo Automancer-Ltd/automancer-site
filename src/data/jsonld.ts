@@ -127,8 +127,20 @@ export function serviceCatalogNode() {
   };
 }
 
-export function webPageNode(opts: { path: string; title: string; description: string; type?: string; datePublished?: string; dateModified?: string }) {
+export function webPageNode(opts: { path: string; title: string; description: string; type?: string; datePublished?: string; dateModified?: string; image?: string; imageAlt?: string }) {
   const url = new URL(pagePath(opts.path), business.url).toString();
+  // The page's share card, the same picture og:image names.
+  const image = opts.image
+    ? {
+        primaryImageOfPage: {
+          '@type': 'ImageObject',
+          url: new URL(opts.image, business.url).toString(),
+          width: 1200,
+          height: 630,
+          ...(opts.imageAlt ? { caption: opts.imageAlt } : {}),
+        },
+      }
+    : {};
   return {
     '@type': opts.type ?? 'WebPage',
     '@id': `${url}#webpage`,
@@ -140,6 +152,7 @@ export function webPageNode(opts: { path: string; title: string; description: st
     inLanguage: 'en-GB',
     ...(opts.datePublished ? { datePublished: opts.datePublished } : {}),
     ...(opts.dateModified ? { dateModified: opts.dateModified } : {}),
+    ...image,
   };
 }
 
@@ -155,7 +168,7 @@ export interface ArticleNodeOpts {
   body?: string;
   articleSection?: string;
   /** Root-relative path of the note's share card (src/data/share-cards.ts). */
-  image?: string;
+  image: string;
 }
 
 /** BlogPosting node for field notes. */
@@ -172,7 +185,7 @@ export function articleNode(opts: ArticleNodeOpts) {
     inLanguage: 'en-GB',
     datePublished: opts.date.toISOString(),
     wordCount: wordCount(opts.body),
-    image: `${business.url}${opts.image ?? '/assets/images/og-image.png'}`,
+    image: `${business.url}${opts.image}`,
     author:
       authorName === founderNode().name
         ? { '@id': founderNode()['@id'] }
