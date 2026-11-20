@@ -8,6 +8,8 @@ export interface Props {
   title: string;
   description: string;
   image?: string;
+  /** What the image shows, for people who cannot see it. */
+  imageAlt?: string;
   type?: 'website' | 'article';
 }
 
@@ -15,6 +17,7 @@ const {
   title,
   description,
   image = '/assets/images/og-image.png',
+  imageAlt = 'Automancer: Your admin, automated into oblivion.',
   type = 'website',
 } = Astro.props;
 
@@ -31,9 +34,14 @@ const ogImageURL = new URL(image, Astro.site);
 <meta property="og:url" content={canonicalURL} />
 <meta property="og:type" content={type} />
 <meta property="og:image" content={ogImageURL} />
+<meta property="og:image:type" content="image/png" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:image:alt" content={imageAlt} />
 <meta property="og:site_name" content="Automancer" />
 
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content={title} />
 <meta name="twitter:description" content={description} />
 <meta name="twitter:image" content={ogImageURL} />
+<meta name="twitter:image:alt" content={imageAlt} />

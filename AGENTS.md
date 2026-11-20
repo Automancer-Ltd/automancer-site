@@ -54,6 +54,7 @@ src/data/static-markdown.ts Markdown twin prose for static pages, twinRoute()
 src/data/api.ts             API_ENDPOINTS registry behind /api/index.json, /openapi.json, /developers/
 src/config/site.ts          ENDPOINT_URL, FIELD_LIMITS, TURNSTILE_SITE_KEY, LEAD_ERROR_COPY
 src/content/                case-studies/*.md and field-notes/*.md (schema: src/content.config.ts)
+src/lib/og-card.ts          share cards: each note's and case study's og:image, drawn at build (src/pages/og/)
 src/pages/                  .astro HTML routes; .md.ts / .json.ts / .txt.ts / .xml.ts endpoints
 src/layouts/BaseLayout.astro shared shell, SEO, JSON-LD, nav, footer, Sentry bootstrap
 tests/                      Vitest against the built dist/ (tests/README.md)
@@ -65,7 +66,7 @@ ops/preview/                the non-production preview target
 ## Adding a page
 
 - **Case study or field note:** add `src/content/{case-studies,field-notes}/<slug>.md`. HTML, twin,
-  API, feeds, `llms*.txt` and sitemap follow automatically.
+  API, feeds, `llms*.txt`, sitemap and its share card follow automatically.
 - **Static page `/<slug>/`:** `src/pages/<slug>.astro` on `BaseLayout.astro`; a `PageMeta` entry in
   `staticPages`; unless `legalNoMirror: true`, a `staticBodies` entry and `src/pages/<slug>.md.ts`
   calling `twinRoute('/<slug>/')`. The tests catch a missing `PageMeta` entry or twin. Production
@@ -89,7 +90,8 @@ ops/preview/                the non-production preview target
   method in `docs/PERFORMANCE.md`).
 - The web fonts carry only the characters in `ops/fonts/charset.txt` (`tests/fonts.test.ts`). A
   page showing a new character (an accented letter, a fraction) fails it: add the character to
-  `charset.txt`, run `python3 -I ops/fonts/subset.py`, commit both.
+  `charset.txt`, run `python3 -I ops/fonts/subset.py` and then `python3 -I ops/og-card/fonts.py` (the
+  share cards' fonts; the build stops on a card character they lack), commit all three.
 
 ## Stack choices (t13220)
 
