@@ -104,6 +104,8 @@ interface Family {
 /** Each family in the built CSS: its served subset and the full font it was cut from. */
 const families = new Map<string, Family>();
 for (const [, body] of css.matchAll(/@font-face\s*{([^}]*)}/g)) {
+  // An installed fallback has no shipped file to check for subset coverage.
+  if (/\bsrc:\s*local\(/.test(body!) && !/\burl\(/.test(body!)) continue;
   const family = /font-family:\s*["']?([^;"']+)/.exec(body!)?.[1];
   const url = /url\(["']?(\/_astro\/([a-z-]+)\.[\w-]+\.woff2)/.exec(body!);
   if (!family || !url) throw new Error(`@font-face without a family or an /_astro/ woff2: ${body}`);

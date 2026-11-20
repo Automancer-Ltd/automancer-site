@@ -671,7 +671,6 @@ strong { font-weight: 600; color: inherit; }
     transition-duration: 0.001ms !important; scroll-behavior: auto !important;
   }
   .reveal, .reveal-stagger > * { opacity: 1 !important; transform: none !important; }
-  .hero__headline, .hero__eyebrow, .hero__reveal, .hero__typed, .hero__body, .hero__ctas,
   .page-hero__title, .page-hero__sub { animation: none !important; opacity: 1 !important; transform: none !important; }
   .hero__caret { display: none !important; }
   .hero__cue { display: none !important; }
