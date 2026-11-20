@@ -11,6 +11,8 @@
  *   - the bundled DSN's origin is missing from a page's connect-src, which
  *     would make the browser silently refuse every error report;
  *   - any page but /contact/ may frame or script Turnstile;
+ *   - a page lets plain strings into HTML or script sinks (Trusted Types), or
+ *     may create a Trusted Types policy (only /contact/'s Turnstile loader);
  *   - any source is a wildcard, plain http, or allows eval.
  *
  * The browser-level proof (a refused request actually being refused) is in
@@ -69,6 +71,10 @@ describe('page Content Security Policy', () => {
     expect(policy.get('img-src')).toEqual(["'self'", 'data:']);
     expect(policy.get('font-src')).toEqual(["'self'"]);
     expect(policy.get('script-src-attr')).toEqual(["'none'"]);
+    // Trusted Types: no string reaches an HTML or script sink; only /contact/
+    // may create one policy, its Turnstile loader.
+    expect(policy.get('require-trusted-types-for')).toEqual(["'script'"]);
+    expect(policy.get('trusted-types')).toEqual(isContact ? ['turnstile'] : ["'none'"]);
 
     const connect = new Set(policy.get('connect-src'));
     const expected = new Set(["'self'", reportOrigin, ...(isContact ? [ENQUIRY_API] : [])]);

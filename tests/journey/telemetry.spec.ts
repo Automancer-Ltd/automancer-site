@@ -33,6 +33,12 @@ test('error reports keep source locations without raw browser data', async ({ pa
     body: 'window.turnstile={getResponse:()=>"journey-token",reset(){},render(){}};',
   }));
   await page.route('**/telemetry-probe*', (route) => route.fulfill({ status: 503, body: 'unavailable' }));
+  // The lazily loaded SDK must work under the page's Trusted Types policy.
+  await page.addInitScript(() => {
+    const refused: string[] = [];
+    document.addEventListener('securitypolicyviolation', (event) => refused.push(event.effectiveDirective));
+    Object.defineProperty(window, '__refused', { value: refused });
+  });
   await page.goto('/contact/?campaign=FACTORY_TEST_QUERY#FACTORY_TEST_FRAGMENT');
   await page.getByLabel('Email', { exact: true }).fill('FACTORY_TEST_FORM@example.com');
   expect(envelopes, 'monitoring stays quiet before an error').toHaveLength(0);
@@ -77,4 +83,5 @@ test('error reports keep source locations without raw browser data', async ({ pa
   expect(report.request?.url).toBe(new URL('/contact/', page.url()).href);
   expect(report.breadcrumbs ?? []).toHaveLength(0);
   if (process.env.JOURNEY_URL) expect(report.release).toMatch(/^[a-f0-9]{40}$/);
+  expect(await page.evaluate(() => (window as unknown as { __refused: string[] }).__refused), 'policy refusals while reporting').toEqual([]);
 });
