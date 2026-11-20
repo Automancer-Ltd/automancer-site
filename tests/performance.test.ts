@@ -49,9 +49,9 @@ const MEASURED_JS = 9761; // main.js (5,841 B) + the Sentry bootstrap module (3,
  * The Sentry SDK chunk, fetched only when a visitor's page first throws. It
  * is the error path's whole cost, so it is pinned too: importing the SDK as a
  * namespace once shipped all of it (423,059 B, replay and feedback included)
- * and nothing failed (t21303).
+ * and nothing failed (t21303). Re-measured 2026-11-20 on @sentry/browser 11.14.0 (t21367).
  */
-const MEASURED_ON_ERROR_JS = 90703;
+const MEASURED_ON_ERROR_JS = 90372;
 const MEASURED_FONTS = 83044; // 4 variable woff2 subsets (ops/fonts/subset.py) reachable from the page CSS
 
 /**
