@@ -2,7 +2,7 @@
  * Page-weight budgets — the gate that makes regressions impossible to miss.
  *
  * Every layout page ships the same shared payload (CSS, main.js, the Sentry
- * bootstrap, four variable woff2 fonts, favicons: 152,994 B on 2026-11-20) plus
+ * bootstrap, four variable woff2 fonts, favicons: 155,286 B on 2026-11-20) plus
  * its own HTML, so one
  * default total budget covers them all. The population is whatever the build
  * emits: a new page is budgeted the moment it exists, with no entry to add.
@@ -25,8 +25,8 @@ import { describe, expect, it } from 'vitest';
 import { allHtmlFiles } from './support/dist';
 import { DIST, measureAllPages } from './support/perf';
 
-/** Measured 2026-11-20: heaviest layout page (/contact/, 185,148 B), with a field note's contents list in the shared CSS and main.js (t21607). */
-const LAYOUT_MEASURED = 185148;
+/** Measured 2026-11-20: heaviest layout page (/contact/, 188,339 B), with the compositor-only glow and spectral lines in the shared CSS (t21746). */
+const LAYOUT_MEASURED = 188339;
 
 /**
  * Layout pages that genuinely need more than the default, each with its own
@@ -44,7 +44,7 @@ const GROWS_WITH_CONTENT: Record<string, string> = {
 };
 
 /** JS measured 2026-11-20; fonts 2026-11-12. Identical on every layout page. */
-const MEASURED_JS = 10631; // main.js (6,711 B) + the Sentry bootstrap module (3,920 B, src/scripts/sentry.ts)
+const MEASURED_JS = 11156; // main.js (7,236 B, with t21709's offscreen pause) + the Sentry bootstrap module (3,920 B, src/scripts/sentry.ts)
 /**
  * The Sentry SDK chunk, fetched only when a visitor's page first throws. It
  * is the error path's whole cost, so it is pinned too: importing the SDK as a
@@ -99,7 +99,7 @@ describe('page-weight budgets', () => {
   });
 
   it('keeps JavaScript within budget on every layout page', () => {
-    const budget = MEASURED_JS + headroom(MEASURED_JS); // 11655 B from 10631 B @ 2026-11-20
+    const budget = MEASURED_JS + headroom(MEASURED_JS); // 12180 B from 11156 B @ 2026-11-20
     for (const p of layoutPages) {
       expect(
         p.jsBytes,

@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
+import SpectrumGlow from '../components/SpectrumGlow.astro';
 import { getCollection } from 'astro:content';
 import { formatGBP, serviceById } from '../data/business';
 import { staticPages } from '../data/site-content';
@@ -42,8 +43,8 @@ const caps = [
   <!-- ─────────────── Hero ─────────────── -->
   <section class="hero hatch">
     <div class="hero__glow" aria-hidden="true">
-      <div class="hero__orb hero__orb--a" data-px="34"></div>
-      <div class="hero__orb hero__orb--b" data-px="-22"></div>
+      <SpectrumGlow class="hero__orb hero__orb--a" px={34} />
+      <SpectrumGlow class="hero__orb hero__orb--b" cycle="b" px={-22} />
     </div>
     <div class="hero__inner">
       <p class="eyebrow eyebrow--live hero__eyebrow">AI &amp; automation consultancy · Bradford → UK-wide</p>
@@ -63,6 +64,7 @@ const caps = [
       </div>
     </div>
     <div class="hero__cue" aria-hidden="true"></div>
+    <div class="hero__fold" aria-hidden="true"></div>
   </section>
 
   <!-- ─────────────── Meta-story / proof ─────────────── -->

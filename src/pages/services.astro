@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
+import SpectrumGlow from '../components/SpectrumGlow.astro';
 import { formatGBP, serviceById } from '../data/business';
 import { serviceCatalogNode } from '../data/jsonld';
 import { staticPages } from '../data/site-content';
@@ -82,7 +83,7 @@ const faqs = [
 >
   <!-- Hero -->
   <section class="page-hero services-hero hatch">
-    <div class="page-hero__glow" aria-hidden="true" data-px="26"></div>
+    <SpectrumGlow class="page-hero__glow" px={26} />
     <div class="page-hero__inner">
       <div class="services-hero__grid">
         <div>

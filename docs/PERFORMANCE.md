@@ -154,6 +154,28 @@ exact `dist/` it publishes, so a heavier production build fails the release inst
   the home page's service prices, and about 0.9 s in the middle of a field note. Animations in
   view keep their original timing. The visitor journey checks that a field note's glow pauses
   offscreen and resumes on return.
+- **The decoration a visitor reads beside runs on the compositor (t21746, 20 Nov 2026).** The
+  spectrum glow behind every hero animated `color`, and the spectral rules, the hero fold line and
+  the nav's current-page underline animated `background-position`, so the main thread restyled and
+  repainted them on every frame for as long as they were on screen. The glow
+  (`SpectrumGlow.astro`) is now one static layer per colour, crossfaded by opacity and summed with
+  `plus-lighter`, which is the same sRGB interpolation; the lines slide a strip four host-widths
+  wide by `transform` inside a clipping host. Frozen-frame screenshots of main and this change at
+  the same animation times (home, about, services, a field note, a case study, contact,
+  /developers/, the 404 page; 390 and 1280 px; normal and reduced motion) differ only in a few
+  antialiased pixels. `ops/perf/idle-screen.mjs` (390 px phone, 4x CPU throttle, 5 rounds,
+  medians; main-thread task time over 5 s after the entrance motion), main → this change, in ms per
+  second: about 11 → 0, services 16 → 1, releases 23 → 0, a field note 17 → 0, a case study
+  12 → 0, contact 57 → 12, 404 41 → 15, home 25 → 29 (unchanged within noise). Style
+  recalculations on the four article-type pages fell from 13-16 a second to 0. Headless Chromium
+  draws about 15 frames a second, so a 60 Hz phone did four times the "before" work. What still
+  repaints: the spectral word (`.spectral-text`, a text-clipped background a compositor cannot
+  move) and the small beads (`.eyebrow--live`, `.sys--spectral`, `.live-dot`, the proof-strip
+  dot), which pulse a `box-shadow`; together they keep home, /developers/, contact, privacy,
+  terms, /work/ and the 404 page drawing on the main thread. The layers cost 1,605 B of shared
+  CSS and about 90 B of HTML per glow; `/contact/` is 188,339 B (re-measured with `perf-cli.ts`,
+  which also re-pinned `MEASURED_JS` to the 7,236 B `main.js` t21709 left). The journey test
+  "decorative motion on interior pages runs on the compositor" fails on main at both widths.
 - **A field note's contents list costs every page 2.7 KB (t21607, 20 Nov 2026).** The contents
   rail and its phone disclosure (`ArticleContents.astro`) add 1,845 B to the shared stylesheet and
   870 B to `main.js` (the scroll marker), unminified as `main.js` always is. Re-measured with

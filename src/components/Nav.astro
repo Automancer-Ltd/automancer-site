@@ -29,6 +29,7 @@ const isActive = (href: string) =>
         aria-current={isActive(link.href) ? 'page' : undefined}
       >
         {link.label}
+        {isActive(link.href) && <span class="nav__current" aria-hidden="true"></span>}
       </a>
     ))}
     <a href="/contact/" class="btn btn--sm"><span>Contact</span></a>

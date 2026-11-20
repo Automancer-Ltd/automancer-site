@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
+import SpectrumGlow from '../../components/SpectrumGlow.astro';
 import JsonLd from '../../components/JsonLd.astro';
 import ArticleContents from '../../components/ArticleContents.astro';
 import { articleNode } from '../../data/jsonld';
@@ -37,7 +38,7 @@ const fmt = (dt: Date) =>
 
   <article>
     <header class="page-hero page-hero--article hatch">
-      <div class="page-hero__glow" aria-hidden="true" data-px="26"></div>
+      <SpectrumGlow class="page-hero__glow" px={26} />
       <div class="page-hero__inner">
         <div class="article-head" style="margin-inline:0">
           <a href="/field-notes/" class="article-back"><span class="btn__arrow">←</span> Field notes</a>

@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
+import SpectrumGlow from '../../components/SpectrumGlow.astro';
 import { getCollection, render } from 'astro:content';
 import { fitDescription, fitTitle } from '../../lib/meta';
 import { formatGBP, serviceById } from '../../data/business';
@@ -36,7 +37,7 @@ const notes = [d.anonymised && 'anonymised', d.status].filter((n): n is string =
   <!-- Designed hero -->
   <article>
     <header class="page-hero hatch">
-      <div class="page-hero__glow" aria-hidden="true" data-px="26"></div>
+      <SpectrumGlow class="page-hero__glow" px={26} />
       <div class="page-hero__inner case-hero">
         <p class="eyebrow eyebrow--case">
           <span class="case-meta__sector">{d.sector}</span>

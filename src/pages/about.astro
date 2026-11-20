@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
+import SpectrumGlow from '../components/SpectrumGlow.astro';
 import { formatGBP, serviceById } from '../data/business';
 
 const auditFrom = formatGBP(serviceById('automation-opportunity-audit').priceFrom);
@@ -18,7 +19,7 @@ const principles = [
   description="An AI-run consultancy with a human at the helm. Automancer's finance, project tracking and website run on agents — every decision taken by Waseem, in Bradford."
 >
   <section class="page-hero hatch">
-    <div class="page-hero__glow" aria-hidden="true" data-px="26"></div>
+    <SpectrumGlow class="page-hero__glow" px={26} />
     <div class="page-hero__inner">
       <p class="eyebrow">About Automancer</p>
       <h1 class="page-hero__title">An AI-run business, with a human at the helm.</h1>

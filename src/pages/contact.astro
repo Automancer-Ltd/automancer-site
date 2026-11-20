@@ -21,6 +21,7 @@
 //   submissions only succeed from production. Local dev/preview will hit a
 //   CORS wall and fall through to the mailto fallback (expected).
 import BaseLayout from '../layouts/BaseLayout.astro';
+import SpectrumGlow from '../components/SpectrumGlow.astro';
 import InlineScript from '../components/InlineScript.astro';
 import { ENDPOINT_URL, TURNSTILE_SITE_KEY, FIELD_LIMITS, LEAD_ERROR_COPY, LEAD_ERROR_FALLBACK } from '../config/site';
 import { business } from '../data/business';
@@ -43,7 +44,7 @@ Astro.csp.insertDirective(`connect-src ${new URL(ENDPOINT_URL).origin}`);
   description="Tell us what's eating your week. No calendar gauntlet, no chatbot. Waseem reads it himself, and we promise a meeting within one week of first contact."
 >
   <section class="page-hero contact-hero hatch">
-    <div class="page-hero__glow" aria-hidden="true" data-px="26"></div>
+    <SpectrumGlow class="page-hero__glow" px={26} />
     <div class="page-hero__inner">
       <p class="eyebrow">Get in touch</p>
       <h1 class="page-hero__title">Tell us what's eating your week.</h1>

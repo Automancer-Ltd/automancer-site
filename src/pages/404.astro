@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
+import SpectrumGlow from '../components/SpectrumGlow.astro';
 import { business, formatGBP, serviceById } from '../data/business';
 import { getStudies, getNotes } from '../data/site-content';
 
@@ -34,7 +35,7 @@ const agentPaths = [
   description="This page has vanished — or never existed. Let's get you back to something real."
 >
   <section class="notfound hatch">
-    <div class="notfound__glow" aria-hidden="true"></div>
+    <div class="notfound__glow" aria-hidden="true"><SpectrumGlow class="notfound__orb" /></div>
     <div class="wrap" style="position:relative; z-index:2;">
       <p class="sys sys--spectral" style="justify-content:center; display:inline-flex;">missing incantation</p>
       <h1 class="notfound__code">404</h1>
