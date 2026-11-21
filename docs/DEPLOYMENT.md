@@ -267,6 +267,17 @@ site, GitHub would let anyone's Pages site claim a name that did. `ops/verify-pr
 Do not put `automancer.uk` back as the Pages custom domain: GitHub would then redirect the project
 address to `automancer.uk`, and every page would answer 502.
 
+**The project address is public too (t23224).** Anyone can open
+`automancer-ltd.github.io/automancer-site/`, and the Worker never sees those requests, so none of its
+headers (`frame-ancestors`, COOP, nosniff) are there: any site could frame the full page. The first
+script in every page's `<head>` (`BaseLayout.astro`) therefore replaces a page read on a `*.github.io`
+host with the same path, query and fragment on `automancer.uk`, and in a stranger's frame it navigates
+the frame to `automancer.uk`, which refuses to be framed. It leaves every other host alone (production,
+the preview target, localhost, translation proxies). `tests/off-site-guard.test.ts` runs the built
+bytes against each kind of address, and the journey test "the GitHub Pages copy sends readers to
+automancer.uk and cannot be framed" opens the real project address after each deploy. Markdown, JSON
+and other files there cannot carry a script; each page names `automancer.uk` as canonical.
+
 Undo (only if the Worker can no longer read the project address): put back the four `A` records,
 proxied; set `www` back to the DNS-only CNAME; set the Pages `cname` to `automancer.uk`
 (`repos.updateInformationAboutPagesSite`); deploy Worker version `c10a0bcd-6d40-4284-bad4-8c01f5977303`.

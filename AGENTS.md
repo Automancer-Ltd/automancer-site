@@ -97,6 +97,12 @@ ops/preview/                the non-production preview target
   GitHub (`tests/edge-worker.test.ts`; `check_no_github_dns` and `check_www_redirect` in
   `ops/verify-production.sh`; `docs/DEPLOYMENT.md` › The origin). Never put `automancer.uk` back as the
   Pages custom domain: every page would answer 502.
+- The GitHub Pages copy at `automancer-ltd.github.io/automancer-site` has none of the Worker's
+  headers, so the first script in every page's `<head>` sends a reader on any `*.github.io` host to
+  the same page on `automancer.uk` (t23224; `tests/off-site-guard.test.ts`, journey test in
+  `tests/journey/security.spec.ts`). Keep it the first script, after the CSP meta and before any
+  `<link>`, and never widen it to hosts other than `*.github.io` (the preview target, localhost and
+  translation proxies must keep working).
 - `/privacy/` and `/terms/` are `legalNoMirror` and hash-pinned (`tests/legal-integrity.test.ts`);
   their wording changes only on Waseem's instruction.
 - The contact form never shows a raw API error code (`tests/contact-errors.test.ts`).

@@ -227,3 +227,41 @@ test('a site that opens a page in a window cannot take it over, and no page asks
     await popup.close();
   }
 });
+
+// The edge Worker reads the site from its GitHub Pages address, so that address serves every
+// page too, without the Worker's frame-ancestors, COOP or nosniff (t23224). Each page's first
+// script sends a reader there to the same page on automancer.uk, and a stranger's frame of it
+// ends on automancer.uk, which refuses to be framed. Against production the real Pages copy is
+// read (deploy.yml publishes it seconds before the journey); otherwise the Pages address serves
+// the build under test and automancer.uk is a stand-in carrying the Worker's framing rule.
+test('the GitHub Pages copy sends readers to automancer.uk and cannot be framed', async ({ page, context, baseURL }) => {
+  const PAGES = 'https://automancer-ltd.github.io/automancer-site';
+  const production = process.env.JOURNEY_URL === 'https://automancer.uk';
+  if (!production) {
+    await context.route('https://automancer-ltd.github.io/**', async (route) => {
+      const path = new URL(route.request().url()).pathname;
+      if (!path.startsWith('/automancer-site/')) return route.fulfill({ status: 404 });
+      return route.fulfill({ response: await route.fetch({ url: new URL(path.slice('/automancer-site'.length), baseURL).href }) });
+    });
+    await context.route('https://automancer.uk/**', (route) => route.fulfill({
+      contentType: 'text/html',
+      headers: { 'content-security-policy': "frame-ancestors 'none'" },
+      body: '<!doctype html><title>Services | Automancer</title><h1>automancer.uk</h1>',
+    }));
+  }
+  await context.route('https://framer.example/**', (route) => route.fulfill({
+    contentType: 'text/html',
+    body: `<!doctype html><title>another site</title><iframe src="${PAGES}/services/" width="800" height="600"></iframe>`,
+  }));
+
+  await page.goto(`${PAGES}/services/?service=workflow-sprint#offers`);
+  await page.waitForURL('https://automancer.uk/**');
+  expect(page.url()).toBe('https://automancer.uk/services/?service=workflow-sprint#offers');
+  await expect(page).toHaveTitle(/Services \| Automancer/);
+
+  await page.goto('https://framer.example/');
+  const frame = page.frames().find((f) => f !== page.mainFrame())!;
+  await expect.poll(() => frame.url(), { message: 'the framed copy left github.io' }).not.toContain('github.io');
+  // automancer.uk refuses the frame, so nothing of the site is drawn inside it.
+  await expect.poll(() => frame.evaluate(() => document.title).catch(() => ''), { message: 'nothing of the site is drawn in the frame' }).not.toMatch(/Automancer/);
+});
