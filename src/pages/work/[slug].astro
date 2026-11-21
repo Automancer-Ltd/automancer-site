@@ -10,6 +10,7 @@ import { fitDescription, fitTitle } from '../../lib/meta';
 import { formatGBP, serviceById } from '../../data/business';
 import { contactHref } from '../../data/enquiry';
 import { caseStudyCard, cardAlt, cardPath } from '../../data/share-cards';
+import { SOURCES_INTRO, statQuotes } from '../../data/claims';
 
 const auditFrom = formatGBP(serviceById('automation-opportunity-audit').priceFrom);
 
@@ -35,6 +36,12 @@ const longestWord = (v: string) => Math.max(...(v.match(/[^\s–-]+[–-]?/g) ??
 // Notes after the sector, in order. The text keeps the '· ' separators the page
 // has always carried, so its words (and published page date) do not change.
 const notes = [d.anonymised && 'anonymised', d.status].filter((n): n is string => Boolean(n));
+// Headline figures the truth layer backs, numbered in band order: each gets a "Source" link to
+// its line under "Where these numbers come from" (t23334).
+const sourced = d.stats
+  .map((s, i) => ({ ...s, anchor: `source-${i + 1}`, quotes: statQuotes(s.claims) }))
+  .filter((s) => s.quotes.length > 0);
+const anchorOf = new Map(sourced.map((s) => [s.v, s.anchor]));
 ---
 
 {/* SERP metadata is length-fitted (see src/lib/meta.ts); the visible
@@ -72,6 +79,9 @@ const notes = [d.anonymised && 'anonymised', d.status].filter((n): n is string =
               <div class="stat">
                 <div class="stat__v" style={`--stat-word: ${longestWord(s.v)}`}>{s.v}</div>
                 <div class="stat__l">{s.l}</div>
+                {anchorOf.has(s.v) && (
+                  <a class="stat__src" href={`#${anchorOf.get(s.v)}`} aria-label={`Source for ${s.v}`}>Source<span aria-hidden="true"> ↓</span></a>
+                )}
               </div>
             ))}
           </div>
@@ -89,6 +99,29 @@ const notes = [d.anonymised && 'anonymised', d.status].filter((n): n is string =
         <ArticleContents headings={headings} variant="rail" />
       </div>
     </section>
+
+    <!-- Where these numbers come from: the evidence line behind each sourced figure, the same
+         lines /api/claims.json gives machines (t23334). -->
+    {sourced.length > 0 && (
+      <section class="section on-near evidence" aria-labelledby="sources-title">
+        <div class="wrap">
+          <p class="sys" style="margin-bottom: var(--sp-3)">// sources</p>
+          <h2 class="evidence__title" id="sources-title">Where these numbers come from</h2>
+          <p class="evidence__intro">{SOURCES_INTRO}</p>
+          <ol class="evidence__list">
+            {sourced.map((s) => (
+              <li class="evidence__item" id={s.anchor}>
+                <p class="evidence__fig"><strong>{s.v}</strong> <span>{s.l}</span></p>
+                {s.quotes.map((q) => <blockquote class="evidence__quote"><p>“{q}”</p></blockquote>)}
+              </li>
+            ))}
+          </ol>
+          <p class="evidence__machine">
+            The same lines, as data for agents: <a class="tlink" href="/api/claims.json">/api/claims.json</a>
+          </p>
+        </div>
+      </section>
+    )}
 
     <!-- Next + CTA -->
     <section class="section on-near">

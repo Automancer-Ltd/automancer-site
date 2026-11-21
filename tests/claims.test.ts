@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { parse } from 'node-html-parser';
 import { readDistFile } from './support/dist';
 
 describe('/api/claims.json — headline figures trace to truth-layer records', () => {
@@ -37,7 +38,9 @@ describe('/api/claims.json — headline figures trace to truth-layer records', (
         expect(claim!.evidenceRecord).toContain('automancer-bd:docs/case-study-dossier.md');
         expect(claim!.registry).toContain('automancer-bd:data/claims.toml');
         expect(claim!.sourceQuote.length, `${id} has no evidence quote`).toBeGreaterThan(0);
-        expect(study.stats.some((stat: { value: string }) => stat.value.includes(inStat)), `${slug}: ${inStat} is not a rendered headline statistic`).toBe(true);
+        const stat = study.stats.find((st: { value: string }) => st.value.includes(inStat));
+        expect(stat, `${slug}: ${inStat} is not a rendered headline statistic`).toBeTruthy();
+        expect(stat.claims, `${slug}: ${inStat} does not name claim ${id} in /api/case-studies.json`).toContain(id);
       }
     }
   });
@@ -53,4 +56,46 @@ describe('/api/claims.json — headline figures trace to truth-layer records', (
       }
     }
   });
+
+  // t23334: a person reads the same evidence a machine is given. Every figure with a claim links
+  // to its line under "Where these numbers come from", which quotes each claim's sourceQuote word
+  // for word; the Markdown twin carries the same lines; a figure without one gets no link.
+  const quote = (id: string) => (byIdQuote.get(id) ?? '').replace(/\*\*/g, '');
+  const byIdQuote = new Map<string, string>((claims?.claims ?? []).map((c: { id: string; sourceQuote: string }) => [c.id, c.sourceQuote]));
+  const words = (t: string) => t.replace(/\s+/g, ' ').trim();
+
+  it('shows people the evidence line behind every sourced figure, as /api/claims.json gives machines', () => {
+    let sourced = 0;
+    for (const study of studies.caseStudies as { slug: string; stats: { value: string; claims: string[] }[] }[]) {
+      const html = readDistFile(`work/${study.slug}/index.html`);
+      expect(html, `work/${study.slug}/ not built`).toBeTruthy();
+      const doc = parse(html!);
+      const cells = doc.querySelectorAll('.statband .stat');
+      expect(cells.length).toBe(study.stats.length);
+      study.stats.forEach((stat, i) => {
+        const cell = cells[i]!;
+        expect(words(cell.querySelector('.stat__v')!.text)).toBe(stat.value);
+        const link = cell.querySelector('a.stat__src');
+        if (stat.claims.length === 0) {
+          expect(link, `${study.slug}: "${stat.value}" has no claim but links to a source`).toBeNull();
+          return;
+        }
+        sourced++;
+        expect(link, `${study.slug}: "${stat.value}" has claims but no Source link`).toBeTruthy();
+        const target = link!.getAttribute('href')!.slice(1);
+        const item = doc.querySelector(`.evidence__item[id="${target}"]`);
+        expect(item, `${study.slug}: Source for "${stat.value}" points at #${target}, which is not on the page`).toBeTruthy();
+        expect(words(item!.querySelector('.evidence__fig strong')!.text)).toBe(stat.value);
+        const quoted = item!.querySelectorAll('.evidence__quote').map((q) => words(q.text));
+        for (const id of stat.claims) expect(quoted, `${study.slug}: ${id}'s evidence missing under "${stat.value}"`).toContain(`“${words(quote(id))}”`);
+      });
+      const twin = readDistFile(`work/${study.slug}.md`) ?? '';
+      const hasSources = study.stats.some((stat) => stat.claims.length > 0);
+      expect(twin.includes('## Where these numbers come from'), `${study.slug}.md`).toBe(hasSources);
+      expect(doc.querySelector('#sources-title') !== null, `work/${study.slug}/`).toBe(hasSources);
+      for (const stat of study.stats) for (const id of stat.claims) expect(twin, `${study.slug}.md lacks ${id}'s line`).toContain(`> “${quote(id)}”`);
+    }
+    expect(sourced, 'no case study shows a sourced figure').toBeGreaterThanOrEqual(10);
+  });
 });
+

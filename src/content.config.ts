@@ -10,6 +10,7 @@
 import { defineCollection } from 'astro:content';
 import { glob } from 'astro/loaders';
 import { z } from 'astro/zod';
+import { claimIds } from './data/claims';
 
 const sharedFrontmatter = {
   title: z.string(),
@@ -34,8 +35,15 @@ const caseStudies = defineCollection({
     // Designed hero + stat band (rendered by /work/[slug], not the markdown body).
     headline: z.string().optional(),
     subhead: z.string().optional(),
+    // `claims`: the ids in src/data/claims.ts (the truth-layer registry) whose evidence backs
+    // this figure. The page shows each one's source line under "Where these numbers come
+    // from", and /api/case-studies.json lists the ids (t23334). An unknown id fails the build.
     stats: z
-      .array(z.object({ v: z.string(), l: z.string() }))
+      .array(z.object({
+        v: z.string(),
+        l: z.string(),
+        claims: z.array(z.string().refine((id) => claimIds.includes(id), { message: 'unknown claim id: add it to src/data/claims.ts from automancer-bd data/claims.toml first' })).default([]),
+      }))
       .default([]),
     // All case studies ship anonymised until written client sign-off lands.
     anonymised: z.boolean().default(false),

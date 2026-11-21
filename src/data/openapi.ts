@@ -189,7 +189,14 @@ const schemas: Record<string, JsonSchema> = {
             stats: {
               type: 'array',
               description: 'Headline numbers quoted in the case study.',
-              items: obj({ value: str(), label: str() }, { required: ['value', 'label'] }),
+              items: obj(
+                {
+                  value: str(),
+                  label: str(),
+                  claims: strArray('Ids in /api/claims.json whose evidence backs this figure; empty when no registry entry does. The case study page quotes the same evidence lines under "Where these numbers come from".'),
+                },
+                { required: ['value', 'label', 'claims'] }
+              ),
             },
             body: str('Full body text as raw Markdown.'),
           },

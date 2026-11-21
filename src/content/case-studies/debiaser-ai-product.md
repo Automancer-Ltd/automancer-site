@@ -13,10 +13,10 @@ client: A London-based diversity & inclusion consultancy serving large multinati
 headline: We turned a billable bottleneck into a product.
 subhead: Reviewing workplace documents for bias used to take hours of a consultant's time and cost £300–400. Now clients upload a document and get the same review in minutes for £10–80. Live in production since June 2026.
 stats:
-  - { v: "£300–400 → £10–80", l: "per engagement, before → per document, after" }
-  - { v: "Hours → minutes", l: "turnaround, human review to self-service" }
-  - { v: "£100–200/hr", l: "consultant review, replaced by self-service" }
-  - { v: "12 Jun 2026", l: "live in production since" }
+  - { v: "£300–400 → £10–80", l: "per engagement, before → per document, after", claims: [debiaser_per_engagement_cost, debiaser_self_service_cost] }
+  - { v: "Hours → minutes", l: "turnaround, human review to self-service", claims: [debiaser_self_service_cost] }
+  - { v: "£100–200/hr", l: "consultant review, replaced by self-service", claims: [debiaser_hourly_rate_range] }
+  - { v: "12 Jun 2026", l: "live in production since", claims: [debiaser_live_since] }
 ---
 
 ## Great expertise, limited by consultant hours

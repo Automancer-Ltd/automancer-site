@@ -15,8 +15,8 @@ subhead: We replaced phone and email order taking with a trade portal that handl
 stats:
   - { v: "One workflow", l: "order → production → dispatch → invoice-draft" }
   - { v: "Computed", l: "per-customer pricing, calculated automatically" }
-  - { v: "Apr 2026", l: "Phase 1 signed off as a usable foundation" }
-  - { v: "5 units", l: "multi-unit pricing: feet, metres, sqft, sqm, each" }
+  - { v: "Apr 2026", l: "Phase 1 signed off as a usable foundation", claims: [manufacturer_portal_phase_status] }
+  - { v: "5 units", l: "multi-unit pricing: feet, metres, sqft, sqm, each", claims: [manufacturer_portal_pricing_units] }
 ---
 
 ## When customer prices live in someone's head

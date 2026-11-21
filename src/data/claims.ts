@@ -17,3 +17,37 @@ export const publishedClaims = [
   { id: 'manufacturer_portal_phase_status', value: 'Phase 1 signed off April 2026', evidenceRecord: evidence, registry: truthLayer, sourceQuote: 'Phase 1 signed off (Apr 2026) as "usable foundation", staged for client review — not yet full production launch.' },
   { id: 'manufacturer_portal_pricing_units', value: '5 units', evidenceRecord: evidence, registry: truthLayer, sourceQuote: 'a multi-unit pricing matrix (feet/metres/sqft/sqm/each) with bulk reprice' },
 ] as const;
+
+export type ClaimId = (typeof publishedClaims)[number]['id'];
+export type PublishedClaim = (typeof publishedClaims)[number];
+
+export const claimIds: readonly string[] = publishedClaims.map((c) => c.id);
+
+/** The registry entry for `id`; an id the registry does not hold stops the build. */
+export function claimById(id: string): PublishedClaim {
+  const claim = publishedClaims.find((c) => c.id === id);
+  if (!claim) throw new Error(`No published claim "${id}" in src/data/claims.ts (copy it from automancer-bd data/claims.toml first)`);
+  return claim;
+}
+
+/** A source quote as a reader sees it: the record's Markdown emphasis removed, words unchanged. */
+export function quoteText(quote: string): string {
+  return quote.replace(/\*\*/g, '');
+}
+
+/**
+ * What a case study shows under "Where these numbers come from" for one headline figure: the
+ * evidence record's own lines behind it, each once (two claims can share a line). The same lines
+ * are in /api/claims.json, so a person reads what a machine is told (t23334).
+ */
+export function statQuotes(claims: readonly string[]): string[] {
+  return [...new Set(claims.map((id) => quoteText(claimById(id).sourceQuote)))];
+}
+
+/** The private record every published claim quotes, named the way the claims registry names it. */
+export const EVIDENCE_RECORD = evidence;
+export const CLAIMS_REGISTRY = truthLayer;
+
+/** The one sentence that opens "Where these numbers come from" on a case study and in its twin. */
+export const SOURCES_INTRO =
+  'These figures are quoted from our case-study dossier, the private record we keep of the delivered work. We publish the line each one comes from, word for word, not the record itself.';
