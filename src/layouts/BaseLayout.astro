@@ -153,6 +153,15 @@ const SPECULATION_RULES = {
     </script>
   </head>
   <body>
+    {/*
+      Firefox draws text with a pending web font in its default font: it never starts a
+      local() fallback face on its own, so every line re-wrapped when the fonts arrived there
+      (t23013). Asking for the fallback faces here, once the head's styles are parsed and before
+      any text, lets it use them like Chromium and Safari do (t23138). A face whose local font
+      is not installed (Roboto on a Mac) simply fails to load. Nothing is fetched: local() only.
+      A browser without document.fonts skips it.
+    */}
+    <InlineScript><script is:inline>document.fonts?.forEach(f=>{if(f.family.includes('Fallback'))f.load().catch(()=>{})})</script></InlineScript>
     <a href="#main" class="skip-link">Skip to content</a>
     <Nav />
     <main id="main">
