@@ -239,6 +239,20 @@ const schemas: Record<string, JsonSchema> = {
       schemaVersion: str(),
       generatedAt: dateTime(),
       count: { type: 'integer' },
+      topics: {
+        type: 'array',
+        description: 'Subjects available in the Field Notes index, most notes first. General notes appear in fieldNotes only.',
+        items: obj(
+          {
+            label: str('Subject shown on the site. Matches fieldNotes[].category.'),
+            slug: str('URL slug of the subject filter.'),
+            count: { type: 'integer', minimum: 1, description: 'Number of published notes on this subject.' },
+            url: uri('Field Notes page with this subject selected in the browser.'),
+            noteSlugs: strArray('Matching fieldNotes[].slug values, newest first.'),
+          },
+          { required: ['label', 'slug', 'count', 'url', 'noteSlugs'] }
+        ),
+      },
       fieldNotes: {
         type: 'array',
         items: obj(
@@ -271,7 +285,7 @@ const schemas: Record<string, JsonSchema> = {
       },
     },
     {
-      required: [...PROVENANCE_REQUIRED, 'count', 'fieldNotes'],
+      required: [...PROVENANCE_REQUIRED, 'count', 'topics', 'fieldNotes'],
       description: 'The /api/field-notes.json payload.',
     }
   ),

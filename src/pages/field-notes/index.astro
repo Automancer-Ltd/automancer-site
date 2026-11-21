@@ -17,7 +17,7 @@ const posts = (await getCollection('field-notes'))
   .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
 
 // "Browse by subject": one button per subject the notes' pages already show.
-const topics = noteTopics(posts.map((p) => noteTopic(p.data)));
+const topics = noteTopics(posts);
 const slotOf = new Map(topics.map((t) => [t.label, t.slot]));
 
 const fmt = (d: Date) =>

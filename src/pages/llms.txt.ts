@@ -3,13 +3,14 @@
 // drift from the JSON-LD structured data or the services page.
 import type { APIRoute } from 'astro';
 import { business, formatGBP, services, serviceById } from '../data/business';
+import { getNotes, noteTopicLinks } from '../data/site-content';
 import { abs } from '../data/urls';
 
 const auditPrice = formatGBP(serviceById('automation-opportunity-audit').priceFrom);
 const buildPrice = formatGBP(serviceById('system-agent-build').priceFrom);
 const opsPrice = formatGBP(serviceById('ai-ops-partner').priceFrom);
 
-export const GET: APIRoute = () => {
+export const GET: APIRoute = async () => {
   const lines: string[] = [];
 
   lines.push(`# ${business.tradingName}`);
@@ -112,7 +113,7 @@ export const GET: APIRoute = () => {
   lines.push(`- [Services & pricing](${business.url}/api/services.json)`);
   lines.push(`- [Enquiry contract](${business.url}/api/enquiry.json): how to reach Waseem, which route an agent can complete, and the fields and limits the contact form uses.`);
   lines.push(`- [Case studies (full text)](${business.url}/api/case-studies.json)`);
-  lines.push(`- [Field notes (full text)](${business.url}/api/field-notes.json)`);
+  lines.push(`- [Field notes (full text)](${business.url}/api/field-notes.json): subjects with counts and filter links, plus each note's category and Markdown URL.`);
   lines.push(`- [Page inventory](${business.url}/api/pages.json): every page with title, description, Markdown-twin URL and last-modified.`);
   lines.push(
     `- [Stability & deprecation policy](${business.url}/api/stability.json): what you may rely on between deploys (paths, operation ids, service ids, field names), what may change without notice, and how a breaking change is published.`
@@ -129,6 +130,13 @@ export const GET: APIRoute = () => {
     '- Note: the bodies of /privacy/ and /terms/ are deliberately NOT mirrored in any machine-readable format (transcription drifts). Fetch those canonical HTML URLs for their current text.'
   );
   lines.push('');
+
+  const subjects = noteTopicLinks(await getNotes());
+  if (subjects.length) {
+    lines.push('## Field notes by subject');
+    lines.push(`Browse these subjects on the site, or use the [Markdown index](${abs('/field-notes.md')}) to find individual notes.`);
+    lines.push('', ...subjects, '');
+  }
 
   lines.push('## Site map');
   lines.push(`- [Home](${abs('/')})`);
