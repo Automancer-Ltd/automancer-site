@@ -7,7 +7,7 @@ It does not outrank anything: `VISION.md` is authority 0 and `SPEC.md` describes
 When this file and `SPEC.md` disagree about what exists, `SPEC.md` and the code are right and this
 file is out of date.
 
-Last updated: 21 November 2026 (case-study figures show their evidence, t23334).
+Last updated: 21 November 2026 (release notes as a dated timeline, t23438).
 
 ## Where the site stands against the vision
 
@@ -125,6 +125,26 @@ The former cache and release-note slices shipped in PRs #164 and #165 respective
 "gap above a field note's first paragraph on phones" slice is dropped from the list: t22126
 measured every note's opening line already on a 390×844 phone's first screen (17 of 17), so the
 gap is a spacing taste call, not lost content.
+
+## Frontend slice: release notes as a dated timeline (21 November 2026, t23438)
+
+`/releases/` was one column of all 57 releases: 25,772 px on a laptop and 27,220 px on a 390 px
+phone, a full-size date heading on every release (five in a row read "20 November 2026"), and no
+way to reach October without scrolling past November. No page a visitor browses linked to it.
+
+- The page groups the changelog by month, then day, on a line down the left: one date per day,
+  each release under it with its version (still its id, the anchor `/api/releases.json` gives),
+  its summary as the lead and its parts ("Improvements", "Fixes") as small labels. The newest
+  day's dot is green.
+- The months and days are listed with the field notes' contents (`ArticleContents`, new `unit`
+  prop): a rail on screens 64rem and wider that marks the day being read, a closed "On this page
+  · 4 months" fold-out on phones.
+- Every page's footer links "Release notes" (between Terms and llms.txt).
+- Height: 25,772 -> 19,403 px at 1280, 27,220 -> 22,914 px at 390. `tests/releases.test.ts` holds
+  every published release anchor to the page, in order, under its own day and month.
+- `pnpm run compare`: 64 of 64 views differ; 62 only in the footer's bottom row (at most 0.05% of
+  pixels), and `/releases/` at both widths. Firefox renders the same.
+- Undo: revert this slice's merge commit.
 
 ## Frontend slice: where these numbers come from (21 November 2026, t23334)
 

@@ -18,9 +18,11 @@ import type { MarkdownHeading } from 'astro';
 interface Props {
   headings: MarkdownHeading[];
   variant: 'inline' | 'rail';
+  /** What the closed list counts: its sections ("sections"), or on /releases its months. */
+  unit?: string;
 }
 
-const { headings, variant } = Astro.props;
+const { headings, variant, unit = 'sections' } = Astro.props;
 // Each h2 with the h3s that follow it; an h3 before the first h2 has no section to sit in.
 const sections: { head: MarkdownHeading; parts: MarkdownHeading[] }[] = [];
 for (const h of headings) {
@@ -34,7 +36,7 @@ for (const h of headings) {
     <details class="toc toc--inline" data-toc data-page-words="skip">
       <summary>
         <span class="toc__label">On this page</span>
-        <span class="toc__count">{sections.length} sections</span>
+        <span class="toc__count">{sections.length} {unit}</span>
       </summary>
       <ol>
         {sections.map(({ head, parts }) => (

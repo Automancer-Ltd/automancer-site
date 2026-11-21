@@ -1,12 +1,46 @@
 ---
+import type { MarkdownHeading } from 'astro';
 import BaseLayout from '../layouts/BaseLayout.astro';
 import '../styles/prose.css';
+import '../styles/releases.css';
 import SpectrumGlow from '../components/SpectrumGlow.astro';
-import { getReleases } from '../data/releases';
+import ArticleContents from '../components/ArticleContents.astro';
+import { getReleases, type Release } from '../data/releases';
 import { staticPages } from '../data/site-content';
 
 const meta = staticPages.find((page) => page.path === '/releases/')!;
 const releases = await getReleases();
+
+// Newest first, as the changelog keeps them: each month holds its days, each
+// day its releases. The ids are the date (2026-11, 2026-11-21); each release
+// keeps its version as its id, the anchor /api/releases.json publishes.
+interface Day { id: string; displayDate: string; short: string; releases: Release[] }
+interface Month { id: string; label: string; days: Day[]; count: number }
+const months: Month[] = [];
+for (const r of releases) {
+  const monthId = r.date.slice(0, 7);
+  let month = months.at(-1);
+  if (month?.id !== monthId) {
+    month = { id: monthId, label: r.displayDate.replace(/^\d+ /, ''), days: [], count: 0 };
+    months.push(month);
+  }
+  let day = month.days.at(-1);
+  if (day?.id !== r.date) {
+    day = { id: r.date, displayDate: r.displayDate, short: r.displayDate.replace(/ \d{4}$/, ''), releases: [] };
+    month.days.push(day);
+  }
+  day.releases.push(r);
+  month.count++;
+}
+
+const headings: MarkdownHeading[] = months.flatMap((m) => [
+  { depth: 2, slug: m.id, text: m.label },
+  ...m.days.map((d) => ({ depth: 3, slug: d.id, text: d.short })),
+]);
+
+// A release's own parts ("Improvements", "Fixes") sit under its day's heading.
+const notesHtml = (html: string) => html.replace(/<(\/?)h3\b/g, '<$1h4');
+const plural = (n: number) => `${n} release${n === 1 ? '' : 's'}`;
 ---
 
 <BaseLayout title={meta.title} description={meta.description} pageType={meta.type}>
@@ -24,14 +58,29 @@ const releases = await getReleases();
   </section>
 
   <section class="section on-dark">
-    <div class="wrap">
-      {releases.map((r) => (
-        <article id={r.version} class="prose" style="margin-inline:0; margin-bottom: clamp(3rem, 6vw, 4.5rem); scroll-margin-top: 6.5rem">
-          <p class="article-meta"><span>{r.version}</span></p>
-          <h2 style="margin-top: var(--sp-2)"><time datetime={r.date}>{r.displayDate}</time></h2>
-          <Fragment set:html={r.html} />
-        </article>
-      ))}
+    <div class="wrap article-layout">
+      <ArticleContents headings={headings} variant="inline" unit="months" />
+      <div class="releases">
+        {months.map((m) => (
+          <section class="rel-month" aria-labelledby={m.id}>
+            <h2 id={m.id} class="rel-month__title">
+              {m.label} <span class="rel-month__count" data-page-words="skip">{plural(m.count)}</span>
+            </h2>
+            {m.days.map((d) => (
+              <section class="rel-day" aria-labelledby={d.id}>
+                <h3 id={d.id} class="rel-day__date"><time datetime={d.id}>{d.displayDate}</time></h3>
+                {d.releases.map((r) => (
+                  <article id={r.version} class="rel" aria-label={`Release ${r.version}`}>
+                    <a class="rel__version" href={`#${r.version}`}>{r.version}</a>
+                    <div class="prose rel__notes"><Fragment set:html={notesHtml(r.html)} /></div>
+                  </article>
+                ))}
+              </section>
+            ))}
+          </section>
+        ))}
+      </div>
+      <ArticleContents headings={headings} variant="rail" />
     </div>
   </section>
 </BaseLayout>
