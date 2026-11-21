@@ -15,8 +15,8 @@ gets a real 404 with a way back.
 - `the phone header still reaches Services and Contact at 320px with enlarged text` with JavaScript disabled.
 - `home actions are visible from the first frame and the headline holds its height while Syne loads`.
 - `homepage prices are one scroll away and link to the matching offer`.
-- `a page that does not exist is a real 404 with a way back`.
-- `every page keeps its words on screen at 320px and with text at 200%` (every sitemap page).
+- `a missing page shows recovery links on arrival and leads back to the site`.
+- `every page keeps its words on screen at 320px and with text at 200%` (every sitemap page and the 404).
 - Vitest on `dist/`: `tests/speculation-rules.test.ts` (Chromium's hover prerender, and the
   Firefox/Safari hover prefetch in `src/scripts/prefetch.ts`, fetch only this site's pages, the
   same links). Click speed in Firefox and WebKit: `node ops/perf/click-wait.mjs dist <label>
