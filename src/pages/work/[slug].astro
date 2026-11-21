@@ -10,7 +10,7 @@ import { fitDescription, fitTitle } from '../../lib/meta';
 import { formatGBP, serviceById } from '../../data/business';
 import { contactHref } from '../../data/enquiry';
 import { caseStudyCard, cardAlt, cardPath } from '../../data/share-cards';
-import { SOURCES_INTRO, statQuotes } from '../../data/claims';
+import { SOURCES_ANCHOR, SOURCES_INTRO, evidenceAnchor, evidenceRows } from '../../data/claims';
 
 const auditFrom = formatGBP(serviceById('automation-opportunity-audit').priceFrom);
 
@@ -36,12 +36,10 @@ const longestWord = (v: string) => Math.max(...(v.match(/[^\s–-]+[–-]?/g) ??
 // Notes after the sector, in order. The text keeps the '· ' separators the page
 // has always carried, so its words (and published page date) do not change.
 const notes = [d.anonymised && 'anonymised', d.status].filter((n): n is string => Boolean(n));
-// Headline figures the truth layer backs, numbered in band order: each gets a "Source" link to
-// its line under "Where these numbers come from" (t23334).
-const sourced = d.stats
-  .map((s, i) => ({ ...s, anchor: `source-${i + 1}`, quotes: statQuotes(s.claims) }))
-  .filter((s) => s.quotes.length > 0);
-const anchorOf = new Map(sourced.map((s) => [s.v, s.anchor]));
+// Every figure the truth layer backs, in the band and in the hero, has a line under "Where these
+// numbers come from" (t23334); its fragment is named after its first claim, so a link from another
+// page (a field note, a case card) keeps landing on it when the band is reordered (t23577).
+const sourced = evidenceRows(d);
 ---
 
 {/* SERP metadata is length-fitted (see src/lib/meta.ts); the visible
@@ -67,6 +65,9 @@ const anchorOf = new Map(sourced.map((s) => [s.v, s.anchor]));
             <strong style="color:var(--ink)">Client:</strong> {d.client}
           </p>
         )}
+        {sourced.length > 0 && (
+          <a class="stat__src case-hero__src" href={`#${SOURCES_ANCHOR}`}>Where these numbers come from<span aria-hidden="true"> ↓</span></a>
+        )}
       </div>
     </header>
 
@@ -79,8 +80,8 @@ const anchorOf = new Map(sourced.map((s) => [s.v, s.anchor]));
               <div class="stat">
                 <div class="stat__v" style={`--stat-word: ${longestWord(s.v)}`}>{s.v}</div>
                 <div class="stat__l">{s.l}</div>
-                {anchorOf.has(s.v) && (
-                  <a class="stat__src" href={`#${anchorOf.get(s.v)}`} aria-label={`Source for ${s.v}`}>Source<span aria-hidden="true"> ↓</span></a>
+                {s.claims.length > 0 && (
+                  <a class="stat__src" href={`#${evidenceAnchor(s.claims)}`} aria-label={`Source for ${s.v}`}>Source<span aria-hidden="true"> ↓</span></a>
                 )}
               </div>
             ))}
@@ -103,7 +104,7 @@ const anchorOf = new Map(sourced.map((s) => [s.v, s.anchor]));
     <!-- Where these numbers come from: the evidence line behind each sourced figure, the same
          lines /api/claims.json gives machines (t23334). -->
     {sourced.length > 0 && (
-      <section class="section on-near evidence" aria-labelledby="sources-title">
+      <section class="section on-near evidence" id={SOURCES_ANCHOR} aria-labelledby="sources-title">
         <div class="wrap">
           <p class="sys" style="margin-bottom: var(--sp-3)">// sources</p>
           <h2 class="evidence__title" id="sources-title">Where these numbers come from</h2>

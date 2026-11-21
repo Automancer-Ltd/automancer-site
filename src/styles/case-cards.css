@@ -41,3 +41,17 @@
 
 /* Mono stat-line under a secondary case card */
 .case-card__statline { font-family: var(--font-mono); font-size: 0.74rem; color: var(--faint); line-height: 1.7; }
+
+/* The title's link covers the whole card, so the card still opens its study from anywhere on it,
+   and the Sources link sits above it: a card that quotes a study's figures links to the evidence
+   behind them too, without nesting one link in another (t23577). */
+.case-card__link { color: inherit; text-decoration: none; }
+.case-card__link::after { content: ""; position: absolute; inset: 0; border-radius: inherit; }
+.case-card__link:focus-visible { outline: none; }
+.case-card:has(.case-card__link:focus-visible) { border-color: var(--white); }
+.case-card__acts { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--sp-5); }
+.case-card__src { position: relative; z-index: 1; font-family: var(--font-mono); font-size: 0.74rem;
+  letter-spacing: 0.04em; color: var(--muted); text-decoration: underline;
+  text-decoration-color: var(--border); text-underline-offset: 0.25em; min-height: 24px;
+  display: inline-flex; align-items: center; }
+.case-card__src:hover, .case-card__src:focus-visible { color: var(--ink); text-decoration-color: currentColor; }

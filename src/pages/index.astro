@@ -9,6 +9,7 @@ import { formatGBP, serviceById, serviceOfferAnchor } from '../data/business';
 import { contactHref } from '../data/enquiry';
 import { staticPages } from '../data/site-content';
 import { serviceCatalogNode } from '../data/jsonld';
+import { SOURCES_ANCHOR, evidenceRows } from '../data/claims';
 
 const audit = serviceById('automation-opportunity-audit');
 const sprint = serviceById('workflow-implementation-sprint');
@@ -23,6 +24,8 @@ const studies = (await getCollection('case-studies'))
 
 const feature = studies.find((e) => e.data.featured) ?? studies[0];
 const rest = studies.filter((e) => e.id !== feature?.id).slice(0, 2);
+// A card that quotes a study's figures links to the evidence behind them as well as to the study (t23577).
+const sourcesHref = (e: (typeof studies)[number]) => (evidenceRows(e.data).length > 0 ? `/work/${e.id}/#${SOURCES_ANCHOR}` : null);
 
 const ladder = [
   { service: audit, description: "We map where your time and money are leaking, and hand you a costed plan. Fee credited against any project you go on to do." },
@@ -171,24 +174,30 @@ const caps = [
       </div>
       <div class="case-grid case-grid--pair">
         {feature && (
-          <a href={`/work/${feature.id}/`} class="case-card case-card--feature" data-spot>
+          <article class="case-card case-card--feature" data-spot>
             <span class="case-card__tag">{feature.data.sector}{feature.data.status ? ` · ${feature.data.status}` : ''}</span>
-            <h3 class="case-card__title">{feature.data.title}</h3>
+            <h3 class="case-card__title"><a class="case-card__link" href={`/work/${feature.id}/`}>{feature.data.title}</a></h3>
             <p class="case-card__blurb">{feature.data.summary ?? feature.data.description}</p>
             <div class="case-card__foot">
-              <span class="arrow-link">Read the case study <span class="btn__arrow">→</span></span>
+              <span class="case-card__acts">
+                <span class="arrow-link">Read the case study <span class="btn__arrow">→</span></span>
+                {sourcesHref(feature) && <a class="case-card__src" href={sourcesHref(feature)} aria-label={`Sources for the figures in “${feature.data.title}”`}>Sources</a>}
+              </span>
             </div>
-          </a>
+          </article>
         )}
         {rest.map((e) => (
-          <a href={`/work/${e.id}/`} class="case-card" data-spot>
+          <article class="case-card" data-spot>
             <span class="case-card__tag">{e.data.sector}</span>
-            <h3 class="case-card__title">{e.data.title}</h3>
+            <h3 class="case-card__title"><a class="case-card__link" href={`/work/${e.id}/`}>{e.data.title}</a></h3>
             <p class="case-card__blurb">{e.data.summary ?? e.data.description}</p>
             <div class="case-card__foot">
-              <span class="arrow-link">Read <span class="btn__arrow">→</span></span>
+              <span class="case-card__acts">
+                <span class="arrow-link">Read <span class="btn__arrow">→</span></span>
+                {sourcesHref(e) && <a class="case-card__src" href={sourcesHref(e)} aria-label={`Sources for the figures in “${e.data.title}”`}>Sources</a>}
+              </span>
             </div>
-          </a>
+          </article>
         ))}
       </div>
       <p style="margin-top: var(--sp-10)">

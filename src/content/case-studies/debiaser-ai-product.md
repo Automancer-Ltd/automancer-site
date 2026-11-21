@@ -21,7 +21,7 @@ stats:
 
 ## Great expertise, limited by consultant hours
 
-This consultancy spots bias in workplace documents — job descriptions, policies, and performance guides — and rewrites them so they read fairly. Previously, every review needed a consultant at £100–200 an hour reading a document line by line. That cost the client £300–400 per review and took several hours of a working day.
+This consultancy spots bias in workplace documents — job descriptions, policies, and performance guides — and rewrites them so they read fairly. Previously, every review needed a consultant at [£100–200 an hour](/work/debiaser-ai-product/#source-debiaser-hourly-rate-range) reading a document line by line. That cost the client [£300–400 per review](/work/debiaser-ai-product/#source-debiaser-per-engagement-cost) and took several hours of a working day.
 
 That limited how many reviews the firm could sell. A consultant cannot review a hundred documents at once, and smaller businesses could not afford the fee.
 
@@ -36,7 +36,7 @@ The app handles team credit pools, buyer approvals, card payments with automatic
 
 ## What changed for the business
 
-A review that took **hours of consultant time at £100–200 an hour — roughly £300–400 per engagement** — now costs the customer **£10–80 and finishes in minutes.**
+A review that took **hours of consultant time at [£100–200 an hour](/work/debiaser-ai-product/#source-debiaser-hourly-rate-range) — roughly [£300–400 per engagement](/work/debiaser-ai-product/#source-debiaser-per-engagement-cost)** — now costs the customer **[£10–80](/work/debiaser-ai-product/#source-debiaser-per-engagement-cost) and finishes in minutes.**
 
 Previously, the consultancy could only review a few documents a day for large clients. Now any client can check as many documents as they need, at any hour, using the same review standards.
 
@@ -44,11 +44,11 @@ Previously, the consultancy could only review a few documents a day for large cl
 
 Customers see the exact cost before they run a review. Uploaded documents are deleted automatically after seven days, and the service runs on EU servers.
 
-The product has been live in production since 12 June 2026, with ongoing monitoring and updates.
+The product has been [live in production since 12 June 2026](/work/debiaser-ai-product/#source-debiaser-live-since), with ongoing monitoring and updates.
 
 ## Results
 
-- **Live in production since 12 June 2026.**
-- Consultant reviews at **£300–400 per engagement** replaced by self-service at **£10–80 per document.**
+- **[Live in production since 12 June 2026.](/work/debiaser-ai-product/#source-debiaser-live-since)**
+- Consultant reviews at [**£300–400 per engagement**](/work/debiaser-ai-product/#source-debiaser-per-engagement-cost) replaced by self-service at [**£10–80 per document.**](/work/debiaser-ai-product/#source-debiaser-per-engagement-cost)
 - Turnaround cut from **hours to minutes.**
 - Opened the service to smaller clients who could not pay consultant day rates.

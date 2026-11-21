@@ -57,7 +57,16 @@ const offers = [
     one: 'A custom system or AI agent built around how your business runs.',
     who: 'You have outgrown spreadsheets or off-the-shelf tools that do not fit your process. You need a customer portal, an internal operations system, or an AI agent with human sign-off.',
     includes: systemBuild.includes,
-    catch: 'Recent builds: a customer trade portal that replaced phone-and-memory ordering, a care provider’s operations platform with 294 carer records and 588 scheduled supervisions, and a self-service AI product that runs a £300–400 consultant review for £10–80.',
+    // Each figure links to the line of evidence behind it on its case study (t23577).
+    catch: [
+      'Recent builds: a customer trade portal that replaced phone-and-memory ordering, a care provider’s operations platform with ',
+      { text: '294 carer records', href: '/work/care-provider-transformation/#source-carer-record-count' },
+      ' and ',
+      { text: '588 scheduled supervisions', href: '/work/care-provider-transformation/#source-supervision-schedule-count' },
+      ', and a self-service AI product that runs ',
+      { text: 'a £300–400 consultant review for £10–80', href: '/work/debiaser-ai-product/#source-debiaser-per-engagement-cost' },
+      '.',
+    ],
     cta: 'Scope a Build',
   },
   {
@@ -164,7 +173,7 @@ const faqs = [
             <ul class="ticks">
               {o.includes.map((it) => <li>{it}</li>)}
             </ul>
-            <p class="offer__catch">{o.catch}</p>
+            <p class="offer__catch">{typeof o.catch === 'string' ? o.catch : o.catch.map((part) => (typeof part === 'string' ? part : <a class="tlink" href={part.href}>{part.text}</a>))}</p>
           </div>
         </div>
       </div>

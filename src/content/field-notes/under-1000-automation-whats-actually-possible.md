@@ -74,8 +74,8 @@ considerably more reliable. Three things keep a job small:
   use every day stays small. One that needs a new system to sit in grows.
 
 Some things genuinely can't be this small. The same care provider's core
-platform turned messy CSVs into 294 clean carer records and auto-created
-588 supervision schedules. That's a System / Agent Build, from £4,500,
+platform turned messy CSVs into [294 clean carer records](/work/care-provider-transformation/#source-carer-record-count) and auto-created
+[588 supervision schedules](/work/care-provider-transformation/#source-supervision-schedule-count). That's a System / Agent Build, from £4,500,
 because there is more engineering in it. The point isn't that everything is cheap.
 It's that a small problem deserves a small price, not one inflated because
 "automation" sounds expensive.

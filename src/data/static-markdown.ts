@@ -6,7 +6,10 @@ import { business, services, formatGBP, serviceById, serviceOfferAnchor } from '
 import { abs } from './urls';
 import { getReleases } from './releases';
 import { noteTopic } from './note-topics';
-import { frontMatter, mdResponse, getStudies, getNotes, noteTopicLinks, staticPages, type PageMeta } from './site-content';
+import { frontMatter, mdResponse, getStudies, getNotes, noteTopicLinks, staticPages, studySourcesUrl, type CaseStudy, type PageMeta } from './site-content';
+
+/** The card's Sources link, as the page shows it beside a study that quotes figures (t23577). */
+const sourcesSuffix = (e: CaseStudy) => (studySourcesUrl(e) ? ` ([Sources](${studySourcesUrl(e)}))` : '');
 import type { APIRoute } from 'astro';
 
 const unit = (s: (typeof services)[number]) => (s.priceUnit === 'month' ? '/month' : ' per project');
@@ -52,7 +55,7 @@ If someone on your team spends hours copying figures between systems, updating s
 
 ${studies
   .slice(0, 3)
-  .map((e) => `- [${e.data.title}](${abs(`/work/${e.id}`)}) — ${e.data.summary ?? e.data.description}`)
+  .map((e) => `- [${e.data.title}](${abs(`/work/${e.id}`)}) — ${e.data.summary ?? e.data.description}${sourcesSuffix(e)}`)
   .join('\n')}
 
 Full list: ${abs('/work')}
@@ -160,7 +163,7 @@ One rule never changes: **a human makes every decision and takes every call.** T
 
 Automancer is founded and run by Waseem Ilyas, an engineer who builds software that takes repetitive admin off small teams. Before starting Automancer, he founded and ran a SaaS product company from scratch, shipping and operating software that businesses relied on every day.
 
-He works with clients across social care, manufacturing, professional services, and travel — from a ~600-person care provider's operations platform to a single-page website for a new travel agency. When you work with Automancer, you work directly with Waseem.
+He works with clients across social care, manufacturing, professional services, and travel — from [a ~600-person care provider's operations platform](${abs('/work/care-provider-transformation')}) to a single-page website for a new travel agency. When you work with Automancer, you work directly with Waseem.
 
 ## Five rules we actually keep
 
@@ -208,7 +211,7 @@ Real systems, live in production. Case studies where every fact is taken from th
 ${studies
   .map(
     (e) =>
-      `- **[${e.data.title}](${abs(`/work/${e.id}`)})** (${e.data.sector}${e.data.status ? ` · ${e.data.status}` : ''}) — ${e.data.description}`
+      `- **[${e.data.title}](${abs(`/work/${e.id}`)})** (${e.data.sector}${e.data.status ? ` · ${e.data.status}` : ''}) — ${e.data.description}${sourcesSuffix(e)}`
   )
   .join('\n')}
 

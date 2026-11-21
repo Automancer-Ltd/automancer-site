@@ -41,8 +41,8 @@ Most off-the-shelf learning platforms do not do this natively. They will
 host courses and mark completions, then leave the compliance question, the
 "who is out of date, right now, and on what" question, back on your plate.
 
-We built exactly this layer on a real project for a ~600-person
-supported-living care provider. We replaced outsourced training and manual,
+We built exactly this layer on a real project for [a ~600-person
+supported-living care provider](/work/care-provider-transformation/). We replaced outsourced training and manual,
 spreadsheet-based refresher-tracking with a self-hosted learning management
 system, plus a custom compliance layer to track mandatory, refresher and
 overdue training the off-the-shelf tool could not handle on its own. It was

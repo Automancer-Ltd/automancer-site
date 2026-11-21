@@ -198,6 +198,18 @@ const schemas: Record<string, JsonSchema> = {
                 { required: ['value', 'label', 'claims'] }
               ),
             },
+            facts: {
+              type: 'array',
+              description: 'Figures the case study states in its introduction (subhead, client line) rather than its headline numbers, with the claims behind them. The page lists them under "Where these numbers come from" with the headline numbers.',
+              items: obj(
+                {
+                  value: str(),
+                  label: str(),
+                  claims: strArray('Ids in /api/claims.json whose evidence backs this figure.'),
+                },
+                { required: ['value', 'label', 'claims'] }
+              ),
+            },
             body: str('Full body text as raw Markdown.'),
           },
           {
@@ -235,7 +247,8 @@ const schemas: Record<string, JsonSchema> = {
           evidenceRecord: str('Truth-layer evidence record path.'),
           registry: str('Truth-layer claims registry path.'),
           sourceQuote: str('Evidence quote recorded by the truth layer.'),
-        }, { required: ['id', 'value', 'evidenceRecord', 'registry', 'sourceQuote'] }),
+          evidenceUrl: str('The page and line where a person reads this quote: the claim\'s row under "Where these numbers come from" on the case study that shows it. Every page that shows the figure links there.', { format: 'uri' }),
+        }, { required: ['id', 'value', 'evidenceRecord', 'registry', 'sourceQuote', 'evidenceUrl'] }),
       },
     },
     { required: ['schemaVersion', 'source', 'claims'], description: 'The /api/claims.json payload.' }

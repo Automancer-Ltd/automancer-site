@@ -8,7 +8,7 @@
 import { getCollection, type CollectionEntry } from 'astro:content';
 import { formatGBP, serviceById } from './business';
 import { noteTopics } from './note-topics';
-import { SOURCES_INTRO, statQuotes } from './claims';
+import { SOURCES_ANCHOR, SOURCES_INTRO, evidenceRows, publishedClaims, type ClaimId } from './claims';
 import { abs, pagePath } from './urls';
 
 export { abs };
@@ -79,8 +79,8 @@ export function studyMarkdown(entry: CaseStudy): string {
     parts.push(...d.stats.map((s) => `- **${s.v}** — ${s.l}`), '');
   }
   parts.push(entry.body ?? '');
-  // The page's "Where these numbers come from", word for word (t23334).
-  const sourced = d.stats.filter((s) => s.claims.length > 0);
+  // The page's "Where these numbers come from", word for word (t23334), hero figures included (t23577).
+  const sourced = evidenceRows(d);
   if (sourced.length > 0) {
     parts.push(
       '',
@@ -88,13 +88,36 @@ export function studyMarkdown(entry: CaseStudy): string {
       '',
       SOURCES_INTRO,
       '',
-      ...sourced.flatMap((s) => [`- **${s.v}** ${s.l}`, ...statQuotes(s.claims).map((q) => `  > “${q}”`)]),
+      ...sourced.flatMap((s) => [`- **${s.v}** ${s.l}`, ...s.quotes.map((q) => `  > “${q}”`)]),
       '',
       `The same lines, as data for agents: ${abs('/api/claims.json')}`,
       ''
     );
   }
   return parts.join('\n');
+}
+
+/** A case study's evidence section, for a teaser that names its figures; null when it has none. */
+export function studySourcesUrl(entry: CaseStudy): string | null {
+  return evidenceRows(entry.data).length > 0 ? `${abs(`/work/${entry.id}`)}#${SOURCES_ANCHOR}` : null;
+}
+
+/**
+ * Where a person reads the evidence behind each published claim: its line under "Where these
+ * numbers come from" on the first case study that shows it (t23577). /api/claims.json publishes it,
+ * so a machine and a person are pointed at the same line.
+ */
+export async function claimEvidenceUrls(): Promise<Map<ClaimId, string>> {
+  const urls = new Map<ClaimId, string>();
+  for (const study of await getStudies()) {
+    for (const row of evidenceRows(study.data)) {
+      for (const id of row.claims as ClaimId[]) if (!urls.has(id)) urls.set(id, `${abs(`/work/${study.id}`)}#${row.anchor}`);
+    }
+  }
+  for (const claim of publishedClaims) {
+    if (!urls.has(claim.id)) throw new Error(`Published claim "${claim.id}" is on no case study: name it in a study's stats or facts, or leave it out of src/data/claims.ts`);
+  }
+  return urls;
 }
 
 /** Markdown twin of one field note: front matter + full body. */

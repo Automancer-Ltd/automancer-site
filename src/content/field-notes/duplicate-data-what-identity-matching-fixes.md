@@ -28,7 +28,7 @@ Importing a spreadsheet straight into a new system copies every duplicate and br
 
 ## Results from a live migration
 
-During a live migration for [a ~600-person supported-living care provider](/work/care-provider-transformation/), our matching rules resolved **274 of 418** possible duplicates automatically. The same import created **294 carers and 293 service users** as clean records from the client's CSV exports.
+During a live migration for [a ~600-person supported-living care provider](/work/care-provider-transformation/), our matching rules resolved [**274 of 418**](/work/care-provider-transformation/#source-identity-matching-auto-resolved) possible duplicates automatically. The same import created [**294 carers and 293 service users**](/work/care-provider-transformation/#source-carer-record-count) as clean records from the client's CSV exports.
 
 Staff only had to review the 144 genuinely ambiguous records instead of checking all 418 by hand.
 

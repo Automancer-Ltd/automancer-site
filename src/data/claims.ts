@@ -51,3 +51,40 @@ export const CLAIMS_REGISTRY = truthLayer;
 /** The one sentence that opens "Where these numbers come from" on a case study and in its twin. */
 export const SOURCES_INTRO =
   'These figures are quoted from our case-study dossier, the private record we keep of the delivered work. We publish the line each one comes from, word for word, not the record itself.';
+
+/** One line under "Where these numbers come from": a figure, its label and the claims behind it. */
+export interface EvidenceRow {
+  /** Fragment id of the row on its case study: `source-` and its first claim id (t23577). */
+  anchor: string;
+  v: string;
+  l: string;
+  claims: readonly string[];
+  /** The evidence record's lines behind the figure, each once. */
+  quotes: string[];
+}
+
+interface Figure { v: string; l: string; claims: readonly string[] }
+
+/** The fragment a figure's evidence row answers at: stable while its first claim id is. */
+export function evidenceAnchor(claims: readonly string[]): string {
+  return `source-${claims[0]!.replace(/_/g, '-')}`;
+}
+
+/**
+ * A case study's evidence rows: its headline figures backed by a claim, in band order, then the
+ * figures its hero states outside the band (`facts`). Two rows on one page may not share an anchor.
+ */
+export function evidenceRows(study: { stats: readonly Figure[]; facts?: readonly Figure[] }): EvidenceRow[] {
+  const rows = [...study.stats, ...(study.facts ?? [])]
+    .filter((f) => f.claims.length > 0)
+    .map((f) => ({ anchor: evidenceAnchor(f.claims), v: f.v, l: f.l, claims: f.claims, quotes: statQuotes(f.claims) }));
+  const seen = new Set<string>();
+  for (const row of rows) {
+    if (seen.has(row.anchor)) throw new Error(`Two figures on one case study start with claim "${row.claims[0]}": give the second one its own first claim`);
+    seen.add(row.anchor);
+  }
+  return rows;
+}
+
+/** Where a case study's evidence section starts, for links that cover every figure on it. */
+export const SOURCES_ANCHOR = 'sources';

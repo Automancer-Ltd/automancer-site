@@ -12,6 +12,13 @@ import { glob } from 'astro/loaders';
 import { z } from 'astro/zod';
 import { claimIds } from './data/claims';
 
+// A figure a case study shows, with the truth-layer claims (src/data/claims.ts) behind it.
+const figure = z.object({
+  v: z.string(),
+  l: z.string(),
+  claims: z.array(z.string().refine((id) => claimIds.includes(id), { message: 'unknown claim id: add it to src/data/claims.ts from automancer-bd data/claims.toml first' })).default([]),
+});
+
 const sharedFrontmatter = {
   title: z.string(),
   description: z.string(),
@@ -38,13 +45,11 @@ const caseStudies = defineCollection({
     // `claims`: the ids in src/data/claims.ts (the truth-layer registry) whose evidence backs
     // this figure. The page shows each one's source line under "Where these numbers come
     // from", and /api/case-studies.json lists the ids (t23334). An unknown id fails the build.
-    stats: z
-      .array(z.object({
-        v: z.string(),
-        l: z.string(),
-        claims: z.array(z.string().refine((id) => claimIds.includes(id), { message: 'unknown claim id: add it to src/data/claims.ts from automancer-bd data/claims.toml first' })).default([]),
-      }))
-      .default([]),
+    stats: z.array(figure).default([]),
+    // Figures the hero states (subhead, client line) that the stat band does not show. They are
+    // not drawn as a band: each gets its own line under "Where these numbers come from", which
+    // the hero links to, so every truth-layer figure on the page has its evidence (t23577).
+    facts: z.array(figure).default([]),
     // All case studies ship anonymised until written client sign-off lands.
     anonymised: z.boolean().default(false),
     // Manual ordering on the /work index (lower = earlier). Falls back to date.

@@ -17,6 +17,9 @@ stats:
   - { v: "588", l: "supervision and spot-check schedules created automatically", claims: [supervision_schedule_count] }
   - { v: "274 / 418", l: "duplicate or ambiguous records matched automatically", claims: [identity_matching_auto_resolved] }
   - { v: "0 / 0", l: "failures and warnings across the production infrastructure audit", claims: [infrastructure_audit_result] }
+facts:
+  - { v: "~600 people", l: "at the provider: around 100 office staff and 500 support workers", claims: [care_provider_size] }
+  - { v: "~18", l: "governed workstreams, delivered one at a time", claims: [governed_workstream_count] }
 ---
 
 ## A care business held together by spreadsheets and goodwill
@@ -37,9 +40,9 @@ We built one system to replace a recruitment-only tool and dozens of spreadsheet
 
 Results from the live pilot:
 
-- One roster import created **294 carers and 293 service users** as clean records straight from the client's CSV files.
-- Identity matching **resolved 274 of 418** possible duplicates automatically, leaving only the genuinely unclear ones for staff to check.
-- **588 supervision and spot-check schedules** were created automatically.
+- One roster import created [**294 carers and 293 service users**](/work/care-provider-transformation/#source-carer-record-count) as clean records straight from the client's CSV files.
+- Identity matching [**resolved 274 of 418**](/work/care-provider-transformation/#source-identity-matching-auto-resolved) possible duplicates automatically, leaving only the genuinely unclear ones for staff to check.
+- [**588 supervision and spot-check schedules**](/work/care-provider-transformation/#source-supervision-schedule-count) were created automatically.
 - Every report was checked against the client's existing exports — 500 visits, 175 medication alerts, and 416 names flagged for review — so managers could trust the figures from day one.
 
 The platform is live in a production pilot that the client uses and reviews daily.
@@ -69,7 +72,7 @@ Every project is built on a test system first, checked against the client's real
 ## Live in production
 
 - The core operations platform is a **live production pilot** in daily use.
-- **294 carers and 293 service users** have one clean, auditable record instead of scattered spreadsheets.
-- **588 supervision schedules** are created and tracked automatically.
+- [**294 carers and 293 service users**](/work/care-provider-transformation/#source-carer-record-count) have one clean, auditable record instead of scattered spreadsheets.
+- [**588 supervision schedules**](/work/care-provider-transformation/#source-supervision-schedule-count) are created and tracked automatically.
 - The management oversight dashboard is **live**, showing exceptions across branches in one place.
 - Production servers passed their security and backup audit with **zero failures and zero warnings.**

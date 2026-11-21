@@ -7,6 +7,7 @@ import SpectrumGlow from '../../components/SpectrumGlow.astro';
 import { getCollection } from 'astro:content';
 import { formatGBP, serviceById } from '../../data/business';
 import { contactHref } from '../../data/enquiry';
+import { SOURCES_ANCHOR, evidenceRows } from '../../data/claims';
 
 const auditFrom = formatGBP(serviceById('automation-opportunity-audit').priceFrom);
 
@@ -17,6 +18,8 @@ const studies = (await getCollection('case-studies'))
 
 const feature = studies.find((e) => e.data.featured) ?? studies[0];
 const rest = studies.filter((e) => e.id !== feature?.id);
+// A card that quotes a study's figures links to the evidence behind them as well as to the study (t23577).
+const sourcesHref = (e: (typeof studies)[number]) => (evidenceRows(e.data).length > 0 ? `/work/${e.id}/#${SOURCES_ANCHOR}` : null);
 ---
 
 <BaseLayout
@@ -49,12 +52,12 @@ const rest = studies.filter((e) => e.id !== feature?.id);
 
       <div class="case-grid">
         {feature && (
-          <a href={`/work/${feature.id}/`} class="case-card case-card--feature" data-spot>
+          <article class="case-card case-card--feature" data-spot>
             <span class="case-card__tag">
               {feature.data.status && <Bead class="live-dot" />}
               {feature.data.sector}{feature.data.status ? ` · ${feature.data.status}` : ''}
             </span>
-            <h2 class="case-card__title">{feature.data.title}</h2>
+            <h2 class="case-card__title"><a class="case-card__link" href={`/work/${feature.id}/`}>{feature.data.title}</a></h2>
             <p class="case-card__blurb">{feature.data.summary ?? feature.data.description}</p>
             {feature.data.stats.length > 0 && (
               <div class="statband case-card__stats">
@@ -67,21 +70,27 @@ const rest = studies.filter((e) => e.id !== feature?.id);
               </div>
             )}
             <div class="case-card__foot">
-              <span class="arrow-link">Read the case study <span class="btn__arrow">→</span></span>
+              <span class="case-card__acts">
+                <span class="arrow-link">Read the case study <span class="btn__arrow">→</span></span>
+                {sourcesHref(feature) && <a class="case-card__src" href={sourcesHref(feature)} aria-label={`Sources for the figures in “${feature.data.title}”`}>Sources</a>}
+              </span>
               <span class="case-card__tag">{feature.data.tags.slice(0, 4).join(' · ')}</span>
             </div>
-          </a>
+          </article>
         )}
         {rest.map((e) => (
-          <a href={`/work/${e.id}/`} class="case-card" data-spot>
+          <article class="case-card" data-spot>
             <span class="case-card__tag">{e.data.sector}{e.data.status ? ` · ${e.data.status}` : ''}</span>
-            <h2 class="case-card__title">{e.data.title}</h2>
+            <h2 class="case-card__title"><a class="case-card__link" href={`/work/${e.id}/`}>{e.data.title}</a></h2>
             <p class="case-card__blurb">{e.data.summary ?? e.data.description}</p>
             {e.data.statline && <p class="case-card__statline">{e.data.statline}</p>}
             <div class="case-card__foot">
-              <span class="arrow-link">Read <span class="btn__arrow">→</span></span>
+              <span class="case-card__acts">
+                <span class="arrow-link">Read <span class="btn__arrow">→</span></span>
+                {sourcesHref(e) && <a class="case-card__src" href={sourcesHref(e)} aria-label={`Sources for the figures in “${e.data.title}”`}>Sources</a>}
+              </span>
             </div>
-          </a>
+          </article>
         ))}
       </div>
     </div>
