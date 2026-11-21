@@ -1,5 +1,22 @@
 # Release notes
 
+## v2026.11.21.3 — 21 November 2026
+
+The site now feels clearer and more consistent as visitors explore its services, figures and pages.
+
+### Improvements
+
+- Starting prices are now one scroll from the homepage introduction.
+- Case study figures now link to the source line behind each number.
+- Firefox and Safari show linked pages sooner after you hover over a link.
+- Text moves less as web fonts load, including on Android.
+
+### Fixes
+
+- The GitHub Pages copy now sends visitors to automancer.uk.
+- The www address now redirects to automancer.uk.
+
+
 ## v2026.11.21.2 — 21 November 2026
 
 Starting an enquiry is simpler, whether you are exploring a service or browsing on your phone.
