@@ -77,8 +77,9 @@ const lastUpdated = staticPages.find((p) => p.path === '/privacy/')!.lastUpdated
       </ul>
       <p>
         When you hit send, the form posts straight to <strong>our own server</strong> (at
-        api.automancer.uk) and lands in our own database. There's no third-party form service in the
-        middle — no Formspree, no Typeform, no Google Forms. We then send ourselves an email
+        api.automancer.uk) and lands in our own database. Your message goes to our own server, which
+        is also delivered through Cloudflare, so Cloudflare carries it on the way but does not store or
+        read it as a form service — no Formspree, no Typeform, no Google Forms. We then send ourselves an email
         notification so we don't miss you. That's the entire journey.
       </p>
 
@@ -102,6 +103,11 @@ const lastUpdated = staticPages.find((p) => p.path === '/privacy/')!.lastUpdated
         Almost nothing. This site is static — there's no analytics, no tracking pixels, no
         advertising tags, no "people who viewed this also viewed" machinery. Our fonts are served
         from our own site, so your browser doesn't call out to Google or anyone else to load them.
+        Our website is delivered through Cloudflare, which sits in front of GitHub Pages. Like any web
+        host it sees your IP address and the pages you request, to deliver them and protect the site
+        from attacks, and keeps only short-lived technical logs.
+      </p>
+      <p>
         Two things we can't avoid. First, the site is hosted on GitHub Pages, and like any web host,
         GitHub's servers keep standard technical logs (including visitor IP addresses) to serve the
         pages and keep the service secure. Second, we run error monitoring (Sentry) so we find out
@@ -151,6 +157,11 @@ const lastUpdated = staticPages.find((p) => p.path === '/privacy/')!.lastUpdated
         never share it for anyone else's marketing.
       </p>
       <ul>
+        <li>
+          <strong>Cloudflare (website delivery and security)</strong> — sits in front of this website.
+          Like any web host it sees your IP address and the pages you request, to deliver them and
+          protect the site from attacks, and keeps only short-lived technical logs.
+        </li>
         <li>
           <strong>Cloudflare (Turnstile)</strong> — the "security check" on the contact form. It
           tells spam-bots apart from people so our inbox doesn't drown. Used purely for security and
