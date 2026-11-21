@@ -383,6 +383,49 @@ test('visitor finds the prices and reaches us through the contact form', async (
   expect(errors, 'uncaught page errors').toEqual([]);
 });
 
+test("an offer's button carries that service into the enquiry, and the visitor can change it", async ({ page }) => {
+  const posted = await stubIntake(page, { status: 200, body: { ok: true } });
+  const sprint = services.find((s) => s.id === 'workflow-implementation-sprint')!;
+  const audit = services.find((s) => s.id === 'automation-opportunity-audit')!;
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+
+  // Every offer's button used to open the same blank form.
+  await page.goto('/services/');
+  await page.locator('#offer-2').getByRole('link', { name: /Start a Sprint/ }).click();
+  await expect(page).toHaveURL(new RegExp(`/contact/\\?service=${sprint.id}$`));
+
+  // The form arrives with the Sprint picked and says so above the first field,
+  // which still starts on the first screen.
+  const carried = page.locator('#service-carried');
+  await expect(carried).toBeVisible();
+  await expect(carried).toContainText(sprint.name);
+  await expect(page.getByRole('radio', { name: new RegExp(sprint.name) })).toBeChecked();
+  await expect(page.locator('#name')).toBeInViewport({ ratio: 1 });
+
+  // "Change" goes to the choice; picking another updates the note and the address.
+  await carried.getByRole('link', { name: 'Change' }).click();
+  await expect(page.getByRole('radio', { name: new RegExp(sprint.name) })).toBeFocused();
+  await page.getByRole('radio', { name: new RegExp(audit.name) }).check();
+  await expect(carried).toContainText(audit.name);
+  await expect(page).toHaveURL(new RegExp(`\\?service=${audit.id}$`));
+  await expectNoSidewaysScroll(page);
+
+  // The choice reaches Waseem at the top of the message.
+  await page.locator('#name').fill(ENQUIRY.name);
+  await page.locator('#email').fill(ENQUIRY.email);
+  await page.locator('#time-sink').fill(ENQUIRY.time_sink);
+  await page.locator('#contact-form').getByRole('button', { name: 'Send it to Waseem' }).click();
+  await expect(page.locator('#form-confirm')).toBeVisible();
+  expect(posted).toHaveLength(1);
+  expect(posted[0]).toMatchObject({ message: `Interested in: ${audit.name}\n\n${ENQUIRY.time_sink}` });
+
+  // An address naming no published service picks nothing and shows no note.
+  await page.goto('/contact/?service=free-website');
+  await expect(page.locator('#contact-form')).toBeVisible();
+  await expect(carried).toBeHidden();
+  await expect(page.locator('input[name="service"]:checked')).toHaveCount(0);
+});
+
 test('the phone menu follows keyboard focus and dismisses without covering the whole page', async ({ page }, info) => {
   test.skip(info.project.name !== 'mobile', 'the menu button shows only on small screens');
   await page.goto('/work/fast-small-business-websites/');

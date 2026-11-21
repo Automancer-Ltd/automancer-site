@@ -10,6 +10,7 @@ import { articleNode } from '../../data/jsonld';
 import { getCollection, render } from 'astro:content';
 import { fitDescription, fitTitle } from '../../lib/meta';
 import { formatGBP, serviceById } from '../../data/business';
+import { contactHref } from '../../data/enquiry';
 import { cardAlt, cardPath, fieldNoteCard } from '../../data/share-cards';
 import { getNotes } from '../../data/site-content';
 import { relatedNotes } from '../../data/related-notes';
@@ -117,7 +118,7 @@ const next = relatedNotes(asRelatable(entry), published).map((r) => r.note);
         <h2 class="cta__head" style="font-size:var(--t-4)">Sounds like your Tuesday?</h2>
         <p class="cta__body">Tell us what's eating your week. Waseem reads every enquiry himself.</p>
         <div class="cta__ctas">
-          <a href="/contact/" class="btn"><span>Book an Audit — from {auditFrom}</span></a>
+          <a href={contactHref('automation-opportunity-audit')} class="btn"><span>Book an Audit — from {auditFrom}</span></a>
         </div>
       </div>
     </section>

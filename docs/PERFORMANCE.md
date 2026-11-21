@@ -47,6 +47,11 @@ exact `dist/` it publishes, so a heavier production build fails the release inst
   `/services/` in the same browser context now fetches the common CSS, adding
   108 ms to median first paint (804 → 912 ms). Across that two-page test, the
   median sum of the two first-paint waits fell from 2,148 to 1,688 ms.
+- **/contact/ carries the service choice (t22871, 21 Nov 2026).** The form asks "What
+  are you interested in?" with one card per published service and its from-price, picked in
+  advance from `?service=<id>` when the visitor comes from an offer's button. The markup, its
+  styles and the script add 4,887 B, so /contact/ (153,881 B) has its own entry in
+  `LAYOUT_EXCEPTIONS`; every other page keeps the 148,994 B default.
 - **The browser starts stylesheet requests at the start of the head (t22318, 20 Nov
   2026).** Astro emits the stylesheet links after page metadata and inline CSS.
   The static build now emits preload hints for those same hashed files just after

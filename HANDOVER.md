@@ -7,7 +7,7 @@ It does not outrank anything: `VISION.md` is authority 0 and `SPEC.md` describes
 When this file and `SPEC.md` disagree about what exists, `SPEC.md` and the code are right and this
 file is out of date.
 
-Last updated: 21 November 2026 (field note subjects for agents, t22833).
+Last updated: 21 November 2026 (the chosen service carried into an enquiry, t22871).
 
 ## Where the site stands against the vision
 
@@ -110,20 +110,40 @@ form's fields, limits and what happens after sending were not data an agent coul
 
 ## Next slices, in order
 
-1. **Mark "Business name" optional on /contact/.** The intake API and the form treat it as
-   optional (and `/api/enquiry.json` says `required: false`), but it is the only optional field
-   without the "(optional)" marker. Change it only in a task authorizing visible wording.
-2. **Let siteVerify read the page dates.** Production now publishes when each page's words last
+1. **Let siteVerify read the page dates.** Production now publishes when each page's words last
    changed (`contentSha256`, t19631). estate-watch could alert when a page's hash changes without a
    deploy, or when a deploy re-dates pages whose words did not change.
-3. **Carry the selected service into an enquiry.** Each offer's button opens the generic Contact
-   form. Preserve the selected offer as editable context through form submission and the email
-   fallback, with no browser storage. Do this in a task authorizing visible changes to the form.
+2. **Time the first and second page on physical phones, starting with Safari** (t22772's next
+   step): watch the Services heading and price rows when the fonts arrive.
+3. **Measure whether the service choice is used.** Without analytics the only honest signal is the
+   enquiries themselves: Waseem can count how many arrive with an "Interested in:" line. Nothing
+   on the site should count it.
 
+The former "mark Business name optional" and "carry the selected service into an enquiry" slices
+shipped in t22871.
 The former cache and release-note slices shipped in PRs #164 and #165 respectively. The former
 "gap above a field note's first paragraph on phones" slice is dropped from the list: t22126
 measured every note's opening line already on a 390×844 phone's first screen (17 of 17), so the
 gap is a spacing taste call, not lost content.
+
+## Frontend slice: the chosen service travels into the enquiry (21 November 2026, t22871)
+
+Each of the four offer buttons on /services/ ("Book an Audit", "Start a Sprint", "Scope a Build",
+"Become a Partner") and every "Book an Audit" button on the site opened the same blank form, so a
+visitor who had just chosen an offer had to say again which one, and Waseem got no hint of it.
+
+- The buttons now open `/contact/?service=<id>` (`contactHref()` in `src/data/enquiry.ts`; an
+  unknown id stops the build). "Ask us which offer fits" picks "Not sure yet".
+- The form asks "What are you interested in? (optional)" with one card per published service and
+  its from-price, plus "Not sure yet". Arriving with a service picks it and names it above the
+  first field ("Asking about Workflow Sprint · Change"); the first field stays on a 390×844 first
+  screen. A new pick updates the note and the address (no storage).
+- The choice leads the sent message ("Interested in: Workflow Sprint"), the copied draft, and the
+  email fallback's subject. `/api/enquiry.json` publishes the field (kind `choice`, its options)
+  and `prefill`; OpenAPI documents both. "Business name" gains its "(optional)" marker.
+- `pnpm run compare`: 2 of 64 views differ, both `/contact/`; every page whose button gained the
+  link is pixel-identical. /contact/ has its own weight entry (153,881 B, +4,887 B).
+- Undo: revert this slice's merge commit.
 
 ## Machine-readable slice: browse field notes by subject (21 November 2026, t22833)
 

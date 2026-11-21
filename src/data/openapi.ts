@@ -445,12 +445,34 @@ const schemas: Record<string, JsonSchema> = {
             label: str('The label a person reads on /contact.'),
             required: { type: 'boolean' },
             maxLength: { type: 'integer', description: 'The most characters the form accepts in this field.' },
-            kind: oneOf('text', 'email', 'long-text'),
+            kind: oneOf('text', 'email', 'long-text', 'choice'),
             example: str('The example the form shows in the empty field.'),
+            options: {
+              type: 'array',
+              description: 'For a choice: its answers, in the order the form shows them.',
+              items: obj(
+                {
+                  value: str('The submitted value; a published service id, or not-sure.'),
+                  label: str('The name a person reads.'),
+                  price: str('The published from-price shown beside it, for a service.'),
+                },
+                { required: ['value', 'label'] }
+              ),
+            },
           },
           { required: ['id', 'label', 'required', 'maxLength', 'kind'] }
         ),
       },
+      prefill: obj(
+        {
+          parameter: str('The /contact/ query parameter that picks an option on arrival.'),
+          field: str('The field it fills.'),
+          values: strArray('The values it accepts.'),
+          example: uri('A /contact/ address with one option picked.'),
+          detail: str(),
+        },
+        { required: ['parameter', 'field', 'values', 'example', 'detail'] }
+      ),
       combinedMessage: obj(
         {
           fields: strArray('Field ids the form joins into one message.'),
