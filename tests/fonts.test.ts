@@ -7,11 +7,11 @@
  * Reads the character map straight out of each built woff2 that the page CSS
  * references, so the check is against the bytes visitors download.
  */
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { brotliDecompressSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
-import { DIST, ROOT, allHtmlFiles } from './support/dist';
+import { DIST, ROOT, pageCheckPages } from './support/dist';
 
 /** UIntBase128 from the WOFF2 table directory. */
 function base128(buf: Buffer, at: { pos: number }): number {
@@ -88,11 +88,8 @@ function woff2Codepoints(file: Buffer): Set<number> {
   return out;
 }
 
-const astroDir = join(DIST, '_astro');
-const css = readdirSync(astroDir)
-  .filter((f) => f.endsWith('.css'))
-  .map((f) => readFileSync(join(astroDir, f), 'utf8'))
-  .join('\n');
+const pages = pageCheckPages();
+const css = pages.flatMap(({ doc }) => doc.querySelectorAll('style').map((style) => style.rawText)).join('\n');
 
 interface Family {
   /** What the served subset can draw. */
@@ -126,8 +123,7 @@ function shown(): Map<string, Set<string>> {
       where.get(ch)!.add(route);
     }
   };
-  for (const page of allHtmlFiles()) {
-    if (page.isRedirectStub) continue;
+  for (const page of pages) {
     for (const style of page.doc.querySelectorAll('style')) {
       for (const [, text] of style.rawText.matchAll(/content:\s*"([^"]*)"/g)) add(text!, page.route);
     }
@@ -138,7 +134,6 @@ function shown(): Map<string, Set<string>> {
     for (const el of page.doc.querySelectorAll('[placeholder]')) add(el.getAttribute('placeholder') ?? '', page.route);
     for (const el of page.doc.querySelectorAll('input[value]')) add(el.getAttribute('value') ?? '', page.route);
   }
-  for (const [, text] of css.matchAll(/content:\s*"([^"]*)"/g)) add(text!, 'the page CSS');
   return where;
 }
 

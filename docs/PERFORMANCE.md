@@ -18,10 +18,29 @@ exact `dist/` it publishes, so a heavier production build fails the release inst
 
 ## Decisions behind the numbers
 
+- **Every page paints without a stylesheet request (t22772, 21 Nov 2026).**
+  Astro embeds the compiled CSS and adds its hash to each page's CSP. On
+  seven interleaved visits per build over local HTTP/2 with Brotli (390 px
+  Chromium, 300 ms latency, 400 kbps), median first content appeared at:
+
+  | Visit | Before | After |
+  | --- | ---: | ---: |
+  | Services, cold | 1,336 ms | 716 ms |
+  | Field Notes, cold | 1,264 ms | 668 ms |
+  | Work, cold | 1,264 ms | 684 ms |
+  | Home, cold | 732 ms | 712 ms |
+  | Services after Home | 860 ms | 564 ms |
+  | Field Notes after About | 428 ms | 512 ms |
+
+  Cold visits to Services, Field Notes and Work sent 0.6–1.1 KB less.
+  Moving from About to Field Notes sent 5.1 KB more because the separate
+  stylesheet had already been cached. While waiting for fonts on cold visits,
+  layout shift went from 0.022 to 0.035 on Services and 0 to 0.029 on Work.
+  The settled styles are byte-identical in cascade order.
 - **The homepage paints without a stylesheet request (t22482, 20 Nov 2026).**
-  The build embeds Astro's compiled homepage stylesheet in its cascade position
-  and adds its SHA-256 hash to the page CSP. Other pages still preload and share
-  the content-hashed file. On seven interleaved cold Chromium phone visits per
+  The build embedded Astro's compiled homepage stylesheet in its cascade position
+  and added its SHA-256 hash to the page CSP. Other pages still shared
+  the content-hashed file at the time. On seven interleaved cold Chromium phone visits per
   build (390 px, 300 ms latency, 400 kbps, local HTTP/2 with Brotli), median
   first and largest paint both fell from 1,368 to 728 ms. The median layout
   shift was 0 before and 0.0004 after. An immediate second navigation to
