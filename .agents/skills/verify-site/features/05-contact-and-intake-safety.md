@@ -4,12 +4,17 @@
 sends it, and sees the confirmation. If the security check or the intake service fails, they keep
 what they wrote and get a working email route.
 
-**Reach it.** `/contact/` (header, footer and every call to action).
+**Reach it.** `/contact/` (header, footer and every call to action). An offer's button, and
+every "Book an Audit" button, opens `/contact/?service=<id>`: the form arrives with that service
+picked and named above the first field.
 
 **Proved by** (the intake endpoint and Turnstile are stubbed in every run, production included):
 
 - `visitor finds the prices and reaches us through the contact form`: validation, focus on the
   first missing field, the exact posted body and the confirmation.
+- `an offer's button carries that service into the enquiry, and the visitor can change it`:
+  Services → Contact with the Sprint picked, Change, the address following the pick, the
+  "Interested in: …" line leading the posted message, and an unknown `?service=` picking nothing.
 - `with reduced motion, the form jumps straight to its error and its confirmation`.
 - `the enquiry form starts on the first screen, and still works with text at 200%`.
 - `the security check loads when the visitor starts on the form, not with the page`, and the two
