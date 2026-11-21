@@ -1,5 +1,16 @@
 # Release notes
 
+## v2026.11.21.4 — 21 November 2026
+
+This release makes it easier for visitors to find their way around the site and explore its work.
+
+### Improvements
+
+- Visitors who reach a missing page can find recovery links on the first screen.
+- Visitors can open sources for case study figures from the pages and field notes where those figures appear.
+- Visitors can browse the release timeline by month or day and jump to an entry from its contents list. The footer links to the timeline.
+
+
 ## v2026.11.21.3 — 21 November 2026
 
 The site now feels clearer and more consistent as visitors explore its services, figures and pages.
