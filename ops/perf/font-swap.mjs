@@ -11,7 +11,9 @@
 //            (what a reader who has already scrolled sees)
 // usage, from the repository root (needs `pnpm run build` and `pnpm exec playwright install chromium`):
 //   node ops/perf/font-swap.mjs [dist=dist] [--engine=chromium|firefox|webkit] [--widths=390,1280]
-//                               [--paths=/,/services/] [--json=out.json]
+//                               [--paths=/,/services/] [--json=out.json] [--live]
+// --live reads every page from https://automancer.uk itself (its served sitemap) instead of a dist/,
+// holding back only the fonts; nothing but GETs to the site is sent.
 // Headless Chromium on Linux rounds each glyph's advance to whole pixels at reading sizes (an
 // installed Liberation Sans line comes out about 2% wider at 19 px than at 1000 px), which macOS,
 // iOS and Windows do not; Firefox lays out with fractional advances, so it is the closer stand-in
@@ -29,11 +31,13 @@ const dist = path.resolve(args.find((a) => !a.startsWith('--')) ?? 'dist');
 const widths = flag('widths', '390,1280').split(',').map(Number);
 const engine = { chromium, firefox, webkit }[flag('engine', 'chromium')];
 const ORIGIN = 'https://automancer.uk';
+const live = args.includes('--live');
 const TYPES = { '.html': 'text/html; charset=utf-8', '.css': 'text/css', '.js': 'text/javascript', '.woff2': 'font/woff2',
   '.svg': 'image/svg+xml', '.png': 'image/png', '.json': 'application/json', '.xml': 'application/xml' };
-const sitemap = [...fs.readFileSync(path.join(dist, 'sitemap-0.xml'), 'utf8').matchAll(/<loc>([^<]+)<\/loc>/g)]
+const sitemapXml = live ? await (await fetch(`${ORIGIN}/sitemap-0.xml`)).text() : fs.readFileSync(path.join(dist, 'sitemap-0.xml'), 'utf8');
+const sitemap = [...sitemapXml.matchAll(/<loc>([^<]+)<\/loc>/g)]
   .map((m) => new URL(m[1]).pathname);
-const paths = flag('paths', null)?.split(',') ?? [...sitemap, '/404.html'];
+const paths = flag('paths', null)?.split(',') ?? [...sitemap, live ? '/not-a-page/' : '/404.html'];
 
 function blocks() {
   const out = [];
@@ -54,6 +58,10 @@ for (const width of widths) {
     await context.route('**/*', async (route) => {
       const url = new URL(route.request().url());
       if (url.origin !== ORIGIN) return route.abort();
+      if (live) {
+        if (url.pathname.endsWith('.woff2')) await fontsHeld;
+        return route.continue();
+      }
       let file = decodeURIComponent(url.pathname);
       if (file.endsWith('/')) file += 'index.html';
       const full = path.join(dist, file);
