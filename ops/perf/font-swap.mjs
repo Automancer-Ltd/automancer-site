@@ -11,7 +11,9 @@
 //            (what a reader who has already scrolled sees)
 // usage, from the repository root (needs `pnpm run build` and `pnpm exec playwright install chromium`):
 //   node ops/perf/font-swap.mjs [dist=dist] [--engine=chromium|firefox|webkit] [--widths=390,1280]
-//                               [--paths=/,/services/] [--json=out.json] [--live]
+//                               [--paths=/,/services/] [--json=out.json] [--live] [--dpr=3]
+// --dpr sets the device pixel ratio (default 1); a phone is about 3, which matters because glyphs
+// are positioned on device pixels (below).
 // --live reads every page from https://automancer.uk itself (its served sitemap) instead of a dist/,
 // holding back only the fonts; nothing but GETs to the site is sent.
 // Headless Chromium on Linux rounds each glyph's advance to whole pixels at reading sizes (an
@@ -32,6 +34,7 @@ const widths = flag('widths', '390,1280').split(',').map(Number);
 const engine = { chromium, firefox, webkit }[flag('engine', 'chromium')];
 const ORIGIN = 'https://automancer.uk';
 const live = args.includes('--live');
+const dpr = Number(flag('dpr', '1'));
 const TYPES = { '.html': 'text/html; charset=utf-8', '.css': 'text/css', '.js': 'text/javascript', '.woff2': 'font/woff2',
   '.svg': 'image/svg+xml', '.png': 'image/png', '.json': 'application/json', '.xml': 'application/xml' };
 const sitemapXml = live ? await (await fetch(`${ORIGIN}/sitemap-0.xml`)).text() : fs.readFileSync(path.join(dist, 'sitemap-0.xml'), 'utf8');
@@ -52,7 +55,7 @@ const browser = await engine.launch();
 const rows = [];
 for (const width of widths) {
   for (const p of paths) {
-    const context = await browser.newContext({ viewport: { width, height: width < 600 ? 844 : 800 }, reducedMotion: 'reduce' });
+    const context = await browser.newContext({ viewport: { width, height: width < 600 ? 844 : 800 }, deviceScaleFactor: dpr, reducedMotion: 'reduce' });
     let release;
     const fontsHeld = new Promise((r) => { release = r; });
     await context.route('**/*', async (route) => {

@@ -173,10 +173,10 @@ describe('web font coverage', () => {
   });
 });
 
-// While a web font loads, its text is drawn in '<family> Fallback', sized to that font by
-// ops/fonts/fallbacks.py (t23013). Sized to an older file, or missing from a stack, the page
-// jumps again when the font arrives: on a 390 px phone a field note used to shrink by 600 to
-// 900 px at that moment.
+// While a web font loads, its text is drawn in '<family> Fallback' (Arial), or on Android in
+// '<family> Android Fallback' (Roboto), sized to that font by ops/fonts/fallbacks.py (t23013,
+// t23067). Sized to an older file, or missing from a stack, the page jumps again when the font
+// arrives: on a 390 px phone a field note used to shrink by 600 to 900 px at that moment.
 describe('fallback faces sized to the web fonts', () => {
   const source = readFileSync(join(ROOT, 'src/styles/fonts.css'), 'utf8');
   const rerun = 'Run `python3 -I ops/fonts/fallbacks.py` (after ops/fonts/subset.py) and commit src/styles/fonts.css.';
@@ -196,10 +196,11 @@ describe('fallback faces sized to the web fonts', () => {
     for (const stack of stacks) {
       stack.forEach((family, i) => {
         if (!families.has(family) || stack.length === 1) return;
-        const next = stack[i + 1];
-        if (next !== `${family} Fallback` && !(family === 'Syne' && next === 'Syne Hero Fallback')) missing.add(stack.join(', '));
+        const next = stack.slice(i + 1, i + 3).join(', ');
+        const hero = family === 'Syne' && next === 'Syne Hero Fallback, Syne Android Fallback';
+        if (next !== `${family} Fallback, ${family} Android Fallback` && !hero) missing.add(stack.join(', '));
       });
     }
-    expect([...missing], "A font stack names a web font without its fallback right after it (global.css's --font-* stacks)").toEqual([]);
+    expect([...missing], "A font stack names a web font without its two fallbacks (Arial, then Android) right after it (global.css's --font-* stacks)").toEqual([]);
   });
 });
