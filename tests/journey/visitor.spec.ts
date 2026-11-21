@@ -820,10 +820,21 @@ test('a case card opens its study from anywhere on it, and its Sources link open
   await expectNoSidewaysScroll(page);
 });
 
-test('a page that does not exist is a real 404 with a way back', async ({ page }) => {
+test('a missing page shows recovery links on arrival and leads back to the site', async ({ page }) => {
   const res = await page.goto('/no-such-page-journey/');
   expect(res?.status()).toBe(404);
-  await expect(page.getByRole('link', { name: /home|automancer/i }).first()).toBeVisible();
+  const main = page.getByRole('main');
+  const services = main.getByRole('link', { name: 'Services & pricing' });
+  await expect(services).toBeInViewport({ ratio: 1 });
+  await expect(main.getByRole('heading', { level: 1, name: /page not found/i })).toBeInViewport();
+  await expect(main.getByRole('link', { name: 'Back to home' })).toBeInViewport();
+  const sections = main.getByRole('navigation', { name: 'Where were you heading?' });
+  for (const link of await sections.getByRole('link').all()) {
+    await expect(link).toBeInViewport({ ratio: 1 });
+  }
+  await services.focus();
+  await services.press('Enter');
+  await expect(page).toHaveURL(/\/services\/$/);
 });
 
 test('a shared page previews with its own card, not the generic image', async ({ page }) => {

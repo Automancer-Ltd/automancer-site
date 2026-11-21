@@ -7,7 +7,7 @@
  * or past an ancestor that clips it, as "Computed" did in a case study's
  * figures at 1280px and "Live in production" did on a 320px phone (t21036).
  *
- * The page list is the served sitemap, so a new page is covered with no edit.
+ * The page list is the served sitemap plus one missing URL for the 404.
  */
 import { expect, test, type Page } from '@playwright/test';
 
@@ -81,6 +81,7 @@ test('every page keeps its words on screen at 320px and with text at 200%', asyn
   await page.emulateMedia({ reducedMotion: 'reduce' });
   const paths = await sitemapPaths(page);
   expect(paths.length, 'sitemap lists the pages').toBeGreaterThan(20);
+  paths.push('/no-such-page-journey/');
   const clipped: string[] = [];
   for (const { width, text } of CASES[info.project.name as keyof typeof CASES]) {
     await page.setViewportSize({ width, height: 844 });
