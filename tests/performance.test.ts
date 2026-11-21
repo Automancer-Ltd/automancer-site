@@ -23,17 +23,21 @@ import { describe, expect, it } from 'vitest';
 import { allHtmlFiles, pageCheckPages } from './support/dist';
 import { DIST, measureAllPages } from './support/perf';
 
-/** Measured 2026-11-20: heaviest fixed-budget page (/contact/, 148,994 B). */
-const LAYOUT_MEASURED = 148994;
+/**
+ * Measured 2026-11-21 (t23013): heaviest fixed-budget page (/, 149,809 B). Every page gained
+ * 3,518 B of inline CSS (about 450 B gzipped): the nine fallback font faces in src/styles/fonts.css.
+ */
+const LAYOUT_MEASURED = 149809;
 
 /**
  * Layout pages that genuinely need more than the default, each with its own
  * measured value and the reason.
  */
 const LAYOUT_EXCEPTIONS: Record<string, { measured: number; reason: string }> = {
-  // Measured 2026-11-21 (t22871): 148,994 B + 4,887 B of HTML, CSS and script.
+  // Measured 2026-11-21 (t22871): 148,994 B + 4,887 B of HTML, CSS and script; + 3,518 B of
+  // fallback font faces every page carries (t23013).
   '/contact/': {
-    measured: 153881,
+    measured: 157399,
     reason: 'the "What are you interested in?" choice: five option cards, their styles, and the script that picks one from ?service=',
   },
 };

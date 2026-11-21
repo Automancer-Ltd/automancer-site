@@ -7,6 +7,7 @@
  * Reads the character map straight out of each built woff2 that the page CSS
  * references, so the check is against the bytes visitors download.
  */
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { brotliDecompressSync } from 'node:zlib';
@@ -161,13 +162,44 @@ describe('web font coverage', () => {
     expect(
       missing,
       'A page shows characters the served web fonts dropped, so they would render in a fallback font. ' +
-        'Add them to ops/fonts/charset.txt, run `python3 -I ops/fonts/subset.py` (needs fonttools and brotli), ' +
-        'and commit both, or use a character that is already there.'
+        'Add them to ops/fonts/charset.txt, run `python3 -I ops/fonts/subset.py` and `python3 -I ops/fonts/fallbacks.py` ' +
+        '(needs fonttools and brotli), and commit them, or use a character that is already there.'
     ).toEqual([]);
   });
 
   it("keeps Syne's tilde out, so a tilde renders in Space Grotesk", () => {
     expect(families.get('Syne')!.served.has(0x7e)).toBe(false);
     expect(families.get('Space Grotesk')!.served.has(0x7e)).toBe(true);
+  });
+});
+
+// While a web font loads, its text is drawn in '<family> Fallback', sized to that font by
+// ops/fonts/fallbacks.py (t23013). Sized to an older file, or missing from a stack, the page
+// jumps again when the font arrives: on a 390 px phone a field note used to shrink by 600 to
+// 900 px at that moment.
+describe('fallback faces sized to the web fonts', () => {
+  const source = readFileSync(join(ROOT, 'src/styles/fonts.css'), 'utf8');
+  const rerun = 'Run `python3 -I ops/fonts/fallbacks.py` (after ops/fonts/subset.py) and commit src/styles/fonts.css.';
+
+  it('were measured from the font files the site serves', () => {
+    const measured = [...source.matchAll(/\/\* ([\w ]+): ([a-z-]+\.woff2) sha256 ([0-9a-f]{16}) \*\//g)];
+    expect(measured.map((m) => m[1]).sort(), rerun).toEqual(['JetBrains Mono', 'Outfit', 'Space Grotesk', 'Syne']);
+    for (const [, family, file, digest] of measured) {
+      const now = createHash('sha256').update(readFileSync(join(ROOT, 'src/assets/fonts', file!))).digest('hex').slice(0, 16);
+      expect(now, `${family}: ${file} changed since its fallback was sized. ${rerun}`).toBe(digest);
+    }
+  });
+
+  it('follow their web font in every built font stack', () => {
+    const stacks = [...css.matchAll(/(?:font-family|--font-[a-z]+):\s*([^;}]+)/g)].map((m) => m[1]!.split(',').map((f) => f.trim().replace(/^["']|["']$/g, '')));
+    const missing = new Set<string>();
+    for (const stack of stacks) {
+      stack.forEach((family, i) => {
+        if (!families.has(family) || stack.length === 1) return;
+        const next = stack[i + 1];
+        if (next !== `${family} Fallback` && !(family === 'Syne' && next === 'Syne Hero Fallback')) missing.add(stack.join(', '));
+      });
+    }
+    expect([...missing], "A font stack names a web font without its fallback right after it (global.css's --font-* stacks)").toEqual([]);
   });
 });

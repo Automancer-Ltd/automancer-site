@@ -18,6 +18,34 @@ exact `dist/` it publishes, so a heavier production build fails the release inst
 
 ## Decisions behind the numbers
 
+- **Text keeps its place when the web fonts arrive (t23013, 21 Nov 2026).**
+  Every font is `font-display: swap`, so a visitor on a slow connection first reads the page in
+  an installed font, and every line used to re-wrap when Syne, Space Grotesk, Outfit and JetBrains
+  Mono landed. Each web font now has a `<family> Fallback` face right after it in the stacks: Arial
+  (or Liberation Sans, Arimo) or Courier New scaled with `size-adjust` to the web font's average
+  letter width in the site's own words, kerning included, with its ascent and descent.
+  `ops/fonts/fallbacks.py` writes them into `src/styles/fonts.css`; Syne gets one per weight
+  (its 800 is half as wide again as its 700). Each face's `unicode-range` is its web font's
+  characters, so once the fonts load every character renders as before (`pnpm run compare`: no
+  view differs). `ops/perf/font-swap.mjs` holds the fonts back on every sitemap page, then
+  releases them, and measures the move. All 32 pages, medians, run on a Mac (m6, real Arial):
+
+  | Engine, width | Layout shift, sum of 32 pages | Page height change | A text block moved |
+  | --- | ---: | ---: | ---: |
+  | Chromium, 390 px | 0.900 → 0.058 | 93 → 23 px | 67 → 0 px |
+  | Chromium, 1280 px | 0.711 → 0.133 | 127 → 62 px | 89 → 0 px |
+  | WebKit, 390 px | (not reported) | 91 → 23 px | 70 → 0 px |
+  | WebKit, 1280 px | (not reported) | 103 → 63 px | 84 → 0 px |
+
+  What still moves is a line that sat within a fraction of a percent of wrapping and flips (the
+  Syne 700 "Sounds like your Tuesday?" heading at 1280 px). Headless Chromium on Linux rounds
+  glyph advances to whole pixels at reading sizes, which skews its absolute numbers (a field note
+  on a phone went from shrinking 532 px to 65 px there). Firefox does not start loading a local
+  fallback face while the web font is pending, so it still draws its default font and gains
+  nothing; Android has no Arial and falls through to Roboto as before. Cost: 3,518 B of inline CSS
+  on every page, about 450 B gzipped; `LAYOUT_MEASURED` and the `/contact/` exception were
+  re-pinned. Measured with the fonts held until the page settled, not on a network: what a
+  visitor sees on a slow connection, without timing claims.
 - **Every page paints without a stylesheet request (t22772, 21 Nov 2026).**
   Astro embeds the compiled CSS and adds its hash to each page's CSP. On
   seven interleaved visits per build over local HTTP/2 with Brotli (390 px
