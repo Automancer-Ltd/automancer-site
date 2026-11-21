@@ -21,6 +21,7 @@ checkq -- pnpm run check                   # fast (~5 s): oxlint, tsrs, vitest o
 checkq -- pnpm run verify                  # the full verdict CI runs: lint, typecheck, build, audit
 checkq -- pnpm run journey                 # visitor journey in a real browser (phone + desktop) on the built dist/
 checkq -- pnpm run compare                 # every sitemap page, phone + laptop, screenshot-compared with origin/main
+pnpm run serve                             # the built dist/ as production serves it, through the edge Worker
 ```
 
 `check` audits whatever `dist/` already holds, so after a source change a stale `dist/` fails it
@@ -30,8 +31,9 @@ so `check` after `journey` audits a good build; the deploy runs the same audit o
 it publishes.
 
 - **The visitor journey** (`tests/journey/`, Playwright): nav, published prices, the contact form's
-  validation, send, refusal and outage paths, painted screenshots, and no word cut off on any sitemap
-  page at 320px or 200% text (`reflow.spec.ts`). CI runs it on the built `dist/`;
+  validation, send, refusal and outage paths, the edge Worker's headers, painted screenshots, and no
+  word cut off on any sitemap page at 320px or 200% text (`reflow.spec.ts`). CI runs it on the built
+  `dist/`, served through the edge Worker on a free port (`ops/edge/local.mjs`, below);
   `deploy.yml` runs it against production (`JOURNEY_URL=https://automancer.uk`), read-only, with the
   enquiry endpoint and Turnstile stubbed so it never sends a real enquiry. Needs `build` first and a
   browser (`pnpm exec playwright install chromium`).
@@ -43,8 +45,14 @@ it publishes.
   and attach the diffs for one that changes a page on purpose; do not hand-pick pages (t22218 missed
   `/developers/` that way).
 - **See it in the real product:** [`.agents/skills/verify-site/SKILL.md`](.agents/skills/verify-site/SKILL.md)
-  (the journey and the comparison, how to run them when port 4399 is taken, and `features/`: each
+  (the journey and the comparison, how to run them on a loaded machine, and `features/`: each
   visitor journey and the tests that prove it).
+- **Serve a build as production does:** `ops/edge/local.mjs` runs `ops/edge/worker.js` unchanged
+  over a GitHub Pages stand-in that reads `dist/`, so a local copy answers with production's
+  headers, 301s, Markdown twins and error bodies. The journey, `pnpm run compare`, `pnpm run serve`
+  and the `ops/perf/` probes all use it (`serveSite` for a port, `routeSite` for a Playwright
+  context at `https://automancer.uk`); a new tool that needs the built site uses it too, rather than
+  its own file server. When Pages' own answers change, change its stand-in there.
 - **Deploy, verify, roll back, watch production:** [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
   Merge is the deploy; `deploy.yml` re-verifies the merged commit, deploys, and checks production
   serves it. Record the estate-watch `deploy.verify` run (product `site`) in the PR.
@@ -67,7 +75,7 @@ src/pages/                  .astro HTML routes; .md.ts / .json.ts / .txt.ts / .x
 src/layouts/BaseLayout.astro shared shell, SEO, JSON-LD, nav, footer, Sentry bootstrap
 tests/                      Vitest against the built dist/ (tests/README.md)
 ops/verify-production.sh    production verifier (deploy job; estate-watch siteVerify every 30 min)
-ops/edge/                   Cloudflare Worker in front of Pages
+ops/edge/                   Cloudflare Worker in front of Pages; local.mjs serves dist/ through it
 ops/preview/                the non-production preview target
 ```
 

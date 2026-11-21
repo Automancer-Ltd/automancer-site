@@ -3,9 +3,9 @@
 // over a throttled connection (Slow 4G by default) and a 4x slower CPU.
 // usage, from the repository root (needs `pnpm exec playwright install chromium`):
 //   node ops/perf/contact-cost.mjs <dist-dir|origin> <label> [rounds=5] [cpu=4] [android,reader]
-// A dist directory is served at https://automancer.uk itself (Playwright routes it), so
-// Turnstile sees the real site key's hostname and two builds compare fairly; their first-party
-// files then skip the throttle, which applies to Cloudflare's requests in both alike.
+// A dist directory is served at https://automancer.uk itself through the edge Worker (Playwright
+// routes it; ops/edge/local.mjs), so Turnstile sees the real site key's hostname and two builds
+// compare fairly; their first-party files then skip the throttle, which applies to Cloudflare's requests in both alike.
 // `android` turns site isolation off, as Chrome on Android does for most sites: Turnstile's
 // cross-site frame then runs on the page's own main thread, where a visitor feels it.
 // Reports medians: Cloudflare bytes and requests and main-thread long tasks up to one second
@@ -15,28 +15,21 @@
 import { chromium } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
+import { ORIGIN, routeSite } from '../edge/local.mjs';
 
 const [target, label, roundsArg, cpuArg, mode] = process.argv.slice(2);
 if (!target || !label) throw new Error('usage: contact-cost.mjs <dist-dir|origin> <label> [rounds] [cpu] [android]');
 const rounds = Number(roundsArg ?? 5), cpu = Number(cpuArg ?? 4);
 const android = /android/.test(mode ?? ''), reader = /reader/.test(mode ?? '');
-const ORIGIN = 'https://automancer.uk';
 const dist = /^https?:\/\//.test(target) ? null : path.resolve(target);
 const origin = dist ? ORIGIN : target.replace(/\/$/, '');
-const types = { '.html': 'text/html; charset=utf-8', '.css': 'text/css', '.js': 'text/javascript', '.woff2': 'font/woff2', '.svg': 'image/svg+xml', '.png': 'image/png', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.ico': 'image/x-icon' };
 const median = (xs) => { const s = xs.filter((x) => x != null).sort((a, b) => a - b); return s.length ? s[Math.floor(s.length / 2)] : null; };
 
 const browser = await chromium.launch({ args: android ? ['--disable-site-isolation-trials', '--disable-features=IsolateOrigins,site-per-process'] : [] });
 const out = [];
 for (let i = 0; i < rounds; i++) {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true });
-  if (dist) await context.route(`${ORIGIN}/**`, (route) => {
-    let p = decodeURIComponent(new URL(route.request().url()).pathname);
-    if (p.endsWith('/')) p += 'index.html';
-    const f = path.join(dist, p);
-    if (!f.startsWith(dist) || !fs.existsSync(f)) return route.fulfill({ status: 404 });
-    return route.fulfill({ status: 200, contentType: types[path.extname(f)] ?? 'application/octet-stream', body: fs.readFileSync(f) });
-  });
+  if (dist) await routeSite(context, dist);
   const page = await context.newPage();
   await page.addInitScript(() => {
     window.__lt = []; window.__csp = []; window.__ev = [];

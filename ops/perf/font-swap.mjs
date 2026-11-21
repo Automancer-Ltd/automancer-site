@@ -14,8 +14,9 @@
 //                               [--paths=/,/services/] [--json=out.json] [--live] [--dpr=3]
 // --dpr sets the device pixel ratio (default 1); a phone is about 3, which matters because glyphs
 // are positioned on device pixels (below).
-// --live reads every page from https://automancer.uk itself (its served sitemap) instead of a dist/,
-// holding back only the fonts; nothing but GETs to the site is sent.
+// A dist/ is served at https://automancer.uk through the edge Worker, as production serves it
+// (ops/edge/local.mjs). --live reads every page from https://automancer.uk itself (its served
+// sitemap) instead, holding back only the fonts; nothing but GETs to the site is sent.
 // Headless Chromium on Linux rounds each glyph's advance to whole pixels at reading sizes (an
 // installed Liberation Sans line comes out about 2% wider at 19 px than at 1000 px), which macOS,
 // iOS and Windows do not; Firefox lays out with fractional advances, so it is the closer stand-in
@@ -23,6 +24,7 @@
 import { chromium, firefox, webkit } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
+import { ORIGIN, routeSite } from '../edge/local.mjs';
 
 const args = process.argv.slice(2);
 const flag = (name, fallback) => {
@@ -32,11 +34,8 @@ const flag = (name, fallback) => {
 const dist = path.resolve(args.find((a) => !a.startsWith('--')) ?? 'dist');
 const widths = flag('widths', '390,1280').split(',').map(Number);
 const engine = { chromium, firefox, webkit }[flag('engine', 'chromium')];
-const ORIGIN = 'https://automancer.uk';
 const live = args.includes('--live');
 const dpr = Number(flag('dpr', '1'));
-const TYPES = { '.html': 'text/html; charset=utf-8', '.css': 'text/css', '.js': 'text/javascript', '.woff2': 'font/woff2',
-  '.svg': 'image/svg+xml', '.png': 'image/png', '.json': 'application/json', '.xml': 'application/xml' };
 const sitemapXml = live ? await (await fetch(`${ORIGIN}/sitemap-0.xml`)).text() : fs.readFileSync(path.join(dist, 'sitemap-0.xml'), 'utf8');
 const sitemap = [...sitemapXml.matchAll(/<loc>([^<]+)<\/loc>/g)]
   .map((m) => new URL(m[1]).pathname);
@@ -58,21 +57,12 @@ for (const width of widths) {
     const context = await browser.newContext({ viewport: { width, height: width < 600 ? 844 : 800 }, deviceScaleFactor: dpr, reducedMotion: 'reduce' });
     let release;
     const fontsHeld = new Promise((r) => { release = r; });
-    await context.route('**/*', async (route) => {
-      const url = new URL(route.request().url());
-      if (url.origin !== ORIGIN) return route.abort();
-      if (live) {
-        if (url.pathname.endsWith('.woff2')) await fontsHeld;
-        return route.continue();
-      }
-      let file = decodeURIComponent(url.pathname);
-      if (file.endsWith('/')) file += 'index.html';
-      const full = path.join(dist, file);
-      if (!full.startsWith(dist + path.sep) || !fs.existsSync(full) || fs.statSync(full).isDirectory()) {
-        return route.fulfill({ status: 404, contentType: TYPES['.html'], body: fs.readFileSync(path.join(dist, '404.html')) });
-      }
-      if (full.endsWith('.woff2')) await fontsHeld;
-      return route.fulfill({ contentType: TYPES[path.extname(full)] ?? 'application/octet-stream', body: fs.readFileSync(full) });
+    // Last registered, first asked: the fonts wait for release(), then go on to the site.
+    await context.route('**/*', (route) => (new URL(route.request().url()).origin === ORIGIN ? route.fallback() : route.abort()));
+    if (!live) await routeSite(context, dist);
+    await context.route(`${ORIGIN}/**/*.woff2`, async (route) => {
+      await fontsHeld;
+      return route.fallback();
     });
     const page = await context.newPage();
     await page.addInitScript(() => {

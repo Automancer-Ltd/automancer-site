@@ -14,8 +14,8 @@
 //
 // --head compares two commits (e.g. what a past merge changed) instead of the working tree.
 // Both builds use the same settings as the test build (tests/support/build-env.ts). Each build is
-// served to the browser from its dist/ through Playwright at https://automancer.uk itself, so no
-// port is opened and no server is left behind. Turnstile is stubbed and every other outside
+// served to the browser from its dist/ through the edge Worker (ops/edge/local.mjs), routed by
+// Playwright at https://automancer.uk itself, so no port is opened and no server is left behind. Turnstile is stubbed and every other outside
 // request is refused, so nothing leaves the machine. Before each capture the page is scrolled
 // through (scroll reveals fire as a reader's would), fonts settle, the proof strip's build stamp
 // and commit are blanked (they differ in every build), the pointer rests mid-screen and every
@@ -29,6 +29,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { TEST_SENTRY_DSN } from '../tests/support/build-env.ts';
+import { ORIGIN, routeSite } from './edge/local.mjs';
 
 const args = process.argv.slice(2);
 const flag = (name, fallback) => {
@@ -47,7 +48,6 @@ const motion = flag('motion', 'no-preference');
 const tolerance = Number(flag('tolerance', 2));
 const headRef = flag('head', null);
 const CONCURRENCY = 4;
-const ORIGIN = 'https://automancer.uk';
 const ROOT = path.resolve(import.meta.dirname, '..');
 const env = { ...process.env, PUBLIC_AUT_SENTRY_WEB_DSN: process.env.PUBLIC_AUT_SENTRY_WEB_DSN ?? TEST_SENTRY_DSN };
 const run = (cmd, argv, cwd) => execFileSync(cmd, argv, { cwd, env, stdio: ['ignore', 'pipe', 'inherit'] }).toString().trim();
@@ -86,26 +86,16 @@ const sitemap = (dist) => {
 const paths = onlyPaths ?? [...new Set([...sitemap(builds.base), ...sitemap(builds.head), '/404.html'])];
 
 // ── Serving a dist/ to the browser ──
-const TYPES = {
-  '.html': 'text/html; charset=utf-8', '.css': 'text/css', '.js': 'text/javascript', '.mjs': 'text/javascript',
-  '.woff2': 'font/woff2', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp',
-  '.ico': 'image/x-icon', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.xml': 'application/xml',
-};
+// Through the edge Worker, as production serves it (ops/edge/local.mjs), at https://automancer.uk.
 const TURNSTILE_STUB = 'window.turnstile={getResponse:()=>"compare-token",reset(){},render(){}};';
 
 async function serve(context, dist) {
   await context.route('**/*', (route) => {
     const url = new URL(route.request().url());
     if (url.host === 'challenges.cloudflare.com') return route.fulfill({ contentType: 'text/javascript', body: TURNSTILE_STUB });
-    if (url.origin !== ORIGIN) return route.abort();
-    let file = decodeURIComponent(url.pathname);
-    if (file.endsWith('/')) file += 'index.html';
-    const full = path.join(dist, file);
-    if (!full.startsWith(dist + path.sep) || !fs.existsSync(full) || fs.statSync(full).isDirectory()) {
-      return route.fulfill({ status: 404, contentType: TYPES['.html'], body: fs.readFileSync(path.join(dist, '404.html')) });
-    }
-    return route.fulfill({ contentType: TYPES[path.extname(full)] ?? 'application/octet-stream', body: fs.readFileSync(full) });
+    return url.origin === ORIGIN ? route.fallback() : route.abort();
   });
+  await routeSite(context, dist);
 }
 
 /** Every element's box in document coordinates, keyed by its tag:nth-of-type path. */

@@ -85,8 +85,8 @@ test('pages refuse unapproved scripts, event handlers, eval and HTML strings', a
 
   for (const path of ['/', '/contact/', '/field-notes/', '/services.html/index.html', '/no-such-page-security/']) {
     await page.goto(path);
-    // A redirect stub has no main.js locally (and 301s to /services/ live), so
-    // only assert the DOM-sink probe when main.js ran on the landed page.
+    // A legacy redirect stub 301s to its page through the edge Worker, so only
+    // assert the DOM-sink probe when main.js ran on the landed page.
     const hasMain = (await page.locator('script[src*="/assets/js/main.js"]').count()) > 0;
     if (hasMain) await expect(page.locator('html')).toHaveAttribute('data-sink-probe', /./);
     // Violation events are queued by the browser, after script execution.
@@ -157,11 +157,9 @@ test('pages cannot send data to any other origin', async ({ page }) => {
 });
 
 // SVG and XML are active markup formats in browsers when opened directly and
-// carry no <meta> tag; in production the edge Worker stamps default-src 'none'
-// and Trusted Types on them. Local preview has no Worker in front (covered by
-// tests/edge-worker.test.ts), so this browser probe runs against JOURNEY_URL.
+// carry no <meta> tag; the edge Worker stamps default-src 'none' and Trusted
+// Types on them (locally too: ops/edge/local.mjs serves dist/ through it).
 test('active SVG and XML endpoints refuse injected scripts and outbound requests', async ({ page }) => {
-  test.skip(!process.env.JOURNEY_URL, 'edge Worker header is served on the live/preview-worker origin');
   const leaked: string[] = [];
   await page.route('**/exfil.example/**', (route) => {
     leaked.push(route.request().url());
@@ -194,9 +192,8 @@ test('active SVG and XML endpoints refuse injected scripts and outbound requests
 // window to a look-alike page, message it or count its frames. No response may carry
 // NEL, Report-To or Reporting-Endpoints, which would have the browser post reports to
 // a server for days after the visit, outside the page's CSP. The headers come from the
-// edge Worker, which local preview does not have, so this runs against JOURNEY_URL.
+// edge Worker, which serves the local run as it serves production.
 test('a site that opens a page in a window cannot take it over, and no page asks the browser to report anywhere', async ({ page, context, baseURL }) => {
-  test.skip(!process.env.JOURNEY_URL, 'edge Worker headers are served on the live/preview-worker origin');
   await context.route('https://opener.example/**', (route) =>
     route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>another site</title>' }),
   );
@@ -233,7 +230,8 @@ test('a site that opens a page in a window cannot take it over, and no page asks
 // script sends a reader there to the same page on automancer.uk, and a stranger's frame of it
 // ends on automancer.uk, which refuses to be framed. Against production the real Pages copy is
 // read (deploy.yml publishes it seconds before the journey); otherwise the Pages address serves
-// the build under test and automancer.uk is a stand-in carrying the Worker's framing rule.
+// the build under test without the Worker's headers, as Pages does, and automancer.uk is a
+// stand-in carrying the Worker's framing rule.
 test('the GitHub Pages copy sends readers to automancer.uk and cannot be framed', async ({ page, context, baseURL }) => {
   const PAGES = 'https://automancer-ltd.github.io/automancer-site';
   const production = process.env.JOURNEY_URL === 'https://automancer.uk';
@@ -241,7 +239,8 @@ test('the GitHub Pages copy sends readers to automancer.uk and cannot be framed'
     await context.route('https://automancer-ltd.github.io/**', async (route) => {
       const path = new URL(route.request().url()).pathname;
       if (!path.startsWith('/automancer-site/')) return route.fulfill({ status: 404 });
-      return route.fulfill({ response: await route.fetch({ url: new URL(path.slice('/automancer-site'.length), baseURL).href }) });
+      const copy = await route.fetch({ url: new URL(path.slice('/automancer-site'.length), baseURL).href });
+      return route.fulfill({ status: copy.status(), contentType: copy.headers()['content-type'], body: await copy.body() });
     });
     await context.route('https://automancer.uk/**', (route) => route.fulfill({
       contentType: 'text/html',
