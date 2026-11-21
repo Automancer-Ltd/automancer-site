@@ -5,6 +5,7 @@ import SpectrumGlow from '../components/SpectrumGlow.astro';
 import { formatGBP, serviceById } from '../data/business';
 import { serviceCatalogNode } from '../data/jsonld';
 import { staticPages } from '../data/site-content';
+import { NOT_SURE, contactHref } from '../data/enquiry';
 
 const audit = serviceById('automation-opportunity-audit');
 const sprint = serviceById('workflow-implementation-sprint');
@@ -23,6 +24,7 @@ const offers = [
   {
     step: 'Rung 01 · start here',
     name: audit.name,
+    href: contactHref(audit.id),
     amt: formatGBP(audit.priceFrom),
     note: 'from · credited in full against any project you go on to do',
     one: 'We find where your time and money are leaking and hand you a costed plan to fix it.',
@@ -34,6 +36,7 @@ const offers = [
   {
     step: 'Rung 02 · act fast',
     name: sprint.name,
+    href: contactHref(sprint.id),
     amt: formatGBP(sprint.priceFrom),
     note: 'from',
     one: '1–3 automations, live and working, in roughly two weeks.',
@@ -45,6 +48,7 @@ const offers = [
   {
     step: 'Rung 03 · build it right',
     name: systemBuild.name,
+    href: contactHref(systemBuild.id),
     amt: formatGBP(systemBuild.priceFrom),
     note: 'from',
     one: 'A custom system or AI agent built around how your business runs.',
@@ -56,6 +60,7 @@ const offers = [
   {
     step: 'Rung 04 · stay live',
     name: ops.name,
+    href: contactHref(ops.id),
     amt: formatGBP(ops.priceFrom),
     per: '/mo',
     note: 'from · cancel anytime',
@@ -147,7 +152,7 @@ const faqs = [
             <p class="offer__one">{o.one}</p>
             <p class="offer__who">{o.who}</p>
             <p style="margin-top: var(--sp-8)">
-              <a href="/contact/" class="btn btn--primary"><span>{o.cta}</span><span class="btn__arrow">→</span></a>
+              <a href={o.href} class="btn btn--primary"><span>{o.cta}</span><span class="btn__arrow">→</span></a>
             </p>
           </div>
           <div class="offer__includes reveal">
@@ -190,8 +195,8 @@ const faqs = [
         audit fee in full if you go ahead with a project.
       </p>
       <div class="cta__ctas">
-        <a href="/contact/" class="btn"><span>Book an Audit — from {formatGBP(audit.priceFrom)}</span></a>
-        <a href="/contact/" class="btn btn--ghost"><span>Ask us which offer fits</span><span class="btn__arrow">→</span></a>
+        <a href={contactHref(audit.id)} class="btn"><span>Book an Audit — from {formatGBP(audit.priceFrom)}</span></a>
+        <a href={contactHref(NOT_SURE)} class="btn btn--ghost"><span>Ask us which offer fits</span><span class="btn__arrow">→</span></a>
       </div>
     </div>
   </section>

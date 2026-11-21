@@ -8,6 +8,7 @@ import Bead from '../../components/Bead.astro';
 import SpectrumGlow from '../../components/SpectrumGlow.astro';
 import { getCollection } from 'astro:content';
 import { formatGBP, serviceById } from '../../data/business';
+import { contactHref } from '../../data/enquiry';
 
 const auditFrom = formatGBP(serviceById('automation-opportunity-audit').priceFrom);
 
@@ -129,7 +130,7 @@ const fmt = (d: Date) =>
         If a note here sounds like your Tuesday, tell us about it. Waseem reads every enquiry himself.
       </p>
       <div class="cta__ctas">
-        <a href="/contact/" class="btn"><span>Book an Audit — from {auditFrom}</span></a>
+        <a href={contactHref('automation-opportunity-audit')} class="btn"><span>Book an Audit — from {auditFrom}</span></a>
         <a href="/contact/" class="btn btn--ghost"><span>Tell us what's eating your week</span><span class="btn__arrow">→</span></a>
       </div>
     </div>

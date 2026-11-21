@@ -372,9 +372,12 @@ describe('client-side validation moves focus to the first invalid field', () => 
       window.document.write(readDistFile(PAGE)!.replace(/<script\b[\s\S]*?<\/script>/gi, ''));
       const form = window.document.querySelector('form')!;
       // happy-dom does not expose named controls as form properties like browsers do.
+      // The service radios share one name; the script reads them by selector, not as a property.
+      const named = new Set<string>();
       for (const control of Array.from(form.elements)) {
         const name = control.getAttribute('name');
-        if (name) Object.defineProperty(form, name, { value: control });
+        if (name && !named.has(name)) Object.defineProperty(form, name, { value: control });
+        if (name) named.add(name);
       }
       const email = form.elements.namedItem('email') as HTMLInputElement;
       (form.elements.namedItem('name') as HTMLInputElement).value = 'Test Visitor';

@@ -20,6 +20,7 @@ interface Field {
   maxLength: number;
   kind: string;
   example?: string;
+  options?: Array<{ value: string; label: string; price?: string }>;
 }
 interface Route {
   id: string;
@@ -33,6 +34,7 @@ interface Contract {
   routes: Route[];
   fields: Field[];
   combinedMessage: { fields: string[]; maxLength: number };
+  prefill: { parameter: string; field: string; values: string[]; example: string };
   email: { to: string; body: string; mailto: string };
   responsePromise: string;
   whatHappensNext: Array<{ step: string; detail: string }>;
@@ -64,12 +66,15 @@ describe('/api/enquiry.json — the enquiry contract matches the /contact/ form'
     const controls = form!
       .querySelectorAll('input, textarea, select')
       .filter((el) => el.getAttribute('name') !== 'website' && el.getAttribute('type') !== 'hidden' && !el.hasAttribute('readonly'))
-      .map((el) => el.getAttribute('name'));
+      .map((el) => el.getAttribute('name'))
+      // A choice is several radios under one name: count it once.
+      .filter((name, i, all) => all.indexOf(name) === i);
     expect(controls).toEqual(contract.fields.map((f) => f.id));
   });
 
   it('publishes each field with the label, requirement, limit and example the page shows', () => {
     for (const field of contract.fields) {
+      if (field.kind === 'choice') continue; // the next test reads a choice
       const control = form!.querySelector(`[name="${field.id}"]`);
       expect(control, `no control named ${field.id}`).toBeTruthy();
       const label = form!.querySelector(`label[for="${control!.id}"]`);
@@ -84,6 +89,45 @@ describe('/api/enquiry.json — the enquiry contract matches the /contact/ form'
       if (field.kind === 'email') expect(control!.getAttribute('type')).toBe('email');
       if (field.kind === 'long-text') expect(control!.tagName.toLowerCase()).toBe('textarea');
     }
+  });
+
+  it('publishes each choice with the legend, answers and prices the page shows', () => {
+    const choices = contract.fields.filter((f) => f.kind === 'choice');
+    expect(choices.map((f) => f.id)).toEqual(['service']);
+    for (const field of choices) {
+      const radios = form!.querySelectorAll(`input[type="radio"][name="${field.id}"]`);
+      const fieldset = radios[0]?.closest('fieldset');
+      expect(fieldset, `${field.id}: no fieldset around its answers`).toBeTruthy();
+      const legend = fieldset!.querySelector('legend')!;
+      expect(text(legend.innerHTML.replace(/<span class="opt">\(optional\)<\/span>/, '')), `${field.id}: legend differs`).toBe(field.label);
+      expect(legend.innerHTML.includes('(optional)'), `${field.id}: optional marker differs`).toBe(!field.required);
+      const shown = radios.map((r) => {
+        const card = r.closest('label')!;
+        const price = card.querySelector('.service-option__price');
+        return {
+          value: r.getAttribute('value'),
+          label: text(card.querySelector('.service-option__name')!.innerHTML),
+          ...(price ? { price: text(price.innerHTML) } : {}),
+        };
+      });
+      expect(shown, `${field.id}: answers differ`).toEqual(field.options);
+      expect(field.maxLength).toBe(Math.max(...field.options!.map((o) => o.value.length)));
+    }
+  });
+
+  it('every service button on the site arrives with a published answer picked', () => {
+    expect(contract.prefill.field).toBe('service');
+    const values = contract.fields.find((f) => f.id === 'service')!.options!.map((o) => o.value);
+    expect(contract.prefill.values).toEqual(values);
+    const prefilled = (doc: ReturnType<typeof parse>) =>
+      doc.querySelectorAll('a[href^="/contact/?"]').map((a) => new URL(a.getAttribute('href')!, SITE_URL));
+    const services = parse(readDistFile('services/index.html') ?? '');
+    const links = prefilled(services);
+    // Four offers, the closing Audit button, "Ask us which offer fits" and the footer's Audit link.
+    expect(links.length).toBe(7);
+    for (const url of links) expect(values).toContain(url.searchParams.get(contract.prefill.parameter));
+    expect(new Set(links.map((u) => u.searchParams.get(contract.prefill.parameter))).size).toBe(5);
+    expect(values).toContain(new URL(contract.prefill.example).searchParams.get(contract.prefill.parameter));
   });
 
   it('names the joined-message limit the form script enforces', () => {

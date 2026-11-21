@@ -26,12 +26,13 @@ import SpectrumGlow from '../components/SpectrumGlow.astro';
 import InlineScript from '../components/InlineScript.astro';
 import { ENDPOINT_URL, TURNSTILE_SITE_KEY, FIELD_LIMITS, LEAD_ERROR_COPY, LEAD_ERROR_FALLBACK } from '../config/site';
 import { business } from '../data/business';
-import { AFTER_SEND_STEPS, ENQUIRY_FIELDS, enquiryField } from '../data/enquiry';
+import { AFTER_SEND_STEPS, ENQUIRY_FIELDS, SERVICE_OPTIONS, SERVICE_PARAM, enquiryField } from '../data/enquiry';
 
 const steps = AFTER_SEND_STEPS;
 const f = enquiryField;
 const emailLink = `mailto:${business.email}`;
 const draftFields = ENQUIRY_FIELDS.map(({ id, label }) => ({ id, label }));
+const serviceOptions = SERVICE_OPTIONS.map((o) => ({ ...o }));
 // This page alone may load Turnstile, show its challenge frame and send the
 // enquiry to the intake API; every other page's policy refuses all three.
 Astro.csp.insertScriptResource('https://challenges.cloudflare.com');
@@ -73,18 +74,37 @@ Astro.csp.insertDirective(`connect-src ${new URL(ENDPOINT_URL).origin}`);
 
           <p id="form-unavailable">Please email <a href={emailLink}>{business.email}</a> to get in touch.</p>
           <form id="contact-form" class="form" method="POST" novalidate data-endpoint={ENDPOINT_URL} hidden>
+            <!-- Arriving from an offer's button (/contact/?service=<id>) names the offer here,
+                 so the visitor sees their choice came with them; "Change" jumps to it. -->
+            <p id="service-carried" class="service-carried" data-page-words="skip" hidden>
+              <span class="service-carried__label">Asking about</span>
+              <strong data-service-name></strong>
+              <a href="#service-pick" class="service-carried__change">Change</a>
+            </p>
             <div class="field">
               <label for="name">{f('name').label}</label>
               <input type="text" id="name" name="name" required autocomplete="name" maxlength={f('name').maxLength} />
             </div>
             <div class="field">
-              <label for="company">{f('company').label}</label>
+              <label for="company">{f('company').label} <span class="opt">(optional)</span></label>
               <input type="text" id="company" name="company" autocomplete="organization" maxlength={f('company').maxLength} />
             </div>
             <div class="field">
               <label for="email">{f('email').label}</label>
               <input type="email" id="email" name="email" required autocomplete="email" maxlength={f('email').maxLength} />
             </div>
+            <fieldset id="service-pick" class="service-pick" tabindex="-1">
+              <legend>{f('service').label} <span class="opt">(optional)</span></legend>
+              <div class="service-pick__options">
+                {serviceOptions.map((o) => (
+                  <label class="service-option">
+                    <input type="radio" name="service" value={o.value} />
+                    <span class="service-option__name">{o.label}</span>
+                    {o.price && <span class="service-option__price">{o.price}</span>}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
             <div class="field">
               <label for="time-sink">{f('time_sink').label}</label>
               <textarea id="time-sink" name="time_sink" required maxlength={f('time_sink').maxLength}
@@ -117,7 +137,7 @@ Astro.csp.insertDirective(`connect-src ${new URL(ENDPOINT_URL).origin}`);
             <button type="submit" class="btn btn--full" disabled><span>Send it to Waseem</span></button>
 
             <div id="form-recovery" class="form-recovery" hidden>
-              <p>Send your enquiry by email to <a href={emailLink}>{business.email}</a>.</p>
+              <p>Send your enquiry by email to <a id="email-enquiry" href={emailLink}>{business.email}</a>.</p>
               <button id="copy-enquiry" type="button" class="btn btn--ghost"><span>Copy enquiry</span></button>
               <p id="copy-enquiry-status" role="status"></p>
               <div id="enquiry-draft-field" class="field" hidden>
@@ -194,7 +214,7 @@ Astro.csp.insertDirective(`connect-src ${new URL(ENDPOINT_URL).origin}`);
     </div>
   </section>
 
-  <InlineScript><script is:inline define:vars={{ endpoint: ENDPOINT_URL, limits: FIELD_LIMITS, draftFields, errorCopy: LEAD_ERROR_COPY, errorFallback: LEAD_ERROR_FALLBACK }}>
+  <InlineScript><script is:inline define:vars={{ endpoint: ENDPOINT_URL, limits: FIELD_LIMITS, draftFields, serviceOptions, serviceParam: SERVICE_PARAM, emailTo: business.email, errorCopy: LEAD_ERROR_COPY, errorFallback: LEAD_ERROR_FALLBACK }}>
     (function () {
       var form = document.getElementById('contact-form');
       if (!form) return;
@@ -209,14 +229,55 @@ Astro.csp.insertDirective(`connect-src ${new URL(ENDPOINT_URL).origin}`);
       }
       function showDeliveryError(msg) {
         showError(msg);
+        // The email route carries the chosen service in its subject.
+        var chosen = chosenService();
+        var emailRoute = document.getElementById('email-enquiry');
+        if (emailRoute) emailRoute.href = 'mailto:' + emailTo + (chosen ? '?subject=' + encodeURIComponent('Enquiry: ' + chosen.label) : '');
         recovery.hidden = false;
       }
+
+      // What are you interested in? An offer's button arrives with ?service=<id>:
+      // pick it, name it above the form, and keep the address in step with a
+      // change, so a reload or a shared link keeps the choice. Nothing is stored.
+      var carried = document.getElementById('service-carried');
+      var servicePick = document.getElementById('service-pick');
+      var serviceRadios = form.querySelectorAll ? Array.prototype.slice.call(form.querySelectorAll('input[name="service"]')) : [];
+      function chosenService() {
+        var checked = serviceRadios.find(function (r) { return r.checked; });
+        return checked ? serviceOptions.find(function (o) { return o.value === checked.value; }) || null : null;
+      }
+      function showCarried() {
+        if (!carried) return;
+        var chosen = chosenService();
+        if (!chosen) { carried.hidden = true; return; }
+        carried.querySelector('[data-service-name]').textContent = chosen.label;
+        carried.hidden = false;
+      }
+      var wanted = new URLSearchParams(location.search).get(serviceParam);
+      var arrived = serviceRadios.find(function (r) { return r.value === wanted; });
+      if (arrived) {
+        arrived.checked = true;
+        showCarried();
+      }
+      if (servicePick) servicePick.addEventListener('change', function () {
+        if (carried && !carried.hidden) showCarried();
+        var chosen = chosenService();
+        var url = new URL(location.href);
+        if (chosen) url.searchParams.set(serviceParam, chosen.value); else url.searchParams.delete(serviceParam);
+        history.replaceState(history.state, '', url.pathname + url.search + url.hash);
+      });
+      if (carried && servicePick) carried.querySelector('a').addEventListener('click', function (event) {
+        event.preventDefault();
+        var target = serviceRadios.find(function (r) { return r.checked; }) || serviceRadios[0];
+        servicePick.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+        target.focus({ preventScroll: true });
+      });
       document.getElementById('copy-enquiry').addEventListener('click', async function () {
         var status = document.getElementById('copy-enquiry-status');
         var draftField = document.getElementById('enquiry-draft-field');
         var values = new FormData(form);
         var text = draftFields.flatMap(function (field) {
-          var value = values.get(field.id)?.trim();
+          var value = field.id === 'service' ? chosenService()?.label : values.get(field.id)?.trim();
           return value ? [field.label + '\n' + value] : [];
         }).join('\n\n');
         if (!text) {
@@ -370,9 +431,10 @@ Astro.csp.insertDirective(`connect-src ${new URL(ENDPOINT_URL).origin}`);
         var team = form.team_size.value.trim();
         var extra = form.extra.value.trim();
         var honeypot = form.website.value;
+        var chosen = chosenService();
 
         // Compose the single message field the intake contract expects.
-        var message = timeSink;
+        var message = (chosen ? 'Interested in: ' + chosen.label + '\n\n' : '') + timeSink;
         if (team) message += '\n\nTeam size: ' + team;
         if (extra) message += '\n\nAlso: ' + extra;
 
@@ -517,6 +579,40 @@ Astro.csp.insertDirective(`connect-src ${new URL(ENDPOINT_URL).origin}`);
 }
 .field--hero label { font-size: 0.8rem; color: var(--ink); }
 .turnstile-slot { min-height: 65px; }
+
+/* What are you interested in? Cards, not pills: each carries a name and its
+   published from-price. Two across from about 152px each, one across when the
+   column (or enlarged text) leaves less; "Not sure yet" takes a whole row. */
+.service-pick { border: 0; margin: 0; padding: 0; min-width: 0; scroll-margin-top: 6rem; }
+.service-pick > legend { padding: 0; margin-bottom: var(--sp-3); font-family: var(--font-mono); font-size: 0.72rem;
+  font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+.service-pick:focus { outline: none; }
+.service-pick .opt { color: var(--faint); text-transform: none; letter-spacing: 0; }
+/* At most two across (each at least 34% of the row), one across below ~152px each. */
+.service-pick__options { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, max(9.5rem, 34%)), 1fr)); gap: var(--sp-2); }
+.service-option { position: relative; display: flex; flex-direction: column; justify-content: center; gap: 0.3rem;
+  min-height: 3.5rem; padding: 0.75rem 2.25rem 0.75rem 1rem; border: 1px solid var(--border-strong);
+  border-radius: var(--radius); background: var(--g-975); color: var(--ink); cursor: pointer;
+  transition: border-color var(--dur-1), background-color var(--dur-1), color var(--dur-1); }
+.service-option:last-child { grid-column: 1 / -1; }
+.service-option input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.service-option::after { content: ""; position: absolute; top: 0.85rem; right: 0.85rem; width: 0.8rem; height: 0.8rem;
+  border: 1px solid var(--g-500); border-radius: 50%; transition: border-color var(--dur-1), box-shadow var(--dur-1); }
+.service-option__name { font-size: 0.95rem; font-weight: 500; line-height: 1.25; overflow-wrap: break-word; }
+.service-option__price { font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.04em; color: var(--muted); }
+.service-option:hover { border-color: var(--g-500); background: var(--g-950); }
+.service-option:has(input:checked) { background: var(--white); border-color: var(--white); color: var(--black); }
+.service-option:has(input:checked) .service-option__price { color: var(--g-600); }
+.service-option:has(input:checked)::after { border-color: var(--black); box-shadow: inset 0 0 0 3px var(--white), inset 0 0 0 8px var(--black); }
+.service-option:has(input:focus-visible) { outline: 2px solid var(--white); outline-offset: 3px; }
+
+.service-carried:not([hidden]) { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.35em 0.6em;
+  padding: 0.6rem 0.9rem; border: 1px solid var(--border-strong); border-left: 3px solid var(--white);
+  border-radius: var(--radius); background: var(--g-975); font-size: 0.95rem; color: var(--ink); }
+.service-carried__label { font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--muted); }
+.service-carried strong { font-weight: 600; }
+.service-carried__change { margin-left: auto; font-size: 0.9rem; text-decoration: underline; text-underline-offset: 0.15em; }
 
 .form-recovery:not([hidden]) {
   display: grid; justify-items: start; gap: var(--sp-3);

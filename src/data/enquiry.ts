@@ -16,12 +16,48 @@
  * rather than describing a POST an agent cannot complete; email is the route
  * an agent can finish, and it reaches the same person.
  */
-import { business } from './business';
+import { business, formatGBP, services } from './business';
 import { build } from './build';
 import { abs } from './urls';
 import { FIELD_LIMITS } from '../config/site';
 
-export type EnquiryFieldId = 'name' | 'company' | 'email' | 'time_sink' | 'team_size' | 'extra';
+export type EnquiryFieldId = 'name' | 'company' | 'email' | 'service' | 'time_sink' | 'team_size' | 'extra';
+
+/** One answer to "What are you interested in?": a published service, or not sure yet. */
+export interface EnquiryOption {
+  /** The radio's value and the `?service=` value that picks it: a published service id, or `not-sure`. */
+  value: string;
+  /** The name a person reads, the service's published name. */
+  label: string;
+  /** The published from-price shown beside it, where it is a service. */
+  price?: string;
+}
+
+/** Not a service: for a visitor who wants to be told which offer fits. */
+export const NOT_SURE = 'not-sure';
+
+/** The services the form offers, in the order /services/ shows them, then "Not sure yet". */
+export const SERVICE_OPTIONS: readonly EnquiryOption[] = [
+  ...services.map((s) => ({
+    value: s.id,
+    label: s.name,
+    price: `from ${formatGBP(s.priceFrom)}${s.priceUnit === 'month' ? '/mo' : ''}`,
+  })),
+  { value: NOT_SURE, label: 'Not sure yet' },
+];
+
+/** The query parameter that picks a service on arrival: /contact/?service=<id>. */
+export const SERVICE_PARAM = 'service';
+
+/**
+ * The contact address a button for one offer links to. The form arrives with
+ * that offer picked, and the visitor can change or clear it. An unknown id is
+ * a build error, not a link that silently picks nothing.
+ */
+export function contactHref(serviceId: string): string {
+  if (!SERVICE_OPTIONS.some((o) => o.value === serviceId)) throw new Error(`No enquiry option "${serviceId}"`);
+  return `/contact/?${SERVICE_PARAM}=${encodeURIComponent(serviceId)}`;
+}
 
 export interface EnquiryField {
   /** The form control's `name`, and this field's stable id. */
@@ -29,9 +65,11 @@ export interface EnquiryField {
   /** The label a person reads on /contact/, without the "(optional)" marker. */
   label: string;
   required: boolean;
-  /** The most characters the form accepts in this field. */
+  /** The most characters the form accepts in this field (for a choice, its longest value). */
   maxLength: number;
-  kind: 'text' | 'email' | 'long-text';
+  kind: 'text' | 'email' | 'long-text' | 'choice';
+  /** A choice's answers, in the order the form shows them. */
+  options?: readonly EnquiryOption[];
   /** The example the form shows inside the empty field, where it shows one. */
   example?: string;
 }
@@ -45,6 +83,14 @@ export const ENQUIRY_FIELDS: readonly EnquiryField[] = [
   { id: 'name', label: 'Your name', required: true, maxLength: FIELD_LIMITS.name, kind: 'text' },
   { id: 'company', label: 'Business name', required: false, maxLength: FIELD_LIMITS.company, kind: 'text' },
   { id: 'email', label: 'Email', required: true, maxLength: FIELD_LIMITS.email, kind: 'email' },
+  {
+    id: 'service',
+    label: 'What are you interested in?',
+    required: false,
+    maxLength: Math.max(...SERVICE_OPTIONS.map((o) => o.value.length)),
+    kind: 'choice',
+    options: SERVICE_OPTIONS,
+  },
   {
     id: 'time_sink',
     label: "What's eating your week?",
@@ -73,9 +119,9 @@ export function enquiryField(id: EnquiryFieldId): EnquiryField {
 
 /** The fields the form joins into the one `message` the intake API takes. */
 export const COMBINED_MESSAGE = {
-  fields: ['time_sink', 'team_size', 'extra'] as EnquiryFieldId[],
+  fields: ['service', 'time_sink', 'team_size', 'extra'] as EnquiryFieldId[],
   maxLength: FIELD_LIMITS.message,
-  detail: `The form sends these three as one message: the answer to “What's eating your week?”, then “Team size: …” and “Also: …” when they are given. Together they must fit in ${FIELD_LIMITS.message.toLocaleString('en-GB')} characters.`,
+  detail: `The form sends these four as one message: “Interested in: …” with the chosen option's label when one is picked, then the answer to “What's eating your week?”, then “Team size: …” and “Also: …” when they are given. Together they must fit in ${FIELD_LIMITS.message.toLocaleString('en-GB')} characters.`,
 };
 
 /** The promise the contact page makes, in its own words. */
@@ -92,7 +138,10 @@ export const AFTER_SEND_STEPS: readonly { h: string; p: string }[] = [
 /** The body of an email that answers the same questions the form asks. */
 function emailBody(): string {
   return ENQUIRY_FIELDS.filter((f) => f.id !== 'email')
-    .map((f) => `${f.label}${f.required ? '' : ' (optional)'}\n`)
+    .map((f) => {
+      const choices = f.options ? ` One of: ${f.options.map((o) => o.label).join(', ')}.` : '';
+      return `${f.label}${f.required ? '' : ' (optional)'}${choices}\n`;
+    })
     .join('\n');
 }
 
@@ -137,7 +186,15 @@ export function enquiryContract() {
         detail: 'A voicemail line: leave a message and it reaches Waseem, same as the form. No switchboard, no bot.',
       },
     ],
-    fields: ENQUIRY_FIELDS.map((f) => ({ ...f })),
+    fields: ENQUIRY_FIELDS.map((f) => ({ ...f, options: f.options?.map((o) => ({ ...o })) })),
+    prefill: {
+      parameter: SERVICE_PARAM,
+      field: 'service',
+      values: SERVICE_OPTIONS.map((o) => o.value),
+      example: `${abs('/contact/')}?${SERVICE_PARAM}=${services[0]!.id}`,
+      detail:
+        'Opening /contact/ with ?service=<value> arrives with that option picked; the visitor can change it. Each service button on the site links this way. An unknown value picks nothing.',
+    },
     combinedMessage: COMBINED_MESSAGE,
     email: {
       to: business.email,

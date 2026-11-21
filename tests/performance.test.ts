@@ -28,9 +28,15 @@ const LAYOUT_MEASURED = 148994;
 
 /**
  * Layout pages that genuinely need more than the default, each with its own
- * measured value and the reason. Empty today: every layout page fits.
+ * measured value and the reason.
  */
-const LAYOUT_EXCEPTIONS: Record<string, { measured: number; reason: string }> = {};
+const LAYOUT_EXCEPTIONS: Record<string, { measured: number; reason: string }> = {
+  // Measured 2026-11-21 (t22871): 148,994 B + 4,887 B of HTML, CSS and script.
+  '/contact/': {
+    measured: 153881,
+    reason: 'the "What are you interested in?" choice: five option cards, their styles, and the script that picks one from ?service=',
+  },
+};
 
 /**
  * Pages whose own HTML grows with the record they publish, so any fixed total
