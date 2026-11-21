@@ -38,7 +38,7 @@ export const ORIGIN = atOrigin('/').origin;
 const PAGES = atPages('/').href.replace(/\/$/, '');
 
 // GitHub Pages' Content-Type for each file the build emits (read from the Pages copy).
-const TYPES = {
+export const TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.md': 'text/markdown; charset=utf-8',
   '.txt': 'text/plain; charset=utf-8',

@@ -267,13 +267,65 @@ export function unlocked(body) {
     .pipeThrough(new TextEncoderStream());
 }
 
+/**
+ * GitHub Pages' answers for its project address, read from the Worker's own static assets
+ * (Workers Static Assets, t23645): the built dist/ uploaded with this Worker as `env.ASSETS`,
+ * with `html_handling: "none"` and `not_found_handling: "none"`, so the binding answers only
+ * exact files and this function adds what Pages does around them. A directory without its
+ * slash 301s to it with the query kept, a directory answers its index.html, a missing file is
+ * 404.html with no Cache-Control, and every file carries max-age=600, Vary: Accept-Encoding and
+ * Access-Control-Allow-Origin: * (ops/edge/local.mjs pagesFromDist is the same contract read
+ * from disk). The rest of the Worker cannot tell the two apart, so every rule above applies
+ * unchanged, and a Worker deployed without the binding still reads Pages.
+ */
+export function pagesFromAssets(assets) {
+  const always = { 'Access-Control-Allow-Origin': '*', Vary: 'Accept-Encoding' };
+  const file = (request, pathname) => {
+    const at = new URL('https://assets.invalid');
+    at.pathname = pathname;
+    const headers = new Headers();
+    for (const name of ['If-None-Match', 'If-Modified-Since', 'Range', 'Accept-Encoding']) {
+      const value = request.headers.get(name);
+      if (value) headers.set(name, value);
+    }
+    return assets.fetch(new Request(at, { method: request.method === 'HEAD' ? 'HEAD' : 'GET', headers }));
+  };
+  const asPages = (res, status = res.status, extra = {}) => {
+    const out = new Response(res.body, { status, headers: res.headers });
+    for (const [name, value] of Object.entries({ ...always, ...extra })) out.headers.set(name, value);
+    return out;
+  };
+  return async (request) => {
+    const url = new URL(request.url);
+    let rel;
+    try {
+      rel = decodeURIComponent(url.pathname.slice(PAGES_PATH.length)) || '/';
+    } catch {
+      rel = null;
+    }
+    if (rel !== null) {
+      const res = await file(request, rel.endsWith('/') ? `${rel}index.html` : rel);
+      if (res.status !== 404) return asPages(res, res.status, { 'Cache-Control': 'max-age=600' });
+      if (!rel.endsWith('/') && (await file({ headers: new Headers(), method: 'HEAD' }, `${rel}/index.html`)).ok) {
+        const to = atPages(`${rel}/`, url.search).toString();
+        return new Response(null, { status: 301, headers: { ...always, 'Cache-Control': 'max-age=600', 'Content-Type': 'text/html', Location: to } });
+      }
+    }
+    const missing = await file({ headers: new Headers(), method: request.method }, '/404.html');
+    const out = asPages(missing, 404);
+    for (const name of ['Cache-Control', 'ETag', 'Last-Modified']) out.headers.delete(name);
+    return out;
+  };
+}
+
 export default {
-  async fetch(request) {
-    return secured(await respond(request));
+  async fetch(request, env) {
+    return secured(await respond(request, env?.ASSETS ? pagesFromAssets(env.ASSETS) : (req, init) => fetch(req, init)));
   },
 };
 
-async function respond(request) {
+/** Answer `request`, reading the published files through `origin` (Pages, or the Worker's assets). */
+async function respond(request, origin) {
   const url = new URL(request.url);
   if (ALIASES.has(url.hostname)) return Response.redirect(atOrigin(url.pathname, url.search).toString(), 301);
   if (url.protocol === 'http:') {
@@ -295,7 +347,7 @@ async function respond(request) {
   if (readOnly && prefers(accept, 'text/markdown', 'text/html')) {
     const twin = twinPath(url.pathname);
     if (twin) {
-      const res = await fetch(atPages(twin), { method: request.method });
+      const res = await origin(new Request(atPages(twin), { method: request.method }));
       if (res.ok) {
         const out = withVary(res);
         out.headers.set('Content-Type', MARKDOWN);
@@ -306,7 +358,7 @@ async function respond(request) {
   }
 
   const policy = readOnly ? cachePolicy(url.pathname, url.search) : null;
-  const res = await fetch(new Request(atPages(url.pathname, url.search), request), {
+  const res = await origin(new Request(atPages(url.pathname, url.search), request), {
     redirect: 'manual',
     // Only a found file is kept; a 404 or an error is asked for again next time.
     ...(policy && { cf: { cacheTtlByStatus: { '200-299': policy.edge, '300-599': -1 } } }),

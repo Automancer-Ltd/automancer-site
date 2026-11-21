@@ -1,8 +1,14 @@
 #!/usr/bin/env bash
 # Upload ops/edge/worker.js to Cloudflare through Executor (no local token) and deploy it.
 #
-#   ops/edge/deploy.sh [script-name] [worker-file]
-#       default: automancer-site-edge ops/edge/worker.js
+#   ops/edge/deploy.sh [script-name] [worker-file] [dist]
+#       default: automancer-site-edge ops/edge/worker.js (no assets: the Worker reads GitHub Pages)
+#
+# With a built dist/, its files go up first as the version's static assets (ops/edge/assets.mjs)
+# and the Worker reads them through its ASSETS binding instead of fetching GitHub Pages
+# (pagesFromAssets in worker.js, t23645). The binding answers exact files only
+# (html_handling and not_found_handling "none"), and only through the Worker (run_worker_first),
+# so every answer gets its headers; the Worker adds Pages' slash redirects and 404.
 #
 # The Worker goes up as the ES module tests/edge-worker.test.ts tests, byte for byte, on the
 # Workers runtime of COMPATIBILITY_DATE (t21891). It uses Cloudflare's JSON Workers API
@@ -25,15 +31,26 @@ readonly EXECUTOR_ACCOUNT=acc_64a83ca1-7690-43cb-86c7-287ef67135ec # Executor "W
 readonly COMPATIBILITY_DATE=2026-11-15
 script=${1:-automancer-site-edge}
 worker=${2:-$here/worker.js}
+dist=${3:-}
+
+# The completion token stays in this process's environment, never on a command line.
+ASSETS_JWT=
+if [ -n "$dist" ]; then
+  ASSETS_JWT=$(node "$here/assets.mjs" "$dist" "$EXECUTOR_ACCOUNT" "$CF_ACCOUNT" "$script")
+fi
+export ASSETS_JWT
 
 revision=$(git -C "$here" rev-parse --short=12 HEAD 2>/dev/null || echo unknown)
 dirty=$(git -C "$here" status --porcelain -- "$worker" 2>/dev/null || echo outside)
 message="$(basename "$worker") at ${revision}${dirty:+ (not as committed)}"
 
 python3 -I -c '
-import base64, json, sys
+import base64, json, os, sys
 account, cf_account, script, date, path, message = sys.argv[1:7]
 code = open(path, "rb").read()
+jwt = os.environ.get("ASSETS_JWT")
+assets = {"assets": {"jwt": jwt, "config": {"html_handling": "none", "not_found_handling": "none", "run_worker_first": True}},
+          "bindings": [{"type": "assets", "name": "ASSETS"}]} if jwt else {}
 print(json.dumps({"accountId": account, "input": {
   "path": {"account_id": cf_account, "worker_id": script},
   "query": {"deploy": True},
@@ -44,6 +61,7 @@ print(json.dumps({"accountId": account, "input": {
     "modules": [{"name": "worker.js", "content_type": "application/javascript+module",
                  "content_base64": base64.b64encode(code).decode()}],
     "annotations": {"workers/message": message},
+    **assets,
     # Executor checks this body against the response schema, which requires these read-only
     # fields; Cloudflare sets them itself and ignores what is sent.
     "id": "", "number": 0, "urls": [], "created_on": "",
