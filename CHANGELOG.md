@@ -1,5 +1,14 @@
 # Release notes
 
+## v2026.11.21.1 — 21 November 2026
+
+Visitors can now find the field notes that interest them more quickly.
+
+### Field notes
+
+- Filter field notes by subject and see how many notes each subject has. Each note’s subject links to its subject list.
+
+
 ## v2026.11.20.5 — 20 November 2026
 
 The main pages get to their content sooner, and field notes are easier to explore.
