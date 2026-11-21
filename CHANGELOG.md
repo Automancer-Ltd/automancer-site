@@ -77,7 +77,7 @@ The mobile layout is easier to read, with clearer spacing and less crowded text.
 ### Improvements
 
 - On phones, the home page price ladder shows its steps in order, and case-study labels and figures fit more clearly.
-- Text stays on screen across the site at narrow widths and when enlarged to 200%.
+- Text stays on screen across the site at narrow widths and when enlarged to twice its normal size.
 
 
 ## v2026.11.19.2 — 19 November 2026
@@ -96,7 +96,7 @@ This release makes the site’s information easier to find and read.
 ### Readability and contact
 
 - Headings and prices remain readable when you enlarge text.
-- The enquiry form starts on the first screen on phones and desktops, and the menu stays reachable without sideways scrolling on phones at 200% text size.
+- The enquiry form starts on the first screen on phones and desktops, and the menu stays reachable without sideways scrolling on phones at twice the normal text size.
 
 
 ## v2026.11.12.3 — 12 November 2026
@@ -106,7 +106,7 @@ The enquiry page and site controls fit better on small screens, while page updat
 ### Improvements
 
 - The enquiry form is visible sooner on phones and desktop, so visitors can start their enquiry without scrolling as far.
-- The menu stays within reach on phones when text is enlarged to 200%, and contact details and legal links wrap without sideways scrolling.
+- The menu stays within reach on phones when text is enlarged to twice its normal size, and contact details and legal links wrap without sideways scrolling.
 - Headings and prices remain readable with enlarged text.
 
 ### Page information

@@ -13,7 +13,7 @@ client: A ~600-person supported-living care provider, with branches across the M
 headline: Care without the clipboard.
 subhead: We are replacing the spreadsheets and separate systems of a multi-branch, CQC-regulated care provider — around 100 office staff and 500 support workers — in roughly eighteen staged projects, several already live in production.
 stats:
-  - { v: "294 + 293", l: "carers and service users imported as clean records from real CSVs", claims: [carer_record_count, service_user_record_count] }
+  - { v: "294 + 293", l: "imported as clean records from real CSVs: carers, then service users", claims: [carer_record_count, service_user_record_count] }
   - { v: "588", l: "supervision and spot-check schedules created automatically", claims: [supervision_schedule_count] }
   - { v: "274 / 418", l: "duplicate or ambiguous records matched automatically", claims: [identity_matching_auto_resolved] }
   - { v: "0 / 0", l: "failures and warnings across the production infrastructure audit", claims: [infrastructure_audit_result] }
