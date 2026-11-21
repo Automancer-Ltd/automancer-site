@@ -1,7 +1,7 @@
 /* ═══════════════════════════════════════════
    AUTOMANCER — main.js
    Scroll reveals · nav scroll state · mobile menu
-   · orb cursor-parallax · card spotlight
+   · print · orb cursor-parallax · card spotlight
    Minimal, dependency-free, reduced-motion aware.
    ═══════════════════════════════════════════ */
 (function () {
@@ -88,6 +88,17 @@
       addEventListener('scroll', function () { if (!tocQueued) { tocQueued = true; requestAnimationFrame(markToc); } }, { passive: true });
       markToc();
     }
+
+    /* ── Print: the FAQ answers go on paper with their questions, then close
+       again (src/styles/print.css draws the rest of the printed page). ── */
+    var printOpened = [];
+    addEventListener('beforeprint', function () {
+      document.querySelectorAll('.faq details:not([open])').forEach(function (d) { d.open = true; printOpened.push(d); });
+    });
+    addEventListener('afterprint', function () {
+      printOpened.forEach(function (d) { d.open = false; });
+      printOpened = [];
+    });
 
     if (reduce) return;
 

@@ -18,6 +18,9 @@ const CASES = {
     { width: 390, text: '200%' },
   ],
   desktop: [
+    // A portrait tablet: between the phone and laptop layouts, where a grid
+    // can keep a span its narrower column count no longer has (t23850).
+    { width: 768, text: '100%' },
     { width: 1280, text: '100%' },
     { width: 1280, text: '200%' },
   ],
@@ -76,6 +79,31 @@ function clippedText(): string[] {
   return failures;
 }
 
+/**
+ * Text squeezed into a column too narrow for its words: it lays out on more
+ * than twice as many lines as it has words, so words break between letters.
+ * (Enlarged text may break one long word once: overflow-wrap in global.css.)
+ * A grid cell that
+ * collapsed to 48px on /about/ at tablet widths printed its rules one letter a
+ * line while every letter stayed inside its panel, so clippedText passed it.
+ */
+function brokenWords(): string[] {
+  const failures: string[] = [];
+  const walker = document.createTreeWalker(document.querySelector('main')!, NodeFilter.SHOW_TEXT);
+  while (walker.nextNode()) {
+    const node = walker.currentNode as Text;
+    const words = node.textContent!.trim().split(/\s+/).filter(Boolean).length;
+    if (words < 2) continue;
+    const el = node.parentElement!;
+    if (getComputedStyle(el).visibility === 'hidden' || el.closest('[aria-hidden="true"], .sr-only')) continue;
+    const range = document.createRange();
+    range.selectNodeContents(node);
+    const lines = new Set([...range.getClientRects()].filter((r) => r.width > 0).map((r) => Math.round(r.top)));
+    if (lines.size > words * 2) failures.push(`${el.tagName.toLowerCase()}.${el.className}: ${words} words on ${lines.size} lines`);
+  }
+  return failures;
+}
+
 test('every page keeps its words on screen at 320px and with text at 200%', async ({ page }, info) => {
   test.setTimeout(180_000);
   await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -90,7 +118,8 @@ test('every page keeps its words on screen at 320px and with text at 200%', asyn
       await page.evaluate((size) => document.documentElement.style.setProperty('font-size', size), text);
       await page.evaluate(() => document.fonts.ready);
       for (const failure of await page.evaluate(clippedText)) clipped.push(`${path} at ${width}px, text ${text}: ${failure}`);
+      for (const failure of await page.evaluate(brokenWords)) clipped.push(`${path} at ${width}px, text ${text}: ${failure}`);
     }
   }
-  expect(clipped, 'words cut off at the edge of the screen or their panel').toEqual([]);
+  expect(clipped, 'words cut off at the edge of the screen or their panel, or broken between letters').toEqual([]);
 });
