@@ -18,16 +18,22 @@ The journeys are listed, with the tests that prove each one, in [`features/`](fe
 ## Launch
 
 - **Journey, local:** `pnpm run journey` (needs `pnpm exec playwright install chromium` once).
-  Playwright builds `dist/` with monitoring on (`tests/support/build-env.ts`), serves it with
-  `astro preview` on 127.0.0.1:4399 and stops the server when the run ends.
+  Playwright builds `dist/` with monitoring on (`tests/support/build-env.ts`), serves it as
+  production does, through the edge Worker (`ops/edge/local.mjs`), on a free 127.0.0.1 port, and
+  stops the server when the run ends. Two runs on one machine never collide, and the Worker's
+  headers, redirects and twins are tested before a deploy as well as after it.
 - **Journey, any served copy:** `JOURNEY_URL=<origin> pnpm run journey` runs the same tests
   read-only against that origin (`deploy.yml` does this on `https://automancer.uk` after
   publishing). The enquiry endpoint and Turnstile are stubbed in every run, so no run ever sends a
   real enquiry.
+- **The site by hand:** `pnpm run serve` (after `pnpm run build`) prints the address of the built
+  `dist/` served through the edge Worker, as automancer.uk serves it: `curl -I` shows production's
+  headers, `curl -H 'Accept: text/markdown'` a page's twin. `--port=<n>` fixes the port,
+  `--delay=<ms>` holds every HTML page back. Ctrl-C stops it.
 - **Compare:** `pnpm run compare [base-ref]` builds `base-ref` (default `origin/main`; run
   `git fetch` first) from `git archive` into `$COMPARE_DIR` (default: the system temp folder,
   cached per commit), builds the working tree into `dist/`, and opens both in Chromium through
-  Playwright's request routing. It opens no port and starts no server. Options:
+  Playwright's request routing and the edge Worker. It opens no port and starts no server. Options:
   - `--head=<ref>` compares two commits instead of the working tree.
   - `--engines=chromium,firefox,webkit`, `--widths=390,1280`, `--paths=/,/services/` and
     `--motion=reduce` change what is opened.
@@ -36,11 +42,9 @@ The journeys are listed, with the tests that prove each one, in [`features/`](fe
 
 ## Doctor
 
-- 4399 already taken (another agent's server): the journey fails at once with "is already used".
-  Serve `dist/` yourself on a free port and point the journey at it:
-  `node_modules/.bin/astro preview --host 127.0.0.1 --port <free> --ignore-lock &`, then
-  `JOURNEY_URL=http://127.0.0.1:<free> pnpm run journey`, then stop that process by its PID.
-- A machine under heavy load can miss Playwright's 60 s webServer start: use the same route.
+- A machine under heavy load can miss Playwright's 60 s webServer start: `pnpm run build`, then
+  `pnpm run serve &`, then `JOURNEY_URL=<the address it printed> pnpm run journey`, then stop
+  that process by its PID.
 - `pnpm run compare origin/main` on an unchanged tree must print `none of 64 page views differ`.
   If it does not, the comparison is not trustworthy on this machine: read the first moved element
   it names before believing any other result.
@@ -78,8 +82,8 @@ The journeys are listed, with the tests that prove each one, in [`features/`](fe
 
 ## Cleanup
 
-Playwright stops the journey's own server. The comparison starts no server. A preview server you
-started for `JOURNEY_URL` is yours to stop, by the PID you started. Base builds stay cached in
+Playwright stops the journey's own server. The comparison starts no server. A `pnpm run serve`
+you started for `JOURNEY_URL` is yours to stop, by the PID you started. Base builds stay cached in
 `$COMPARE_DIR/<commit>` (about 10 MB each: the source and its `dist/`; `node_modules` is removed
 after the build). Delete the folder to reclaim the space. `test-results/` is git-ignored and is replaced by the next run.
 

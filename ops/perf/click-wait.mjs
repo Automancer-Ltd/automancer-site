@@ -1,8 +1,8 @@
 // How long a click to another page waits in Firefox and Safari (WebKit), which ignore
 // Speculation Rules, so nothing there is fetched before the click (t23288).
 //
-// Serves a built dist/ on 127.0.0.1 with production's caching headers (pages max-age=600 and
-// `Vary: Accept-Encoding, Accept`, as the edge Worker sends them; /_astro/ files immutable) and
+// Serves a built dist/ on 127.0.0.1 through the edge Worker, as production does (its caching
+// headers: pages max-age=600 and `Vary: Accept-Encoding, Accept`; /_astro/ files immutable), with
 // <delay> ms before every page's first byte, the wait a phone sees for a page that is not yet in
 // its cache. Each round is a fresh browser: it opens /, then walks the journey through the nav,
 // pointing at each link for <hover> ms before pressing it for <press> ms (a laptop: hover 300,
@@ -22,10 +22,10 @@
 // Prints a JSON summary; writes per-click results to <label>.json in the current directory.
 // docs/PERFORMANCE.md records the numbers it produced.
 import { chromium, firefox, webkit } from '@playwright/test';
-import http from 'node:http';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { serveSite } from '../edge/local.mjs';
 
 const positional = process.argv.slice(2).filter((a) => !a.startsWith('--'));
 const flag = (name, fallback) => process.argv.find((a) => a.startsWith(`--${name}=`))?.split('=')[1] ?? fallback;
@@ -63,31 +63,21 @@ const probe = () => new Promise((resolve) => {
   else addEventListener('load', later, { once: true });
 });
 
-const types = { '.html': 'text/html; charset=utf-8', '.css': 'text/css', '.js': 'text/javascript', '.woff2': 'font/woff2', '.svg': 'image/svg+xml', '.png': 'image/png', '.json': 'application/json' };
 let requests = [];
-const server = live ? null : http.createServer((req, res) => {
-  const url = new URL(req.url, 'http://x');
-  let p = decodeURIComponent(url.pathname);
-  if (p.endsWith('/')) p += 'index.html';
-  const page = p.endsWith('.html');
-  const mode = req.headers['sec-fetch-mode'] ?? '?';
-  const purpose = req.headers['sec-purpose'] ?? req.headers.purpose;
-  const by = purpose ? `speculation (${purpose})` : mode === 'navigate' ? 'navigate' : 'fetch';
-  if (page) requests.push({ path: url.pathname, by, at: Date.now(), accept: req.headers.accept });
-  const f = path.join(dist, p);
-  setTimeout(() => fs.readFile(f, (err, buf) => {
-    if (err) { res.writeHead(404); res.end(); return; }
-    const headers = { 'content-type': types[path.extname(f)] ?? 'application/octet-stream' };
-    if (page) {
-      headers['cache-control'] = 'max-age=600';
-      headers.vary = 'Accept-Encoding, Accept';
-    } else headers['cache-control'] = p.startsWith('/_astro/') ? 'public, max-age=31536000, immutable' : 'max-age=600';
-    res.writeHead(200, headers);
-    res.end(buf);
-  }), page ? delay : 0);
+// The dist/ as production serves it, through the edge Worker (ops/edge/local.mjs), with every
+// HTML page held back <delay> ms.
+const local = live ? null : await serveSite({
+  dist,
+  delay,
+  onRequest: (req) => {
+    const url = new URL(req.url, 'http://x');
+    if (!url.pathname.endsWith('/') && !url.pathname.endsWith('.html')) return;
+    const purpose = req.headers['sec-purpose'] ?? req.headers.purpose;
+    const by = purpose ? `speculation (${purpose})` : req.headers['sec-fetch-mode'] === 'navigate' ? 'navigate' : 'fetch';
+    requests.push({ path: url.pathname, by, at: Date.now(), accept: req.headers.accept });
+  },
 });
-if (server) await new Promise((r) => server.listen(0, '127.0.0.1', r));
-const base = live ?? `http://127.0.0.1:${server.address().port}`;
+const base = live ?? local.url;
 
 const results = [];
 for (let r = 0; r < rounds; r++) {
@@ -131,7 +121,7 @@ for (let r = 0; r < rounds; r++) {
   await ctx.browser()?.close();
   if (profile) fs.rmSync(profile, { recursive: true, force: true });
 }
-server?.close();
+await local?.close();
 const med = (xs) => { const v = xs.filter((x) => x != null).sort((a, b) => a - b); return v.length ? v[Math.floor(v.length / 2)] : null; };
 const p75 = (xs) => { const v = xs.filter((x) => x != null).sort((a, b) => a - b); return v.length ? v[Math.floor(v.length * 0.75)] : null; };
 const summary = {

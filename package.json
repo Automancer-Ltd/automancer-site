@@ -11,7 +11,7 @@
     "prepare": "astro sync",
     "dev": "astro dev",
     "build": "astro build",
-    "preview": "astro preview",
+    "serve": "node ops/edge/local.mjs dist",
     "astro": "astro",
     "lint": "oxlint --type-aware --deny-warnings src tests public/assets/js",
     "typecheck": "test -f .astro/content.d.ts || astro sync; tsrs --noEmit",
