@@ -1,4 +1,5 @@
 ---
+import { createHash } from 'node:crypto';
 import SEO from '../components/SEO.astro';
 import JsonLd from '../components/JsonLd.astro';
 import Nav from '../components/Nav.astro';
@@ -9,6 +10,7 @@ import { cardAlt, pageCardFor } from '../data/share-cards';
 import { markdownTwinPath, staticPages } from '../data/site-content';
 import { abs, pagePath } from '../data/urls';
 import { build } from '../data/build';
+import { OFFSITE_LOCK } from '../../ops/edge/worker.js';
 import '../styles/fonts.css';
 import '../styles/global.css';
 import spaceGroteskUrl from '../assets/fonts/space-grotesk.woff2?url';
@@ -42,6 +44,13 @@ const { title, description, ogType = 'website', schema = [], pageType, markdown,
 const ownCard = Astro.props.image ? undefined : await pageCardFor(Astro.url.pathname);
 const image = Astro.props.image ?? ownCard!.image;
 const imageAlt = Astro.props.imageAlt ?? cardAlt(ownCard!.card);
+// The GitHub Pages copy's lock (ops/edge/worker.js OFFSITE_LOCK, t23484), under its hash. Only a
+// production build carries it: `astro dev` serves pages with no Worker in front to take it out.
+const offsiteLock = import.meta.env.PROD ? OFFSITE_LOCK : '';
+if (offsiteLock) {
+  const css = /^<style>([^<]*)<\/style>$/.exec(offsiteLock)![1]!;
+  Astro.csp.insertStyleHash(`sha256-${createHash('sha256').update(css).digest('base64')}`);
+}
 Astro.csp.insertDirective(`trusted-types ${trustedTypes.length ? trustedTypes.join(' ') : "'none'"}`);
 const markdownUrl = markdown ? abs(markdown) : markdownTwinPath(Astro.url.pathname);
 
@@ -107,6 +116,13 @@ const SPECULATION_RULES = {
       tests/off-site-guard.test.ts runs these exact bytes against each kind of address.
     */}
     <InlineScript><script is:inline>if(location.hostname.endsWith('.github.io'))location.replace('https://automancer.uk'+location.pathname.replace(/^\/automancer-site(?=\/|$)/,'')+location.search+location.hash)</script></InlineScript>
+    {/*
+      The lock (t23484): hides the page and says where it lives. The edge Worker takes it out of
+      every page it serves, so it binds only on the GitHub Pages copy, where the script above can be
+      switched off by a frame sandboxed without allow-scripts, which used to draw the full page.
+      tests/off-site-guard.test.ts holds its place and bytes; tests/edge-worker.test.ts its removal.
+    */}
+    {offsiteLock && <Fragment set:html={offsiteLock} />}
     {/* Preload the two self-hosted fonts used above the fold on every page. */}
     <link rel="preload" href={spaceGroteskUrl} as="font" type="font/woff2" crossorigin />
     <link rel="preload" href={syneUrl} as="font" type="font/woff2" crossorigin />

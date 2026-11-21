@@ -278,6 +278,20 @@ bytes against each kind of address, and the journey test "the GitHub Pages copy 
 automancer.uk and cannot be framed" opens the real project address after each deploy. Markdown, JSON
 and other files there cannot carry a script; each page names `automancer.uk` as canonical.
 
+**The script can be switched off, so the page is locked as well (t23484).** A frame with `sandbox`
+and no `allow-scripts` never runs that script, and the whole page used to draw inside it in Chromium
+and Firefox (checked on 21 Nov 2026 against the live project address). Every built page now carries
+`OFFSITE_LOCK` (`ops/edge/worker.js`) straight after the script: a `<style>` that hides the page and
+shows one line, "This page is at automancer.uk". The Worker takes it out of every HTML response it
+serves (`unlocked()`, as the body streams, only inside `<head>`), as do the preview target's `mark`
+and `ops/perf/nav-journey.mjs`, which serve releases without the Worker. Only a production build
+carries it, so `astro dev` is unaffected. `tests/off-site-guard.test.ts` serves every built page
+through the Worker and requires it exactly as built minus the lock; `check_homepage_anchor` in
+`ops/verify-production.sh` fails if production's homepage still carries it. **Order matters:** a
+Worker without `unlocked()` serves every page blank, so deploy the Worker before merging a build that
+adds or changes the lock (a Worker with it passes a page without the lock through unchanged).
+Undo: revert the layout change first and let Pages redeploy, then the Worker if wanted.
+
 Undo (only if the Worker can no longer read the project address): put back the four `A` records,
 proxied; set `www` back to the DNS-only CNAME; set the Pages `cname` to `automancer.uk`
 (`repos.updateInformationAboutPagesSite`); deploy Worker version `c10a0bcd-6d40-4284-bad4-8c01f5977303`.

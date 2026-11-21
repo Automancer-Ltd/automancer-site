@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import worker, { atOrigin, atPages, cachePolicy, fromPages, legacyRedirect } from '../ops/edge/worker.js';
+import worker, { OFFSITE_LOCK, atOrigin, atPages, cachePolicy, fromPages, legacyRedirect, unlocked } from '../ops/edge/worker.js';
 import { DIST, allHtmlFiles } from './support/dist';
 
 // The Pages project the Worker reads (t22925): the site has no custom domain on GitHub.
@@ -12,6 +12,7 @@ const origin: Record<string, [number, string, string]> = {
   '/': [200, 'text/html; charset=utf-8', '<html>home</html>'],
   '/index.md': [200, 'text/markdown; charset=utf-8', '# Home'],
   '/privacy/': [200, 'text/html; charset=utf-8', '<html>privacy</html>'],
+  '/locked/': [200, 'text/html; charset=utf-8', `<html><head><script>guard</script>${OFFSITE_LOCK}</head><body>page</body></html>`],
   '/api/services.json': [200, 'application/json; charset=utf-8', '{}'],
   '/assets/images/logo.svg': [200, 'image/svg+xml', '<svg></svg>'],
   '/field-notes/rss.xml': [200, 'application/xml', '<rss></rss>'],
@@ -26,7 +27,7 @@ function serve(input: RequestInfo | URL) {
   const path = url.pathname.slice('/automancer-site'.length);
   // Pages adds the slash to a directory itself, naming its own address.
   if (path === '/privacy') return Promise.resolve(new Response('', { status: 301, headers: { Location: `${PAGES}/privacy/${url.search}` } }));
-  const [status, type, body] = origin[path] ?? [404, 'text/html; charset=utf-8', '<html>404</html>'];
+  const [status, type, body] = origin[path] ?? [404, 'text/html; charset=utf-8', `<html><head>${OFFSITE_LOCK}</head>404</html>`];
   // GitHub Pages sends Vary: Accept-Encoding; the Worker must add Accept to it.
   // It also sends the reporting headers a host may add, which must never reach a visitor.
   const reporting = {
@@ -76,7 +77,7 @@ describe('edge Worker in front of GitHub Pages', () => {
     expect(await md.text()).toContain('/llms.txt');
     const html = await get('/nope', 'text/html');
     expect(html.status).toBe(404);
-    expect(await html.text()).toBe('<html>404</html>');
+    expect(await html.text()).toBe('<html><head></head>404</html>');
   });
 
   it('answers API errors as problem+json and leaves API successes alone', async () => {
@@ -284,5 +285,31 @@ describe('edge Worker in front of GitHub Pages', () => {
         if (policy?.edge === 31536000) expect(`${ref.pathname}${ref.search}`).toMatch(/^\/_astro\/|\?v=[0-9a-f]{7,40}$/);
       }
     }
+  });
+  it("takes the GitHub Pages copy's lock out of every HTML page it serves, a 404 included (t23484)", async () => {
+    vi.stubGlobal('fetch', vi.fn(serve));
+    const page = await get('/locked/');
+    expect(await page.text()).toBe('<html><head><script>guard</script></head><body>page</body></html>');
+    expect(page.headers.get('Content-Length')).toBeNull();
+    expect(page.headers.get('Strict-Transport-Security')).toBe('max-age=15552000');
+    const missing = await get('/nowhere/', 'text/html');
+    expect(missing.status).toBe(404);
+    expect(await missing.text()).toBe('<html><head></head>404</html>');
+    expect(await (await get('/', 'text/html')).text()).toBe('<html>home</html>');
+  });
+
+  it('finds the lock however the page arrives in chunks, and leaves one outside <head> alone', async () => {
+    const page = `<!doctype html><html><head><meta charset="utf-8">${OFFSITE_LOCK}<title>£ é</title></head><body>${OFFSITE_LOCK}</body></html>`;
+    const want = page.replace(OFFSITE_LOCK, '');
+    const bytes = new TextEncoder().encode(page);
+    const read = (chunks: Uint8Array[]) => new Response(unlocked(new ReadableStream({
+      start(controller) { for (const c of chunks) controller.enqueue(c); controller.close(); },
+    }))).text();
+    for (let cut = 1; cut < bytes.length; cut += 1) {
+      expect(await read([bytes.slice(0, cut), bytes.slice(cut)]), `split at byte ${cut}`).toBe(want);
+    }
+    expect(await read(Array.from(bytes, (b) => Uint8Array.of(b))), 'one byte at a time').toBe(want);
+    const body = `<html><head></head><body>${OFFSITE_LOCK}</body></html>`;
+    expect(await read([new TextEncoder().encode(body)]), 'a lock after </head> is page text').toBe(body);
   });
 });

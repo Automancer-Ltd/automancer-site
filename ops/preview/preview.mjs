@@ -41,6 +41,7 @@ import { createReadStream } from 'node:fs';
 import { readFile, readdir, stat, writeFile } from 'node:fs/promises';
 import { extname, join, normalize, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { OFFSITE_LOCK } from '../edge/worker.js';
 
 /** Marker file written by `mark`; its absence makes a root unservable. */
 export const STAMP_FILE = '.preview-target';
@@ -86,7 +87,9 @@ const escapeHtml = (s) =>
  * Exported for tests.
  */
 export function markHtml(html, stamp) {
-  let out = html;
+  // The preview target serves the release itself, with no edge Worker in front, so it takes the
+  // GitHub Pages copy's lock out as the Worker does on automancer.uk (OFFSITE_LOCK, t23484).
+  let out = html.replace(OFFSITE_LOCK, '');
   if (!out.includes(BANNER_MARK)) {
     const banner =
       `${BANNER_MARK}<div id="${BANNER_ID}" role="note" style="` +

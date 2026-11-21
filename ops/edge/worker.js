@@ -10,6 +10,8 @@
 //   - Plain HTTP is redirected to HTTPS, as GitHub Pages did before the proxy.
 //   - www.automancer.uk gets one 301 to the same path on automancer.uk.
 //   - A legacy *.html URL gets one real 301 to its page.
+//   - Every HTML page has the lock the build puts in it for the GitHub Pages
+//     copy taken out (OFFSITE_LOCK), so it is drawn only here.
 //   - Every response, HTML, Markdown, JSON, error or redirect, carries the
 //     same SECURITY_HEADERS, so people and machines get the same answers.
 //   - Fingerprinted files are cached for a year and fonts and images for a
@@ -63,6 +65,16 @@ const SECURITY_HEADERS = {
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
   'Cross-Origin-Opener-Policy': 'same-origin',
 };
+// The lock every built page carries in its <head> (BaseLayout.astro, t23484):
+// it hides the page and says where the site lives. The Worker takes it out of
+// every HTML response (unlocked()), so automancer.uk is drawn as built, while
+// the GitHub Pages copy keeps it. That copy carries none of SECURITY_HEADERS,
+// and its script guard (t23224) does not run in a frame sandboxed without
+// allow-scripts, where the whole page, prices and Contact button included,
+// used to draw inside a stranger's site. These exact bytes are what the build
+// emits and what is removed, so a change here changes both.
+export const OFFSITE_LOCK =
+  '<style>body>*{display:none!important}body::before{content:"This page is at automancer.uk";display:block;padding:2rem;font:1.25rem/1.5 system-ui,sans-serif}</style>';
 // Headers that tell the visitor's browser to send reports to a server for days
 // after a visit (Network Error Logging and the Reporting API). The pages may
 // contact only this site and the error monitor, and a CSP cannot stop these,
@@ -217,6 +229,44 @@ function secured(response) {
   return out;
 }
 
+/**
+ * An HTML body stream with the first OFFSITE_LOCK in its <head> taken out, as it
+ * streams: nothing waits for the whole page. Bodies without one pass through
+ * unchanged, so a Worker deployed before the build that adds the lock is safe.
+ */
+export function unlocked(body) {
+  const keep = OFFSITE_LOCK.length - 1;
+  let carry = '';
+  let searching = true;
+  return body
+    .pipeThrough(new TextDecoderStream())
+    .pipeThrough(new TransformStream({
+      transform(chunk, controller) {
+        if (!searching) return controller.enqueue(chunk);
+        const text = carry + chunk;
+        carry = '';
+        const at = text.indexOf(OFFSITE_LOCK);
+        const headEnd = text.indexOf('</head>');
+        if (at !== -1 && (headEnd === -1 || at < headEnd)) {
+          searching = false;
+          return controller.enqueue(text.slice(0, at) + text.slice(at + OFFSITE_LOCK.length));
+        }
+        if (headEnd !== -1) {
+          searching = false;
+          return controller.enqueue(text);
+        }
+        // Hold back what could be the start of a lock split across two chunks.
+        const cut = Math.max(0, text.length - keep);
+        carry = text.slice(cut);
+        if (cut) controller.enqueue(text.slice(0, cut));
+      },
+      flush(controller) {
+        if (carry) controller.enqueue(carry);
+      },
+    }))
+    .pipeThrough(new TextEncoderStream());
+}
+
 export default {
   async fetch(request) {
     return secured(await respond(request));
@@ -284,9 +334,16 @@ async function respond(request) {
     out.headers.set('Cache-Control', policy.browser);
     out.headers.delete('Expires');
   }
-  if ((out.headers.get('Content-Type') ?? '').startsWith('text/html') && res.ok) {
+  const html = (out.headers.get('Content-Type') ?? '').startsWith('text/html');
+  if (html && res.ok) {
     const twin = url.pathname === '/' ? ', </index.md>; rel="alternate"; type="text/markdown"' : '';
     out.headers.set('Link', PAGE_LINKS + twin);
+  }
+  if (html && out.body) {
+    // The page is drawn here, on automancer.uk, and nowhere else (OFFSITE_LOCK).
+    const open = new Response(unlocked(out.body), out);
+    open.headers.delete('Content-Length');
+    return open;
   }
   if (url.pathname === '/.well-known/api-catalog') {
     out.headers.set('Content-Type', 'application/linkset+json; profile="https://www.rfc-editor.org/info/rfc9727"');
