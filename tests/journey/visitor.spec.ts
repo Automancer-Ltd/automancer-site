@@ -627,6 +627,49 @@ test('a field note opens with its first line in view and ends with the next note
   await expect(page.locator('h1')).toContainText('governed AI');
 });
 
+/** The field notes the index shows right now, by the subject on each row. */
+const shownSubjects = (page: Page) =>
+  page.locator('.note-list > a.note-row').evaluateAll((rows) =>
+    rows.filter((r) => (r as HTMLElement).offsetParent !== null)
+      .map((r) => r.querySelector('.note-row__meta')!.textContent!.split('·')[1]!.trim()));
+
+test("a note's subject leads to every note on it, and the index narrows to one subject", async ({ page }) => {
+  await page.goto('/field-notes/what-does-an-ai-agent-actually-cost/');
+  const subject = page.locator('.article-meta').getByRole('link', { name: 'Pricing' });
+  await subject.click();
+  await expect(page).toHaveURL(/\/field-notes\/#topic-pricing$/);
+  const pricing = page.getByRole('radio', { name: /^Pricing, \d+ notes?$/ });
+  await expect(pricing).toBeChecked();
+  const count = Number((await pricing.getAttribute('aria-label'))!.match(/\d+/)![0]);
+  expect(await shownSubjects(page)).toEqual(Array(count).fill('Pricing'));
+  // It lands on the subjects, below the fixed bar, with the first note in view.
+  const group = page.getByRole('group', { name: 'Browse by subject' });
+  const top = (await group.boundingBox())!.y;
+  expect(top).toBeGreaterThan(40);
+  expect(top).toBeLessThan(200);
+
+  // Another subject, then all of them again; the address follows so it can be shared.
+  await page.getByRole('radio', { name: /^Websites, / }).click();
+  await expect(page).toHaveURL(/#topic-websites$/);
+  await expect(page.getByRole('status')).toHaveText(/^Showing \d+ notes on Websites\.$/);
+  expect(new Set(await shownSubjects(page))).toEqual(new Set(['Websites']));
+  await page.getByRole('radio', { name: /^All, / }).click();
+  await expect(page).toHaveURL(/\/field-notes\/$/);
+  const all = await page.locator('.note-list > a.note-row').count();
+  expect(await shownSubjects(page)).toHaveLength(all);
+  await expectNoSidewaysScroll(page);
+});
+
+test.describe('with JavaScript off, the field notes', () => {
+  test.use({ javaScriptEnabled: false });
+
+  test('still narrow to one subject', async ({ page }) => {
+    await page.goto('/field-notes/');
+    await page.getByRole('radio', { name: /^Social care, / }).click();
+    expect(await shownSubjects(page)).toEqual(['Social care', 'Social care']);
+  });
+});
+
 test("a case study's contents list its sections and their parts, and follow the reader into a part", async ({ page }, info) => {
   await page.goto('/work/care-provider-transformation/');
   const ids = await page.locator('.prose :is(h2, h3)[id]').evaluateAll((hs) => hs.map((h) => h.id));

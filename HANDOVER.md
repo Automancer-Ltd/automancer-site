@@ -7,7 +7,7 @@ It does not outrank anything: `VISION.md` is authority 0 and `SPEC.md` describes
 When this file and `SPEC.md` disagree about what exists, `SPEC.md` and the code are right and this
 file is out of date.
 
-Last updated: 20 November 2026 (field notes: opening line on a laptop's first screen, and Keep reading, t22126).
+Last updated: 21 November 2026 (field notes: browse by subject, and each note's subject links to it, t22532).
 
 ## Where the site stands against the vision
 
@@ -116,13 +116,34 @@ form's fields, limits and what happens after sending were not data an agent coul
 2. **Let siteVerify read the page dates.** Production now publishes when each page's words last
    changed (`contentSha256`, t19631). estate-watch could alert when a page's hash changes without a
    deploy, or when a deploy re-dates pages whose words did not change.
+3. **Give machines the same subjects.** `/field-notes/` now groups notes by subject for people
+   (t22532). `/api/field-notes.json` carries each note's `category` and the index twin
+   (`/field-notes.md`) shows no subject at all; neither has a list of subjects with counts, so an agent cannot ask "which notes are about pricing?" without reading
+   every note. A `topics` array (label, slug, count, the `/field-notes/#topic-<slug>` address) read
+   from `noteTopics` would keep both views equal. Also worth a look: six of the eleven subjects
+   hold one note each; merging labels is an editorial choice (visible wording), not an agent's.
 
-3. **Close the gap above a field note's first paragraph on phones.** At 390px the article header's
-   spectrum rule is followed by about 130px of empty space before the body starts, so the first
-   screen shows the title and little else. Measure the header-to-body spacing against the case
-   studies' and tighten it on narrow screens only; show before/after.
+The former cache and release-note slices shipped in PRs #164 and #165 respectively. The former
+"gap above a field note's first paragraph on phones" slice is dropped from the list: t22126
+measured every note's opening line already on a 390×844 phone's first screen (17 of 17), so the
+gap is a spacing taste call, not lost content.
 
-The former cache and release-note slices shipped in PRs #164 and #165 respectively.
+## Frontend slice: browse field notes by subject (21 November 2026, t22532)
+
+`/field-notes/` was one list of 17 notes, newest first: 7,541 px on a 390 px phone and 6,255 px on
+a laptop. A visitor with one question (pricing, care, websites) had to read every title to find
+the notes on it, and a note's subject label in its header led nowhere.
+
+- The list now opens with "Browse by subject": All plus one button per subject the notes' pages
+  already show, with counts (`src/data/note-topics.ts`). Picking Pricing leaves its 2 notes (the
+  phone page shrinks to about 3,500 px for Websites' 3). It works with scripts off: native radios
+  and CSS `:has()`, one rule per numbered slot.
+- Each note's subject label links to `/field-notes/#topic-<slug>`, which arrives filtered with the
+  buttons in view; the address follows every pick, so a filtered list can be shared.
+- Navigation only (`data-page-words="skip"`): all 30 `contentSha256` values are unchanged.
+  `pnpm run compare`: 34 of 64 views differ, all on `/field-notes/` (the buttons) or a note page
+  (only the dotted underline on its subject); the "General" note and every other page are the same.
+- Undo: revert this slice's merge commit.
 
 ## Slice: share cards for every field note and case study (20 November 2026, t21825)
 

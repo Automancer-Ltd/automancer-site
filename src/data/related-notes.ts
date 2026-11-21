@@ -12,6 +12,8 @@
  * Pure, so the page and tests/related-notes.test.ts rank the same way.
  */
 
+import { UNSPECIFIC_TOPICS } from './note-topics';
+
 export interface RelatableNote {
   id: string;
   /** The topic label the page shows (category, falling back to sector). */
@@ -22,9 +24,6 @@ export interface RelatableNote {
 
 /** How many notes each note offers. */
 export const RELATED_COUNT = 3;
-
-// A topic that means "no particular subject" relates nothing.
-const UNSPECIFIC_TOPICS = new Set(['General']);
 
 export function relatedNotes<T extends RelatableNote>(note: T, all: readonly T[], count = RELATED_COUNT): T[] {
   const tagUse = new Map<string, number>();

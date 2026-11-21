@@ -1,0 +1,49 @@
+/* ─────────────────────── Field notes: browse by subject ───────────────────────
+   One button per subject (src/data/note-topics.ts). Picking one hides every
+   other note with CSS alone, so it works with scripts off; the page's script
+   only keeps the address (#topic-<slug>) and a screen-reader count in step,
+   and on arrival from a note's subject link scrolls the buttons (scroll-margin
+   clears the fixed bar) into view.
+   One rule per numbered slot: tests/note-topics.test.ts holds the count equal
+   to TOPIC_SLOTS, and the build stops if the notes need more subjects. */
+.note-filter { border: 0; margin: 0 0 var(--sp-8); padding: 0; min-width: 0; scroll-margin-top: 6rem; }
+.note-filter__legend { padding: 0; margin-bottom: var(--sp-4); font-family: var(--font-mono); font-size: 0.72rem;
+  font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: var(--faint); }
+.note-filter__chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.note-chip { position: relative; display: inline-flex; align-items: center; gap: 0.6em; min-height: 2.5rem;
+  max-width: 100%; padding: 0.4rem 0.95rem; border: 1px solid var(--border-strong); border-radius: 999px;
+  font-family: var(--font-mono); font-size: 0.78rem; line-height: 1.3; color: var(--muted); cursor: pointer;
+  transition: color var(--dur-1), border-color var(--dur-1), background-color var(--dur-1); }
+.note-chip input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.note-chip__n { color: var(--faint); font-size: 0.72rem; }
+.note-chip:hover { color: var(--white); border-color: var(--g-500); }
+.note-chip:has(input:checked) { background: var(--white); border-color: var(--white); color: var(--black); }
+.note-chip:has(input:checked) .note-chip__n { color: var(--g-600); }
+.note-chip:has(input:focus-visible) { outline: 2px solid var(--white); outline-offset: 3px; }
+
+.notes:has([data-topic-pick="1"]:checked) .note-row:not([data-topic-slot="1"]),
+.notes:has([data-topic-pick="2"]:checked) .note-row:not([data-topic-slot="2"]),
+.notes:has([data-topic-pick="3"]:checked) .note-row:not([data-topic-slot="3"]),
+.notes:has([data-topic-pick="4"]:checked) .note-row:not([data-topic-slot="4"]),
+.notes:has([data-topic-pick="5"]:checked) .note-row:not([data-topic-slot="5"]),
+.notes:has([data-topic-pick="6"]:checked) .note-row:not([data-topic-slot="6"]),
+.notes:has([data-topic-pick="7"]:checked) .note-row:not([data-topic-slot="7"]),
+.notes:has([data-topic-pick="8"]:checked) .note-row:not([data-topic-slot="8"]),
+.notes:has([data-topic-pick="9"]:checked) .note-row:not([data-topic-slot="9"]),
+.notes:has([data-topic-pick="10"]:checked) .note-row:not([data-topic-slot="10"]),
+.notes:has([data-topic-pick="11"]:checked) .note-row:not([data-topic-slot="11"]),
+.notes:has([data-topic-pick="12"]:checked) .note-row:not([data-topic-slot="12"]),
+.notes:has([data-topic-pick="13"]:checked) .note-row:not([data-topic-slot="13"]),
+.notes:has([data-topic-pick="14"]:checked) .note-row:not([data-topic-slot="14"]),
+.notes:has([data-topic-pick="15"]:checked) .note-row:not([data-topic-slot="15"]),
+.notes:has([data-topic-pick="16"]:checked) .note-row:not([data-topic-slot="16"]),
+.notes:has([data-topic-pick="17"]:checked) .note-row:not([data-topic-slot="17"]),
+.notes:has([data-topic-pick="18"]:checked) .note-row:not([data-topic-slot="18"]),
+.notes:has([data-topic-pick="19"]:checked) .note-row:not([data-topic-slot="19"]),
+.notes:has([data-topic-pick="20"]:checked) .note-row:not([data-topic-slot="20"]),
+.notes:has([data-topic-pick="21"]:checked) .note-row:not([data-topic-slot="21"]),
+.notes:has([data-topic-pick="22"]:checked) .note-row:not([data-topic-slot="22"]),
+.notes:has([data-topic-pick="23"]:checked) .note-row:not([data-topic-slot="23"]),
+.notes:has([data-topic-pick="24"]:checked) .note-row:not([data-topic-slot="24"]) {
+  display: none;
+}
