@@ -26,6 +26,17 @@
 There is no database, migration or operator step. Docs-only changes still deploy (the build stamp
 changes); they are cheap.
 
+GitHub requires a pull request and the `checks` result from GitHub Actions before merging to
+`main`, including for administrators. No reviewer approval is required. The deploy audits the
+merged tree, so a pull request need not be rebased just because `main` moved. The `github-pages`
+environment accepts deployments from `main` only. Every workflow checkout disables persisted Git
+credentials, so later build, test and verification steps do not inherit Git authentication.
+
+To read back the branch settings, run `gh api repos/Automancer-Ltd/automancer-site/branches/main/protection`
+with repository administration access. To undo this branch policy change, clear **Do not allow
+bypassing the above settings** and **Require a pull request before merging** on the `main` branch
+protection rule, retaining the existing `checks` requirement.
+
 ## Release notes
 
 `CHANGELOG.md` feeds `/releases/`, so it is product content. Nothing in this repo writes it: the
