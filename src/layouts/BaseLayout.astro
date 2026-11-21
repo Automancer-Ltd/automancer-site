@@ -94,6 +94,18 @@ const SPECULATION_RULES = {
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    {/*
+      Send anyone reading the GitHub Pages copy to automancer.uk (t23224). The edge Worker reads
+      every file from automancer-ltd.github.io/automancer-site (t22925), so that address is public
+      too, and there no Worker adds frame-ancestors, COOP or nosniff: any site could frame the
+      full page, prices and Contact button included. On a *.github.io host this replaces the page
+      with the same path on automancer.uk before anything is drawn; inside a stranger's frame it
+      navigates the frame to automancer.uk, which refuses to be framed. Any other host (production,
+      the preview target, localhost, a translation proxy) is left alone. It runs after the page's
+      CSP meta (src/integrations/early-csp.ts puts that right after the viewport) under its hash.
+      tests/off-site-guard.test.ts runs these exact bytes against each kind of address.
+    */}
+    <InlineScript><script is:inline>if(location.hostname.endsWith('.github.io'))location.replace('https://automancer.uk'+location.pathname.replace(/^\/automancer-site(?=\/|$)/,'')+location.search+location.hash)</script></InlineScript>
     {/* Preload the two self-hosted fonts used above the fold on every page. */}
     <link rel="preload" href={spaceGroteskUrl} as="font" type="font/woff2" crossorigin />
     <link rel="preload" href={syneUrl} as="font" type="font/woff2" crossorigin />
