@@ -24,8 +24,10 @@ describe('/releases timeline', () => {
   it('files each release under its own day and month', () => {
     for (const article of page!.doc.querySelectorAll('article.rel')) {
       const date = api.releases.find((r) => r.version === article.id)!.date;
-      expect(article.parentNode.querySelector('h3 time')?.getAttribute('datetime')).toBe(date);
-      expect(article.parentNode.parentNode.querySelector('h2')?.id).toBe(date.slice(0, 7));
+      const day = article.closest('.rel-day');
+      const month = article.closest('.rel-month');
+      expect(day?.querySelector('h3 time')?.getAttribute('datetime')).toBe(date);
+      expect(month?.querySelector('h2')?.id).toBe(date.slice(0, 7));
     }
   });
 });
