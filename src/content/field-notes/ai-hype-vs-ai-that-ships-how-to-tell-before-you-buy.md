@@ -37,7 +37,7 @@ You do not need to understand how language models work to evaluate an AI vendor.
 
 If you ask us the same questions, our answer is not a brochure. It is the business itself.
 
-We run Automancer on the same kind of systems we build for clients, and we set out openly on [our About page](/about) what is automated and what is not. Our agents make routine, scoped, and reversible decisions autonomously. They track projects lane by lane and flag anything that needs a human before it moves. They monitor software spend and prepare invoices. The website you are reading is run the same way.
+We run Automancer on the same kind of systems we build for clients, and we set out openly on [our About page](/about/) what is automated and what is not. Our agents make routine, scoped, and reversible decisions autonomously. They track projects lane by lane and flag anything that needs a human before it moves. They monitor software spend and prepare invoices. The website you are reading is run the same way.
 
 Just as importantly, we hold a hard line on what agents do not do. Outbound publication and money commitments receive prior human sign-off. Waseem approves and issues every invoice. Bookkeeping remains manual, and we would rather say that plainly than claim otherwise. A human makes every decision and takes every call.
 
@@ -49,7 +49,7 @@ Before you even get to the technical questions, check the vendor's website. Can 
 
 Most automation firms hide their prices behind a discovery call. That makes sense if the fee depends on how big the buyer's budget looks. It makes much less sense if you have a clear, repeatable way of scoping and shipping work.
 
-Sensible, published prices are a discipline signal. They show a vendor knows what the work takes and is not hiding behind vagueness. On [our Services & Pricing page](/services), we publish our starting prices openly: Audit from £450, Workflow Sprint from £1,950, System/Agent Build from £4,500, and AI Ops Partner from £495/mo (cancel anytime). And if you start with an Audit and go on to do a Sprint or a Build with us, the audit fee comes straight off the price.
+Sensible, published prices are a discipline signal. They show a vendor knows what the work takes and is not hiding behind vagueness. On [our Services & Pricing page](/services/), we publish our starting prices openly: Audit from £450, Workflow Sprint from £1,950, System/Agent Build from £4,500, and AI Ops Partner from £495/mo (cancel anytime). And if you start with an Audit and go on to do a Sprint or a Build with us, the audit fee comes straight off the price.
 
 Vagueness about cost rarely turns into precision about engineering once the invoice is paid.
 
