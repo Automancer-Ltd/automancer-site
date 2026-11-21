@@ -1,5 +1,16 @@
 # Release notes
 
+## v2026.11.21.2 — 21 November 2026
+
+Starting an enquiry is simpler, whether you are exploring a service or browsing on your phone.
+
+### Improvements
+
+- Service buttons now open the enquiry form with that service selected. The form shows its starting price, and your choice is included in the message sent to Automancer. You can leave the business name blank.
+- On mobile, Contact is visible in the header, with a compact menu for the other pages.
+- Pages can begin displaying without waiting for a separate stylesheet request.
+
+
 ## v2026.11.21.1 — 21 November 2026
 
 Visitors can now find the field notes that interest them more quickly.
