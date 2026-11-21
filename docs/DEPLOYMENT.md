@@ -12,7 +12,9 @@
      exact bytes before uploading them as the Pages artifact (a merge can produce a tree no pull
      request tested; there is no separate CI run on `main`). It holds no Pages or OIDC permission:
      only `deploy` can publish;
-   - `deploy` publishes it with `actions/deploy-pages`, then runs
+   - `deploy` downloads the audited archive by its artifact ID, signs its SHA-256 digest
+     with GitHub artifact attestations and verifies the signature, workflow and exact
+     `main` commit before publishing the archive with `actions/deploy-pages`. Then it runs
      `ops/verify-production.sh --expected-revision "$GITHUB_SHA" https://automancer.uk`
      against production itself. A red verify is a red release;
    - the `journey` job then runs the same Playwright visitor journey against `https://automancer.uk`
@@ -301,6 +303,23 @@ If the domain ever needs mail, replace all three records in one change and remov
 Revert the commit and merge the revert: it deploys and verifies like any change. This path was
 rehearsed end to end on the preview target on 18 October 2026 (candidate served, reverted, the
 starting tree served byte-identical, the candidate-only file back to 404).
+
+## Verify the signed Pages archive
+
+While GitHub retains the artifact (one day), download it from the deploy run and check the
+same archive against the attestation published by that run. Use the full deploy commit shown
+by the run as `commit`.
+
+```sh
+repo=Automancer-Ltd/automancer-site
+gh run download "$run" --repo "$repo" --name github-pages --dir ./pages-artifact
+gh attestation verify ./pages-artifact/artifact.tar --repo "$repo" \
+  --signer-workflow "$repo/.github/workflows/deploy.yml" \
+  --source-ref refs/heads/main --source-digest "$commit"
+```
+
+If signing or verification fails during a deploy, the job stops before calling GitHub Pages.
+The previous site remains live.
 
 ## Things that look wrong and are not
 
