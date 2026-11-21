@@ -246,7 +246,7 @@ test('the GitHub Pages copy sends readers to automancer.uk and cannot be framed'
     await context.route('https://automancer.uk/**', (route) => route.fulfill({
       contentType: 'text/html',
       headers: { 'content-security-policy': "frame-ancestors 'none'" },
-      body: '<!doctype html><title>Services | Automancer</title><h1>automancer.uk</h1>',
+      body: '<!doctype html><title>Services &amp; pricing | Automancer</title><h1>automancer.uk</h1>',
     }));
   }
   await context.route('https://framer.example/**', (route) => route.fulfill({
@@ -257,7 +257,7 @@ test('the GitHub Pages copy sends readers to automancer.uk and cannot be framed'
   await page.goto(`${PAGES}/services/?service=workflow-sprint#offers`);
   await page.waitForURL('https://automancer.uk/**');
   expect(page.url()).toBe('https://automancer.uk/services/?service=workflow-sprint#offers');
-  await expect(page).toHaveTitle(/Services \| Automancer/);
+  await expect(page).toHaveTitle(/^Services .*\| Automancer$/);
 
   await page.goto('https://framer.example/');
   const frame = page.frames().find((f) => f !== page.mainFrame())!;
