@@ -12,6 +12,7 @@
 //   - A legacy *.html URL gets one real 301 to its page.
 //   - Every HTML page has the lock the build puts in it for the GitHub Pages
 //     copy taken out (OFFSITE_LOCK), so it is drawn only here.
+//   - The display font's HTML preload is also sent in the response headers.
 //   - Every response, HTML, Markdown, JSON, error or redirect, carries the
 //     same SECURITY_HEADERS, so people and machines get the same answers.
 //   - Fingerprinted files are cached for a year and fonts and images for a
@@ -48,6 +49,9 @@ const PAGE_LINKS = [
   '</openapi.json>; rel="service-desc"; type="application/vnd.oai.openapi+json"',
   '</.well-known/api-catalog>; rel="api-catalog"',
 ].join(', ');
+// BaseLayout preloads the content-hashed Syne font just after the CSP and lock.
+const DISPLAY_FONT_PRELOAD = /<link rel="preload" href="(\/_astro\/syne\.[\w-]{8}\.woff2)" as="font" type="font\/woff2" crossorigin>/;
+const PRELOAD_SCAN_BYTES = 4096;
 
 // Sent on every response. ops/verify-production.sh reads these back from
 // production, so a change here changes the check there too. HSTS matches the
@@ -267,6 +271,47 @@ export function unlocked(body) {
     .pipeThrough(new TextEncoderStream());
 }
 
+/**
+ * Read the early head to get the current font URL, then replay those bytes and stream the rest.
+ * The HTML preload still works if the link is absent or farther into the page.
+ */
+async function withDisplayFontPreload(body, response) {
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  const chunks = [];
+  let remaining = PRELOAD_SCAN_BYTES;
+  let prefix = '';
+  let href;
+  let done = false;
+  while (remaining > 0) {
+    const next = await reader.read();
+    done = next.done;
+    if (done) break;
+    chunks.push(next.value);
+    const bytes = next.value.subarray(0, remaining);
+    remaining -= bytes.length;
+    prefix += decoder.decode(bytes, { stream: true });
+    const head = prefix.split(/<\/head>|<body[ >]/, 1)[0];
+    href = DISPLAY_FONT_PRELOAD.exec(head)?.[1];
+    if (href || head.length < prefix.length) break;
+  }
+  const replay = new ReadableStream({
+    start(controller) {
+      for (const chunk of chunks) controller.enqueue(chunk);
+      if (done) controller.close();
+    },
+    async pull(controller) {
+      const next = await reader.read();
+      if (next.done) controller.close();
+      else controller.enqueue(next.value);
+    },
+    cancel(reason) { return reader.cancel(reason); },
+  });
+  const out = new Response(replay, response);
+  if (href) out.headers.append('Link', `<${href}>; rel=preload; as=font; type="font/woff2"; crossorigin`);
+  return out;
+}
+
 export default {
   async fetch(request) {
     return secured(await respond(request));
@@ -341,7 +386,10 @@ async function respond(request) {
   }
   if (html && out.body) {
     // The page is drawn here, on automancer.uk, and nowhere else (OFFSITE_LOCK).
-    const open = new Response(unlocked(out.body), out);
+    const body = unlocked(out.body);
+    const open = res.ok && request.method === 'GET'
+      ? await withDisplayFontPreload(body, out)
+      : new Response(body, out);
     open.headers.delete('Content-Length');
     return open;
   }
