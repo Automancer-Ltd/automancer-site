@@ -1,8 +1,4 @@
 ---
-/**
- * Primary navigation. Machine-voice (mono) links, the arcane sigil mark,
- * a spectral underline on hover/active. Mobile menu is a full-screen overlay.
- */
 const navLinks = [
   { href: '/services/', label: 'Services' },
   { href: '/work/', label: 'Work' },
@@ -11,8 +7,13 @@ const navLinks = [
 ];
 
 const currentPath = Astro.url.pathname;
-const isActive = (href: string) =>
-  href === '/' ? currentPath === '/' : currentPath.startsWith(href);
+const isActive = (href: string) => currentPath.startsWith(href);
+const mobileLinks = [{ href: '/', label: 'Home' }, ...navLinks];
+const mobileCurrent = (href: string) => {
+  if (currentPath === href) return 'page';
+  if (href !== '/' && isActive(href)) return 'location';
+  return undefined;
+};
 ---
 
 <header class="nav" role="banner">
@@ -35,18 +36,15 @@ const isActive = (href: string) =>
     <a href="/contact/" class="btn btn--sm"><span>Contact</span></a>
   </nav>
 
-  <button class="hamburger" aria-label="Open menu" aria-expanded="false" aria-controls="mobile-menu">
-    <span aria-hidden="true"></span><span aria-hidden="true"></span><span aria-hidden="true"></span>
-  </button>
+  <div class="nav__actions">
+    <a href="/contact/" class="nav__contact" aria-current={mobileCurrent('/contact/')}>Contact</a>
+    <details class="nav__disclosure">
+      <summary class="nav__toggle" aria-controls="mobile-menu">Menu</summary>
+      <nav class="mobile-menu" id="mobile-menu" aria-label="Mobile menu">
+        {mobileLinks.map((link) => (
+          <a href={link.href} class="mobile-menu__link" aria-current={mobileCurrent(link.href)}>{link.label}</a>
+        ))}
+      </nav>
+    </details>
+  </div>
 </header>
-
-<dialog class="mobile-menu" id="mobile-menu" aria-label="Menu">
-  <button class="mobile-menu__close" aria-label="Close menu">&times;</button>
-  <a href="/" class="mobile-menu__link"><span class="sys">00</span>Home</a>
-  {navLinks.map((link, i) => (
-    <a href={link.href} class="mobile-menu__link">
-      <span class="sys">{String(i + 1).padStart(2, '0')}</span>{link.label}
-    </a>
-  ))}
-  <a href="/contact/" class="mobile-menu__link"><span class="sys">05</span>Contact</a>
-</dialog>

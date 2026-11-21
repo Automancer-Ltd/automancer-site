@@ -302,7 +302,7 @@ test('the enquiry form starts on the first screen, and still works with text at 
   await page.evaluate(() => document.documentElement.style.setProperty('font-size', '200%'));
   await expectNoSidewaysScroll(page);
   if (info.project.name === 'mobile') {
-    const menu = page.getByRole('button', { name: 'Open menu' });
+    const menu = page.getByRole('banner').getByText('Menu', { exact: true });
     await expect(menu).toBeInViewport({ ratio: 1 });
     await menu.click();
     await expect(page.locator('#mobile-menu')).toBeVisible();
@@ -320,12 +320,12 @@ test('visitor finds the prices and reaches us through the contact form', async (
     }
   });
 
-  // Home -> Services through the real navigation (the drawer on a phone).
+  // Home -> Services through the header navigation.
   await page.goto('/');
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
   await expectPainted(page, `${info.project.name}-home`);
   if (phone) {
-    await page.getByRole('button', { name: 'Open menu' }).click();
+    await page.getByRole('banner').getByText('Menu', { exact: true }).click();
     await expect(page.locator('#mobile-menu')).toBeVisible();
     await page.locator('#mobile-menu').getByRole('link', { name: 'Services' }).click();
   } else {
@@ -383,41 +383,70 @@ test('visitor finds the prices and reaches us through the contact form', async (
   expect(errors, 'uncaught page errors').toEqual([]);
 });
 
-test('the phone menu keeps keyboard focus inside it and hands it back on Close or Escape', async ({ page }, info) => {
-  test.skip(info.project.name !== 'mobile', 'the menu button shows only on a phone');
-  await page.goto('/');
-  // Not by role: while the menu is open the page behind it, this button included, is inert.
-  const button = page.locator('button[aria-controls="mobile-menu"]');
-  const menu = page.locator('#mobile-menu');
-  const focusOutsideMenu = () =>
-    menu.evaluate((m) => document.activeElement !== document.body && !m.contains(document.activeElement));
+test('the phone menu follows keyboard focus and dismisses without covering the whole page', async ({ page }, info) => {
+  test.skip(info.project.name !== 'mobile', 'the menu button shows only on small screens');
+  await page.goto('/work/fast-small-business-websites/');
+  const trigger = page.getByRole('banner').getByText('Menu', { exact: true });
+  const menu = page.getByRole('navigation', { name: 'Mobile menu' });
+  const contact = page.getByRole('banner').getByRole('link', { name: 'Contact' });
+  await expect(contact).toBeInViewport({ ratio: 1 });
 
-  await button.click();
+  await trigger.focus();
+  await page.keyboard.press('Enter');
   await expect(menu).toBeVisible();
-  await expect(button).toHaveAttribute('aria-expanded', 'true');
-  // The page behind an open menu cannot take focus, by script or by Tab in either direction
-  // (Tab may visit the browser's own controls, where activeElement is <body>).
-  await page.locator('main a').first().evaluate((a: HTMLElement) => a.focus());
-  expect(await focusOutsideMenu(), 'a link behind the menu took focus').toBe(false);
-  const stops = await menu.locator('a, button').count();
-  for (const key of ['Tab', 'Shift+Tab']) {
-    for (let i = 0; i <= stops + 1; i++) {
-      await page.keyboard.press(key);
-      expect(await focusOutsideMenu(), `${key} reached the page behind the menu`).toBe(false);
-    }
-  }
+  await expect(menu.getByRole('link', { name: 'Work' })).toHaveAttribute('aria-current', 'location');
 
-  await menu.getByRole('button', { name: 'Close menu' }).click();
-  await expect(menu).toBeHidden();
-  await expect(button).toHaveAttribute('aria-expanded', 'false');
-  await expect(button).toBeFocused();
-
-  await button.click();
-  await expect(menu).toBeVisible();
+  await page.keyboard.press('Tab');
+  await expect(menu.getByRole('link', { name: 'Home' })).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(menu).toBeHidden();
-  await expect(button).toHaveAttribute('aria-expanded', 'false');
-  await expect(button).toBeFocused();
+  await expect(trigger).toBeFocused();
+
+  await page.keyboard.press('Enter');
+  // Shift+Tab leaves the disclosure and reaches the preceding header link.
+  await page.keyboard.press('Shift+Tab');
+  await expect(contact).toBeFocused();
+  await expect(menu).toBeHidden();
+
+  await trigger.click();
+  // A touch below the panel reaches the page and dismisses the expanded navigation.
+  await page.touchscreen.tap(20, 600);
+  await expect(menu).toBeHidden();
+
+  await trigger.click();
+  await page.setViewportSize({ width: 1280, height: 844 });
+  await expect(page.getByRole('navigation', { name: 'Primary' })).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(trigger).toBeVisible();
+  await expect(menu).toBeHidden();
+
+  await contact.click();
+  await expect(page).toHaveURL(/\/contact\/$/);
+  await expect(contact).toHaveAttribute('aria-current', 'page');
+});
+
+test.describe('phone navigation without JavaScript', () => {
+  test.use({ javaScriptEnabled: false });
+
+  test('the phone header still reaches Services and Contact at 320px with enlarged text', async ({ page }, info) => {
+    test.skip(info.project.name !== 'mobile', 'the menu button shows only on small screens');
+    await page.setViewportSize({ width: 320, height: 640 });
+    await page.goto('/work/');
+    await page.evaluate(() => document.documentElement.style.setProperty('font-size', '200%'));
+    const trigger = page.getByRole('banner').getByText('Menu', { exact: true });
+    const contact = page.getByRole('banner').getByRole('link', { name: 'Contact' });
+    await expect(contact).toBeInViewport({ ratio: 1 });
+    await expect(trigger).toBeInViewport({ ratio: 1 });
+    await expectNoSidewaysScroll(page);
+    await trigger.click();
+    const menu = page.getByRole('navigation', { name: 'Mobile menu' });
+    await expect(menu).toBeInViewport({ ratio: 1 });
+    await expect(menu.getByRole('link', { name: 'Work' })).toHaveAttribute('aria-current', 'page');
+    await menu.getByRole('link', { name: 'Services' }).click();
+    await expect(page).toHaveURL(/\/services\/$/);
+    await contact.click();
+    await expect(page).toHaveURL(/\/contact\/$/);
+  });
 });
 
 test('with reduced motion, the form jumps straight to its error and its confirmation', async ({ page }) => {
