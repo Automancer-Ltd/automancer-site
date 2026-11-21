@@ -14,7 +14,7 @@ gets a real 404 with a way back.
 - `the phone menu follows keyboard focus and dismisses without covering the whole page`.
 - `the phone header still reaches Services and Contact at 320px with enlarged text` with JavaScript disabled.
 - `home actions are visible from the first frame and the headline holds its height while Syne loads`.
-- `the price ladder counts its rungs 01 to 04 in order`.
+- `homepage prices are one scroll away and link to the matching offer`.
 - `a page that does not exist is a real 404 with a way back`.
 - `every page keeps its words on screen at 320px and with text at 200%` (every sitemap page).
 - Vitest on `dist/`: `tests/pages.test.ts` (one `h1`, title, description, canonical, JSON-LD) and

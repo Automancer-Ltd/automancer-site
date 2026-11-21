@@ -108,3 +108,8 @@ export function serviceById(id: string): ServiceOffering {
   if (!found) throw new Error(`No published service with id "${id}"`);
   return found;
 }
+
+/** The existing offer fragment for this service in the published service ladder. */
+export function serviceOfferAnchor(id: string): string {
+  return `offer-${services.indexOf(serviceById(id)) + 1}`;
+}

@@ -3,11 +3,13 @@
 **The journey.** A visitor compares the four offers' starting prices at the top of `/services/`,
 jumps to one, reads what is included and goes on to `/contact/`.
 
-**Reach it.** `/services/` (header link), the offer anchors `#offer-1` to `#offer-4`.
+**Reach it.** The four prices below the homepage hero link straight to `/services/#offer-1`
+through `/services/#offer-4`. Compare all services and the header link open the full overview.
 
 **Proved by:**
 
 - `visitor can compare starting prices immediately and jump to each offer`.
+- `homepage prices are one scroll away and link to the matching offer`.
 - `visitor finds the prices and reaches us through the contact form`: every published from-price
   from `src/data/business.ts` is visible on the page.
 - `enlarged text keeps the headline, service names and prices inside their panels`.
