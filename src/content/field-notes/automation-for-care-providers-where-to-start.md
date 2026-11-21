@@ -43,10 +43,10 @@ automation, from scheduling to compliance tracking to QA reporting, is
 only as trustworthy as the record it's built on.
 
 We proved this out on a real build: a single roster import for a
-~600-person supported-living provider turned messy client CSVs into
-**294 carers and 293 service users** as clean, canonical, auditable
+[~600-person supported-living provider](/work/care-provider-transformation/) turned messy client CSVs into
+[**294 carers and 293 service users**](/work/care-provider-transformation/#source-carer-record-count) as clean, canonical, auditable
 records. Identity matching (comparison logic that decides "same person"
-across systems) **auto-resolved 274 of 418** review candidates, so a human
+across systems) [**auto-resolved 274 of 418**](/work/care-provider-transformation/#source-identity-matching-auto-resolved) review candidates, so a human
 only had to look at the ones that were genuinely ambiguous. Get this layer
 right and everything you build afterward gets easier. Skip it and you're
 automating on top of duplicate data, which just makes the mess move
@@ -59,8 +59,8 @@ value target, because it's the thing that repeats constantly and fails
 quietly. Supervisions and spot checks are a good example: they're a
 regulatory requirement, they happen on a cycle, and tracking that cycle by
 hand across a growing workforce is exactly the kind of job a machine does
-better than a person with a full diary. On the same build, **588
-supervision and spot-check schedules were created automatically** once the
+better than a person with a full diary. On the same build, [**588
+supervision and spot-check schedules were created automatically**](/work/care-provider-transformation/#source-supervision-schedule-count) once the
 canonical records existed underneath them.
 
 ## QA and compliance evidence come last, and they come easier than you'd think

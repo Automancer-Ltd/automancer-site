@@ -7,7 +7,7 @@ It does not outrank anything: `VISION.md` is authority 0 and `SPEC.md` describes
 When this file and `SPEC.md` disagree about what exists, `SPEC.md` and the code are right and this
 file is out of date.
 
-Last updated: 21 November 2026 (release notes as a dated timeline, t23438).
+Last updated: 21 November 2026 (every case-study figure links to its evidence, t23577).
 
 ## Where the site stands against the vision
 
@@ -20,7 +20,7 @@ disagree. Against that, today:
 | A UK business reads pages that answer plainly and publish the price | Built. `/services/` prices render from `src/data/business.ts`; a build test fails if a from-price in the output is not a published `priceFrom` (`v2026.10.14.1`, PR #69). |
 | An agent can quote, price and act on it correctly | Built. The `/api/*.json` endpoints in one registry (`src/data/api.ts`) behind the discovery document, the OpenAPI 3.1 spec and `/developers`; `agent.json`, `security.txt`, `llms.txt`, Markdown twins and full-content feeds. `/api/services.json` `includes` is the same included list `/services/` shows, and the build fails if they disagree. Acting still means email: the form needs a browser security check, and since 12 Nov 2026 that is data: `/api/enquiry.json` names email as the route an agent can complete, with the form's fields, limits and an email template that asks the same questions. |
 | What a machine is told never differs from what a person is shown | Enforced for the facts that matter most: prices, service names, each service's included list, page inventory, JSON-LD, twins and feeds all read shared modules, and dist-level tests compare the payloads with the pages. |
-| Its own honesty audited | Partly. Production is verified after every deploy and every 30 minutes (`ops/verify-production.sh`), including the revision served, the legal block, TLS and the machine surfaces. Nothing yet audits the *claims* on the pages against the truth layer continuously. Since t23334 a person sees the same evidence a machine gets: every case-study figure the claims registry backs links to the dossier line behind it. |
+| Its own honesty audited | Partly. Production is verified after every deploy and every 30 minutes (`ops/verify-production.sh`), including the revision served, the legal block, TLS and the machine surfaces. Nothing yet audits the *claims* on the pages against the truth layer continuously. Since t23334 a person sees the same evidence a machine gets: every case-study figure the claims registry backs links to the dossier line behind it. Since t23577 that holds wherever a figure is repeated (home, /work/, /services/, /about/, field notes), and the build fails on a page that states a registered figure without a link to its evidence (`tests/figure-sources.test.ts`). Numbers with no registry entry are not caught: see the next slices. |
 | Published identifiers are promises | **Built in this slice.** The promise is now a document an agent can fetch and check: `/api/stability.json`. |
 | Nothing reaches the public without Waseem | Honoured: this repository ships the site; it never speaks to a prospect itself. |
 
@@ -125,6 +125,31 @@ The former cache and release-note slices shipped in PRs #164 and #165 respective
 "gap above a field note's first paragraph on phones" slice is dropped from the list: t22126
 measured every note's opening line already on a 390×844 phone's first screen (17 of 17), so the
 gap is a spacing taste call, not lost content.
+
+## Next slice: every figure links to its evidence (21 November 2026, t23577)
+
+t23334 linked the ten registry-backed figures on the case studies' stat bands to their evidence,
+but the same figures are repeated across the site: the home page's and /work/'s case cards, the
+/services/ Build offer, /about/, the case studies' own prose and six field notes, 37 mentions in
+all with no route to their source. A buyer landing on a field note from a search read "294 carers
+and 293 service users" with nothing behind it.
+
+- Each figure now links to its row on the case study (rows named after their first claim, so links
+  survive a reordered band); the client line's size and the ~18 workstreams have rows too
+  (`facts`), and the hero links to its sources.
+- Case cards: the title's link is stretched over the card, so the card still opens its study from
+  anywhere, and a Sources link sits beside Read.
+- `/api/claims.json` adds `evidenceUrl` per claim; `/api/case-studies.json` adds `facts`.
+- `tests/figure-sources.test.ts` reads every page and fails on a registered figure shown without a
+  link to its evidence; it failed when one link on /services/ was pointed at the study's top.
+- `/` grew 1,651 B; `LAYOUT_MEASURED` re-measured (docs/PERFORMANCE.md).
+- Undo: revert this slice's merge commit.
+
+Next for this thread: numbers on the site with no registry entry are not checked at all. The
+manufacturer card's statline ("74 customers · 888 products · 1,263 price rules"), the
+reconciliation note's "500 visits, 175 medication alerts and 416 names" and the website case study's
+figures have no claim in automancer-bd `data/claims.toml`. Add them there if the dossier holds
+them (then to `src/data/claims.ts` and `MENTIONS`), or drop them from the pages.
 
 ## Frontend slice: release notes as a dated timeline (21 November 2026, t23438)
 

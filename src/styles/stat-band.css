@@ -47,3 +47,6 @@
   line-height: 1.6; color: var(--ink); }
 .evidence__quote p { margin: 0; }
 .evidence__machine { margin: var(--sp-6) 0 0; font-size: var(--t--1); color: var(--muted); }
+.evidence { scroll-margin-top: 4rem; }
+/* The hero's link to the evidence for every figure on the page, the client line's included (t23577). */
+.case-hero__src { display: block; width: fit-content; margin-top: var(--sp-4); }

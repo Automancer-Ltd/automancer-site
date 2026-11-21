@@ -87,7 +87,7 @@ do the one thing your business actually depends on and the roadmap answer is
 through before we built their [trade
 portal](/work/manufacturer-trade-portal/). Account-specific pricing that used to
 live in people's heads is now computed by a rules engine, with ordering,
-production and dispatch in one flow, Phase 1 signed off in April 2026.
+production and dispatch in one flow, [Phase 1 signed off in April 2026](/work/manufacturer-trade-portal/#source-manufacturer-portal-phase-status).
 Different sector, same question: at what point does renting someone else's
 approximation cost more than owning the real thing?
 

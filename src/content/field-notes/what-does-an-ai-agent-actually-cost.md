@@ -60,8 +60,8 @@ you from a bad estimate. They're protecting their pricing from comparison.
 ## What that looks like against a real number
 
 We built a self-service AI product for a diversity & inclusion consultancy
-that replaced a **£300–400 consultant engagement** with a **£10–80
-self-service task, completed in minutes instead of hours**. That's not a
+that replaced a [**£300–400 consultant engagement**](/work/debiaser-ai-product/#source-debiaser-per-engagement-cost) with a [**£10–80
+self-service task, completed in minutes instead of hours**](/work/debiaser-ai-product/#source-debiaser-per-engagement-cost). That's not a
 cost estimate for a generic AI agent. It's the real economics of one
 [shipped product](/work/debiaser-ai-product/), included here because it's a
 useful sanity check: a well-built AI product doesn't just move a task from

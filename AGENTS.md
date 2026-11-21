@@ -125,6 +125,7 @@ ops/preview/                the non-production preview target
 - `/privacy/` and `/terms/` are `legalNoMirror` and hash-pinned (`tests/legal-integrity.test.ts`);
   their wording changes only on Waseem's instruction.
 - The contact form never shows a raw API error code (`tests/contact-errors.test.ts`).
+- A case-study figure the claims registry backs links to its evidence wherever a page states it: its row on the study (`/work/<slug>/#source-<first-claim-id>`) or the study's `#sources` (`tests/figure-sources.test.ts`, t23577). A new claim needs a pattern in that test's `MENTIONS` and a place on a study (`stats` or `facts`), or the build stops.
 - Page dates: `lastModified` in `/api/pages.json` and the sitemap is when a page's words last
   changed live, carried forward from production by the deploy (`src/integrations/page-dates.ts`,
   `tests/page-dates.test.ts`). Keep build-varying text (the deploy clock, the commit) out of `<main>`.

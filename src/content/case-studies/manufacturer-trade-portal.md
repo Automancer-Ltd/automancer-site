@@ -32,7 +32,7 @@ We built a trade portal covering the full order journey, alongside a redesigned 
 - **For trade customers:** passwordless email sign-in, their own agreed prices across the catalogue, new order placement, and two-click repeat ordering.
 - **For staff:** one workspace to manage customers, products, price rules, incoming orders, production jobs, dispatches, and draft invoices.
 
-At the centre is a pricing calculator that handles five units of measure — feet, metres, square feet, square metres, and individual items — plus bulk price updates and Irish cross-border orders.
+At the centre is a pricing calculator that handles [five units of measure](/work/manufacturer-trade-portal/#source-manufacturer-portal-pricing-units) — feet, metres, square feet, square metres, and individual items — plus bulk price updates and Irish cross-border orders.
 
 We loaded the system from the client's existing price-list spreadsheet: 74 customers, 888 products, and 1,263 price rules ready on day one.
 
@@ -42,7 +42,7 @@ We delivered Phase 1 as a working order-to-dispatch system in a secure review en
 
 ## Results
 
-- **Phase 1 signed off** in April 2026.
+- [**Phase 1 signed off** in April 2026](/work/manufacturer-trade-portal/#source-manufacturer-portal-phase-status).
 - Order, production, dispatch, and draft invoicing run in **one workflow**.
-- Customer-specific prices are **calculated automatically** across five units of measure.
+- Customer-specific prices are **calculated automatically** across [five units of measure](/work/manufacturer-trade-portal/#source-manufacturer-portal-pricing-units).
 - Loaded with 74 customers, 888 products, and 1,263 price rules from the client's real records.
