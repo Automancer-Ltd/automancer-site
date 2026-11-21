@@ -18,7 +18,8 @@ Syne leaves out U+007E (~): its tilde is a dot-sized squiggle that reads
 "~600" as "·600", so the tilde falls through to Space Grotesk.
 
 tests/fonts.test.ts fails when a built page shows a character a font lacks.
-To add one: put it in charset.txt, rerun this script, commit both.
+To add one: put it in charset.txt, rerun this script and ops/fonts/fallbacks.py
+(the fallback faces are sized to these files), commit all three.
 """
 
 from io import BytesIO
