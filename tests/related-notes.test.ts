@@ -12,8 +12,8 @@ import { RELATED_COUNT } from '../src/data/related-notes';
 
 const notes = contentPages().filter((p) => /^\/field-notes\/[^/]+\/$/.test(p.route));
 const byRoute = new Map(notes.map((p) => [p.route, p]));
-// The topic label the note's header shows: date · topic · author.
-const topicOf = (page: BuiltPage) => page.doc.querySelectorAll('.article-meta > span:not(.sep)')[1]?.text.trim() ?? '';
+// The topic label the note's header shows: date · topic (a link, unless "General") · author.
+const topicOf = (page: BuiltPage) => page.doc.querySelectorAll('.article-meta > :not(.sep)')[1]?.text.trim() ?? '';
 const offered = (page: BuiltPage) =>
   page.doc.querySelectorAll('nav[data-read-next] .note-list a').map((a) => a.getAttribute('href') ?? '');
 

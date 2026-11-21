@@ -1,6 +1,9 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import '../../styles/note-rows.css';
+import '../../styles/note-filter.css';
+import InlineScript from '../../components/InlineScript.astro';
+import { noteTopic, noteTopics } from '../../data/note-topics';
 import Bead from '../../components/Bead.astro';
 import SpectrumGlow from '../../components/SpectrumGlow.astro';
 import { getCollection } from 'astro:content';
@@ -12,6 +15,10 @@ const isProd = import.meta.env.PROD;
 const posts = (await getCollection('field-notes'))
   .filter((e) => !(isProd && e.data.draft))
   .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
+
+// "Browse by subject": one button per subject the notes' pages already show.
+const topics = noteTopics(posts.map((p) => noteTopic(p.data)));
+const slotOf = new Map(topics.map((t) => [t.label, t.slot]));
 
 const fmt = (d: Date) =>
   d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -36,13 +43,31 @@ const fmt = (d: Date) =>
   <section class="section on-near">
     <div class="wrap">
       {posts.length > 0 ? (
-        <>
+        <div class="notes">
+          {/* Navigation, not the page's words: it changes no page date (data-page-words). */}
+          <fieldset class="note-filter" data-note-filter data-page-words="skip">
+            <legend class="note-filter__legend">Browse by subject</legend>
+            <div class="note-filter__chips">
+              <label class="note-chip">
+                <input type="radio" name="topic" id="pick-all" value="" checked aria-label={`All, ${posts.length} notes`} />
+                <span>All</span><span class="note-chip__n">{posts.length}</span>
+              </label>
+              {topics.map((t) => (
+                <label class="note-chip">
+                  <input type="radio" name="topic" id={`pick-${t.slug}`} value={t.slug} data-topic-pick={t.slot} data-count={t.count}
+                    aria-label={`${t.label}, ${t.count} ${t.count === 1 ? 'note' : 'notes'}`} />
+                  <span>{t.label}</span><span class="note-chip__n">{t.count}</span>
+                </label>
+              ))}
+            </div>
+            <p class="sr-only" role="status" data-note-status></p>
+          </fieldset>
           <div class="note-list">
             {posts.map((p) => (
-              <a href={`/field-notes/${p.id}/`} class="note-row">
+              <a href={`/field-notes/${p.id}/`} class="note-row" data-topic-slot={slotOf.get(noteTopic(p.data))}>
                 <div class="note-row__head">
                   <h2 class="note-row__title">{p.data.title}</h2>
-                  <span class="note-row__meta">{fmt(p.data.date)} · {p.data.category ?? p.data.sector}{p.data.draft ? ' · draft' : ''}</span>
+                  <span class="note-row__meta">{fmt(p.data.date)} · {noteTopic(p.data)}{p.data.draft ? ' · draft' : ''}</span>
                 </div>
                 <p class="note-row__sum">{p.data.summary ?? p.data.description}</p>
                 <span class="note-row__read">Read the note <span class="btn__arrow">→</span></span>
@@ -53,7 +78,36 @@ const fmt = (d: Date) =>
           <p class="form__micro" style="margin-top: var(--sp-8)">
             // more notes ship as the work does — we only write about things we've actually built.
           </p>
-        </>
+          {/* Keeps the address and a screen-reader count in step with the pick; the
+              filtering itself is CSS (src/styles/note-filter.css). */}
+          <InlineScript><script is:inline>
+(function () {
+  var box = document.querySelector('[data-note-filter]');
+  if (!box) return;
+  var status = box.querySelector('[data-note-status]');
+  var total = document.querySelectorAll('.note-row').length;
+  // #topic-<slug> picks a subject on arrival (each note's subject links here)
+  // and brings the buttons into view; the hash names no element, so a
+  // browser without this script lands at the top with every note showing.
+  var fromHash = function () {
+    var input = location.hash.indexOf('#topic-') === 0 && document.getElementById('pick-' + location.hash.slice(7));
+    if (!input || input.name !== 'topic') return;
+    input.checked = true;
+    if (!document.prerendering) box.scrollIntoView({ block: 'start', behavior: 'instant' });
+  };
+  fromHash();
+  addEventListener('hashchange', fromHash);
+  document.addEventListener('prerenderingchange', fromHash);
+  box.addEventListener('change', function (e) {
+    var input = e.target, n = input.getAttribute('data-count');
+    history.replaceState(null, '', input.value ? '#topic-' + input.value : location.pathname + location.search);
+    status.textContent = input.value
+      ? 'Showing ' + n + (n === '1' ? ' note' : ' notes') + ' on ' + input.nextElementSibling.textContent + '.'
+      : 'Showing all ' + total + ' notes.';
+  });
+})();
+</script></InlineScript>
+        </div>
       ) : (
         <div class="empty-state reveal">
           <span class="sys sys--spectral"><Bead />writing in progress</span>

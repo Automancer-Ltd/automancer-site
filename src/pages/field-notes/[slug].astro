@@ -13,6 +13,7 @@ import { formatGBP, serviceById } from '../../data/business';
 import { cardAlt, cardPath, fieldNoteCard } from '../../data/share-cards';
 import { getNotes } from '../../data/site-content';
 import { relatedNotes } from '../../data/related-notes';
+import { noteTopic, topicHref } from '../../data/note-topics';
 
 const auditFrom = formatGBP(serviceById('automation-opportunity-audit').priceFrom);
 
@@ -29,6 +30,9 @@ const { entry } = Astro.props;
 const { Content, headings } = await render(entry);
 const d = entry.data;
 const card = cardPath('field-notes', entry.id);
+// The subject label leads to every note on that subject (none for "General").
+const topic = noteTopic(d);
+const topicLink = topicHref(topic);
 
 const fmt = (dt: Date) =>
   dt.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -36,7 +40,7 @@ const short = (dt: Date) =>
   dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 
 // The notes this one offers next: same subject first (src/data/related-notes.ts).
-const asRelatable = (n: typeof entry) => ({ id: n.id, topic: n.data.category ?? n.data.sector, tags: n.data.tags, date: n.data.date, note: n });
+const asRelatable = (n: typeof entry) => ({ id: n.id, topic: noteTopic(n.data), tags: n.data.tags, date: n.data.date, note: n });
 const published = (await getNotes()).map(asRelatable);
 const next = relatedNotes(asRelatable(entry), published).map((r) => r.note);
 ---
@@ -59,7 +63,7 @@ const next = relatedNotes(asRelatable(entry), published).map((r) => r.note);
           <p class="article-meta">
             <span>{fmt(d.date)}</span>
             <span class="sep">·</span>
-            <span>{d.category ?? d.sector}</span>
+            {topicLink ? <a href={topicLink} class="article-topic">{topic}</a> : <span>{topic}</span>}
             <span class="sep">·</span>
             <span>{d.author}</span>
             {d.draft && <><span class="sep">·</span><span class="sys--spectral"><Bead />draft</span></>}
@@ -96,7 +100,7 @@ const next = relatedNotes(asRelatable(entry), published).map((r) => r.note);
               <a href={`/field-notes/${n.id}/`} class="note-row note-row--compact">
                 <div class="note-row__head">
                   <h3 class="note-row__title">{n.data.title}</h3>
-                  <span class="note-row__meta">{short(n.data.date)} · {n.data.category ?? n.data.sector}</span>
+                  <span class="note-row__meta">{short(n.data.date)} · {noteTopic(n.data)}</span>
                 </div>
                 <p class="note-row__sum">{n.data.summary ?? n.data.description}</p>
                 <span class="note-row__line" aria-hidden="true"></span>
@@ -127,6 +131,10 @@ const next = relatedNotes(asRelatable(entry), published).map((r) => r.note);
   font-family: var(--font-mono); font-size: 0.72rem; font-weight: 500; letter-spacing: 0.12em;
   text-transform: uppercase; color: var(--faint); transition: color var(--dur-1); }
 .article-back:hover { color: var(--white); }
+/* The subject in the meta line: every note on it, on the index (src/data/note-topics.ts). */
+.article-topic { color: inherit; text-decoration: underline dotted; text-decoration-thickness: 1px;
+  text-underline-offset: 0.3em; transition: color var(--dur-1); }
+.article-topic:hover { color: var(--white); text-decoration-style: solid; }
 .article-back .btn__arrow { transition: transform var(--dur-2) var(--ease-out-expo); }
 .article-back:hover .btn__arrow { transform: translateX(-4px); }
 
