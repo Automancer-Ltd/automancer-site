@@ -102,12 +102,15 @@ A non-production origin on auto-vps: `https://automancer-vps.taild6c90e.ts.net:4
 user unit `automancer-site-preview.service`, releases under
 `/opt/automancer/srv/automancer-site-preview/`. It cannot serve `main` or `automancer.uk`: the deploy
 refuses `main`, the server serves only a root `ops/preview/preview.mjs mark` stamped, everything is
-`noindex` with a visible banner, and it refuses ports 80 and 443. Preview builds are the gate's build, so they carry the tests' dummy DSN (`example.invalid`): an
-error there loads the SDK and its report goes nowhere.
+`noindex` with a visible banner, and it refuses ports 80 and 443. The target runs the edge Worker
+over the marked build using the same Pages stand-in as `pnpm run serve`. Redirects stay on preview
+and responses have `Cache-Control: no-store`. The standard preview build uses the tests' dummy
+DSN (`example.invalid`), so it can exercise error reporting without reaching Sentry.
 
 ```bash
 ops/preview/install-target.sh [<ref>]        # install/refresh the target code (default main)
 ops/preview/deploy-preview.sh <ref> --verify # verify, build, publish, read the revision back, run the checker
+JOURNEY_URL=https://automancer-vps.taild6c90e.ts.net:4174 pnpm run journey
 ```
 
 `deploy-preview.sh` prints its own undo. It resets its build clone, so under the estate git guard run
@@ -290,8 +293,8 @@ and no `allow-scripts` never runs that script, and the whole page used to draw i
 and Firefox (checked on 21 Nov 2026 against the live project address). Every built page now carries
 `OFFSITE_LOCK` (`ops/edge/worker.js`) straight after the script: a `<style>` that hides the page and
 shows one line, "This page is at automancer.uk". The Worker takes it out of every HTML response it
-serves (`unlocked()`, as the body streams, only inside `<head>`), as do the preview target's `mark`
-and `ops/perf/nav-journey.mjs`, which serve releases without the Worker. Only a production build
+serves (`unlocked()`, as the body streams, only inside `<head>`). `ops/perf/nav-journey.mjs` also
+removes the lock because it serves releases without the Worker. Only a production build
 carries it, so `astro dev` is unaffected. `tests/off-site-guard.test.ts` serves every built page
 through the Worker and requires it exactly as built minus the lock; `check_homepage_anchor` in
 `ops/verify-production.sh` fails if production's homepage still carries it. **Order matters:** a

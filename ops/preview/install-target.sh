@@ -94,7 +94,8 @@ ln -sfn "$TARGET/ops/systemd/user/$UNIT" "$USER_UNIT_DIR/$UNIT"
 "$SYSTEMCTL_BIN" --user daemon-reload
 
 if (( do_start == 1 )); then
-  "$SYSTEMCTL_BIN" --user enable --now "$UNIT" >/dev/null
+  "$SYSTEMCTL_BIN" --user enable "$UNIT" >/dev/null
+  "$SYSTEMCTL_BIN" --user restart "$UNIT"
 else
   note "install-target: --no-start, unit installed but not started"
 fi

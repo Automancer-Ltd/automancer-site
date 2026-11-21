@@ -115,7 +115,7 @@ ops/preview/                the non-production preview target
   carries `OFFSITE_LOCK` (`ops/edge/worker.js`), a `<style>` that hides it, straight after the
   script; the edge Worker takes it out of every page it serves (t23484; `tests/off-site-guard.test.ts`,
   `tests/edge-worker.test.ts`, `check_homepage_anchor`). Anything that serves a built page without
-  the Worker must take it out too (the preview target's `mark`, `ops/perf/nav-journey.mjs`). Deploy
+  the Worker must take it out too (`ops/perf/nav-journey.mjs`). Deploy
   the Worker before merging a change to the lock, or every page is blank.
 - Pages are fetched ahead of a click only by Chromium's Speculation Rules (`BaseLayout.astro`) and,
   in browsers that cannot prerender, by the hover prefetch in `src/scripts/prefetch.ts` (t23288),
