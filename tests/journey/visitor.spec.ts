@@ -204,17 +204,28 @@ test('enlarged text keeps the headline, service names and prices inside their pa
   }
 });
 
-test('the price ladder counts its rungs 01 to 04 in order', async ({ page }) => {
+test('homepage prices are one scroll away and link to the matching offer', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/');
-  const steps = page.locator('.ladder .rung__step');
-  await expect(steps).toHaveCount(services.length);
-  const painted = await steps.evaluateAll((els) =>
-    els.map((el) => ({ step: (el as HTMLElement).dataset.step, content: getComputedStyle(el, '::before').content })),
-  );
-  // Each rung is a size container, which scopes CSS counters to the rung: a
-  // counter read "01" on every card (t21223). The number comes from the markup.
-  expect(painted.map((p) => p.step)).toEqual(services.map((_, i) => String(i + 1).padStart(2, '0')));
-  for (const p of painted) expect(p.content, 'rung number is a CSS counter again').not.toContain('counter(');
+  const pricing = page.getByRole('region', { name: 'Clear starting prices, upfront.' });
+  await page.evaluate(() => document.fonts.ready);
+  const firstPrice = pricing.getByText(formatGBP(services[0].priceFrom), { exact: true });
+  await expect(firstPrice).toBeVisible();
+  const firstPriceBottom = await firstPrice.evaluate((el) => (el.getBoundingClientRect().bottom + scrollY) / innerHeight);
+  expect(firstPriceBottom, 'the first price fits within two screens of landing').toBeLessThan(2);
+
+  for (const service of services) {
+    const link = pricing.getByRole('link', { name: service.name, exact: true });
+    await expect(link.getByText(formatGBP(service.priceFrom), { exact: true })).toBeVisible();
+    await link.focus();
+    await link.press('Enter');
+    await expect(page).toHaveURL(/\/services\/#offer-\d+$/);
+    const detail = page.getByRole('region', { name: service.name, exact: true });
+    await expect(detail.getByRole('heading', { name: service.name })).toBeInViewport();
+    await expect(detail.getByRole('link', { name: /Book an Audit|Start a Sprint|Scope a Build|Become a Partner/ }))
+      .toHaveAttribute('href', `/contact/?service=${service.id}`);
+    await page.goto('/');
+  }
 });
 
 test("a case study's sector and notes read as whole lines, not ragged columns", async ({ page }, info) => {

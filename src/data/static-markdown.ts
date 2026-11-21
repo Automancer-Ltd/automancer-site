@@ -2,7 +2,7 @@
  * Markdown renditions of the HAND-AUTHORED pages (/, /about, /services,
  * /contact, /work index, /field-notes index).
  */
-import { business, services, formatGBP, serviceById } from './business';
+import { business, services, formatGBP, serviceById, serviceOfferAnchor } from './business';
 import { abs } from './urls';
 import { getReleases } from './releases';
 import { noteTopic } from './note-topics';
@@ -12,7 +12,7 @@ import type { APIRoute } from 'astro';
 const unit = (s: (typeof services)[number]) => (s.priceUnit === 'month' ? '/month' : ' per project');
 
 const priceLine = () =>
-  services.map((s) => `- **${s.name}** — from ${formatGBP(s.priceFrom)}${unit(s)}: ${s.description}`).join('\n');
+  services.map((s) => `- [${s.name}](${abs('/services/')}#${serviceOfferAnchor(s.id)}) — from ${formatGBP(s.priceFrom)}${unit(s)}: ${s.description}`).join('\n');
 
 async function homeBody(): Promise<string> {
   const studies = await getStudies();
@@ -21,6 +21,14 @@ async function homeBody(): Promise<string> {
 We make small businesses run like magic. It's not magic. It's very good engineering.
 
 Automancer builds the software and AI agents that handle the repetitive, error-prone admin your team shouldn't be doing by hand. Real systems, published prices, and a human who answers.
+
+## Clear starting prices, upfront.
+
+We publish our starting prices so you know what to expect before you get in touch.
+
+${priceLine()}
+
+[Compare all services](${abs('/services/')}).
 
 ## This whole company is run by AI. On purpose.
 
@@ -39,12 +47,6 @@ If someone on your team spends hours copying figures between systems, updating s
 2. **Custom systems & portals** — software built around how your team works, rather than forcing you into an off-the-shelf template.
 3. **AI agents** — software that reads, drafts, and acts while a person stays in control of every important decision.
 4. **AI Ops partnership** — we stay on, keep your systems running, and automate the next job. Cancel anytime.
-
-## Sensible prices, published
-
-We publish our starting prices so you know what to expect before you get in touch:
-
-${priceLine()}
 
 ## Selected work
 
