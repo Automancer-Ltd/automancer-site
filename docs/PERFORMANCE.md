@@ -18,6 +18,13 @@ exact `dist/` it publishes, so a heavier production build fails the release inst
 
 ## Decisions behind the numbers
 
+- **Case cards link the evidence behind their figures (t23577, 21 Nov 2026).**
+  The home page's case cards now carry a Sources link beside "Read", which needs the title's link
+  stretched over the card instead of the whole card being one link (a link cannot hold another).
+  That is 1,651 B more on `/` (markup and about 1 KB of inline card CSS), 155,082 → 156,733 B, so
+  `LAYOUT_MEASURED` was re-measured at 156,733 B. Main had already grown 2,208 B past the old
+  figure (152,874 B) through the day's footer link and hover prefetch, inside its headroom.
+
 - **Link preview images take half the bytes (t23539, 21 Nov 2026).**
   The build passes resvg's RGBA pixels straight to Sharp's lossless PNG encoder. Compression
   level 9 without adaptive filtering worked best for the repeated colours in the glows.

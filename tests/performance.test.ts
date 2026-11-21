@@ -24,11 +24,13 @@ import { allHtmlFiles, pageCheckPages } from './support/dist';
 import { DIST, measureAllPages } from './support/perf';
 
 /**
- * Measured 2026-11-21 (t23067): heaviest fixed-budget page (/, 152,874 B). Every page carries the
- * fallback font faces in src/styles/fonts.css as inline CSS: nine sized to Arial (t23013, 3,518 B,
- * about 450 B gzipped), then eight sized to Roboto for Android (t23067, 3,065 B, about 270 B gzipped).
+ * Measured 2026-11-21 (t23577): heaviest fixed-budget page (/, 156,733 B; main was already 155,082 B
+ * after the day's footer and prefetch changes). Every page carries the fallback font faces in
+ * src/styles/fonts.css as inline CSS: nine sized to Arial (t23013, 3,518 B, about 450 B gzipped),
+ * then eight sized to Roboto for Android (t23067, 3,065 B, about 270 B gzipped). t23577 added 1,651 B
+ * to / (each case card's Sources link and the card styles that let it sit beside the card's link).
  */
-const LAYOUT_MEASURED = 152874;
+const LAYOUT_MEASURED = 156733;
 
 /**
  * Layout pages that genuinely need more than the default, each with its own

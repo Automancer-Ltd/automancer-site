@@ -795,6 +795,31 @@ test("a case study figure's Source link lands on the line of evidence behind it"
   await expectNoSidewaysScroll(page);
 });
 
+test("a field note's figure lands on the case study's line of evidence for it (t23577)", async ({ page }) => {
+  await page.goto('/field-notes/automation-for-care-providers-where-to-start/');
+  await page.getByRole('link', { name: '294 carers and 293 service users' }).click();
+  await expect(page).toHaveURL(/\/work\/care-provider-transformation\/#source-carer-record-count$/);
+  const item = page.locator('.evidence__item:target');
+  await expect(item).toContainText('roster import created 294 carers + 293 service users');
+  await expect.poll(async () => (await item.boundingBox())!.y).toBeLessThan(260);
+  expect((await item.boundingBox())!.y).toBeGreaterThan(40);
+});
+
+test('a case card opens its study from anywhere on it, and its Sources link opens the evidence (t23577)', async ({ page }) => {
+  await page.goto('/');
+  const card = page.locator('.case-card--feature');
+  // A mouse on the summary text, not the title: the title's link covers the whole card.
+  await card.scrollIntoViewIfNeeded();
+  const blurb = (await card.locator('.case-card__blurb').boundingBox())!;
+  await page.mouse.click(blurb.x + blurb.width / 2, blurb.y + blurb.height / 2);
+  await expect(page).toHaveURL(/\/work\/care-provider-transformation\/$/);
+  await page.goBack();
+  await page.locator('.case-card--feature').getByRole('link', { name: /^Sources for the figures in/ }).click();
+  await expect(page).toHaveURL(/\/work\/care-provider-transformation\/#sources$/);
+  await expect(page.getByRole('heading', { name: 'Where these numbers come from' })).toBeInViewport();
+  await expectNoSidewaysScroll(page);
+});
+
 test('a page that does not exist is a real 404 with a way back', async ({ page }) => {
   const res = await page.goto('/no-such-page-journey/');
   expect(res?.status()).toBe(404);
