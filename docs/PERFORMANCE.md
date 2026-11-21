@@ -18,6 +18,35 @@ exact `dist/` it publishes, so a heavier production build fails the release inst
 
 ## Decisions behind the numbers
 
+- **Android text keeps its place when the web fonts arrive (t23067, 21 Nov 2026).**
+  t23013's fallback faces are drawn in Arial, which Android does not have, so an Android phone
+  skipped them and drew the waiting text in Roboto at its own size; every line re-wrapped when
+  the fonts landed. Each web font now has a second face right after the first,
+  `<family> Android Fallback`: Roboto (Droid Sans Mono for JetBrains Mono) sized the same way by
+  `ops/fonts/fallbacks.py`, from the copies in `ops/fonts/stand-ins/`. `local()` names both
+  Android 5-11's static files and Android 12's one variable `Roboto-Regular` (Chrome draws its
+  bold through the weight axis: checked with only that file installed, bold widths within 1%).
+  A device with Arial never reaches the Android face. The hero headline gets it after its own
+  `Syne Hero Fallback`. Measured with `ops/perf/android-fonts.py` (a fontconfig with only
+  Android's fonts) and `ops/perf/font-swap.mjs --dpr=3`, headless Chromium, all 32 pages:
+
+  | Android phone, all 32 pages | 390 px before → after | 412 px before → after |
+  | --- | ---: | ---: |
+  | Layout shift, sum | 1.536 → 0.100 | 1.456 → 0.178 |
+  | Layout shift, worst page | 0.296 → 0.028 | 0.181 → 0.058 |
+  | Pages over 0.1 (Google's "needs improvement") | 4 → 0 | 4 → 0 |
+  | Page height change, median | 151 → 61 px | 144 → 58 px |
+  | A text block moved, median | 102 → 39 px | 115 → 36 px |
+
+  Home at 390 px: the page grew 607 px when the fonts landed, now 31 px; /developers/ scored
+  0.296 (Google's "poor" starts at 0.25), now 0.002. What still moves is a line close to wrapping
+  that flips, as on desktop: the same Linux measurement of t23013's Arial faces gives 0.136 and
+  58 px, where a Mac measured almost nothing, so the remainder is partly Linux's glyph rounding.
+  Settled pages are unchanged: `pnpm run compare` found no view differing from main, with the
+  normal fonts and again with `FONTCONFIG_FILE` set to the Android fonts. Cost: 3,065 B of inline
+  CSS on every page (about 270 B gzipped); `LAYOUT_MEASURED` and the `/contact/` exception were
+  re-pinned. Not yet seen on a physical Android phone.
+
 - **Text keeps its place when the web fonts arrive (t23013, 21 Nov 2026).**
   Every font is `font-display: swap`, so a visitor on a slow connection first reads the page in
   an installed font, and every line used to re-wrap when Syne, Space Grotesk, Outfit and JetBrains
