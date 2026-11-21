@@ -1,5 +1,15 @@
 # Release notes
 
+## v2026.11.21.6 — 21 November 2026
+
+The site adds new reading material and more context to its text guides.
+
+### New reading
+
+- Read a new field note on how to tell practical AI products from hype before you buy.
+- See case study citations in the site’s text guides.
+
+
 ## v2026.11.21.5 — 21 November 2026
 
 The site now presents a clearer, more consistent experience across its domains.
