@@ -164,9 +164,11 @@ injection from some regions; the hosted production journey exposed it. After cha
 setting, reopen Manage site to read it back and rerun the production journey. Restoring that
 radio option reverses the provider change, but also restores the unwanted analytics injection.
 
-`automancer.uk` is proxied by Cloudflare (zone `automancer.uk`) through the Worker
-`automancer-site-edge` (`ops/edge/worker.js`, route `automancer.uk/*`, fail-open). GitHub Pages stays
-the origin. The Worker answers what a static host cannot: `Accept: text/markdown` gets the Markdown
+`automancer.uk` and `www.automancer.uk` are proxied by Cloudflare (zone `automancer.uk`) through the
+Worker `automancer-site-edge` (`ops/edge/worker.js`, routes `automancer.uk/*` and `www.automancer.uk/*`,
+both failing closed). GitHub Pages holds the files, and the Worker reads them from the Pages project
+address `https://automancer-ltd.github.io/automancer-site/` (see "The origin" below); `www` gets one 301
+to the same path on the apex. The Worker answers what a static host cannot: `Accept: text/markdown` gets the Markdown
 twin, Markdown 404 bodies, `application/problem+json` errors under `/api/`, the RFC 9727 media type
 for `/.well-known/api-catalog`, HTTP → HTTPS, and one 301 from each legacy `*.html` URL in
 `astro.config.mjs` `redirects` to its page. It sets how long browsers and the edge keep files
@@ -229,53 +231,54 @@ Undo via Executor `sentry-guarded` (`projects.updateProject` and `projects.updat
   failure reports to `a.nel.cloudflare.com` for seven days, which no page CSP governs. The
   verifier fails if they come back. Undo: `api.nelSettings.nelSettingsEdit` `{value: {enabled:
   true}}` on the zone (Executor `cloudflare-full-access`). The workers.dev probe still carries
-  Cloudflare's account-level NEL, so compare it with production ignoring those two headers. SSL is "Full (strict)" against GitHub's certificate; if GitHub
-  cannot renew it behind the proxy every page answers 526 and the verifier fails.
-- **Undo, fastest first:** set the four apex `A` records to DNS-only; or delete the Worker route.
+  Cloudflare's account-level NEL, so compare it with production ignoring those two headers.
+- **Undo:** there is no DNS-only fallback any more: the apex has no origin of its own (below). To
+  undo a bad Worker, deploy the previous version (`workerVersionsListVersions`, then
+  `ops/edge/deploy.sh` at that commit).
 
-### Renewing GitHub's origin certificate (t15154)
+### The origin: the Pages project address (t22925, 21 Nov 2026)
 
-Behind the proxy, GitHub sees Cloudflare addresses for the apex. It reports itself not eligible
-to issue a certificate and stops renewing: the Pages API showed `https_certificate.state`
-`bad_authz` with the old expiry on 15 Nov 2026. The verifier only sees Cloudflare's edge
-certificate, so read the origin directly. Start this well before `expires_at`: GitHub can take
-hours.
+The Pages site `Automancer-Ltd/automancer-site` has **no custom domain**. GitHub serves it at
+`https://automancer-ltd.github.io/automancer-site/` on its own `*.github.io` certificate, which GitHub
+renews, and the Worker fetches every file from there (`PAGES_HOST`, `PAGES_PATH`, `atPages()`).
+GitHub's slash redirects name that address; `fromPages()` moves them back onto `automancer.uk`, and a
+redirect anywhere else answers a 502 problem rather than a loop.
 
-1. **Read the origin** on each of `185.199.108.153`, `.109.153`, `.110.153` and `.111.153`:
-   `openssl s_client -connect <ip>:443 -servername automancer.uk </dev/null | openssl x509 -noout -enddate`.
-   Also read `repos.getPages` (Executor `github-full-access`, `Automancer-Ltd/automancer-site`):
-   `https_certificate.state` and `expires_at`, and `https_enforced`.
-2. **Capture** the four apex `A` records (Executor `cloudflare-full-access`, zone `automancer.uk`,
-   `dnsRecordsForAZoneListDnsRecords`, name `automancer.uk`, type `A`): id, content, `proxied`,
-   `ttl`. Take the IDs from this live read, not from an old note. Write them on the task.
-3. **DNS-only:** for each of the four, `dnsRecordsForAZonePatchDnsRecord` with
-   `{type: "A", name: "automancer.uk", content: <its ip>, proxied: false}` (the body needs
-   `type`), then read it back. Leave the `www` CNAME (already DNS-only), the Worker routes and
-   SSL "Full (strict)" alone. While DNS-only, the Worker is bypassed: no security headers or
-   Markdown negotiation. The verifier goes red, and the site still serves.
-4. **Make GitHub start over** if it still says `bad_authz` after the health check has seen the
-   change: remove the custom domain and add it back
-   (`repos.updateInformationAboutPagesSite` `{cname: null}`, then `{cname: "automancer.uk"}`; a
-   few seconds of 404). Re-saving the same `cname` alone did not restart it. Either call turns
-   `https_enforced` off. Setting it back to `true` answers 404 until the new certificate exists.
-5. **Wait** for the origin to present a new `notAfter`, on all four addresses. Then set
-   `https_enforced: true` and read it back.
-6. **Restore** each record's captured `proxied` value (`true`) with the same patch, then read all
-   four back. Check `https://automancer.uk/` answers through Cloudflare
-   (`curl -sI` shows `server: cloudflare`), and run `ops/verify-production.sh`.
+Why: while `automancer.uk` was the Pages custom domain, GitHub could not renew its certificate behind
+Cloudflare's proxy (`bad_authz`, 15 Nov 2026). Each renewal meant setting the apex DNS-only for about
+two hours, with no Worker, security headers or CSP floor. A missed one would have answered 526 on every
+page from 13 Feb 2027 (t15154, t20156). None of that applies now. Cloudflare's edge certificate is
+Cloudflare's own, and `check_tls` reads it.
 
-Undo at any point is step 6: patch the four records back to `proxied: true`.
+DNS, since 21 Nov 2026 (Executor `cloudflare-full-access`, zone `4574254c3155f93a8f02aabcf19e00af`):
 
-Measured on 15 Nov 2026:
-- 00:03Z: DNS-only.
-- 00:19Z: the domain was removed and re-added straight away. Nothing changed.
-- 01:19–01:22Z: removed, left off for three minutes, then re-added.
-- About 02:13Z: the new certificate was on all four addresses (notBefore 15 Nov 2026
-  01:14:48, notAfter 13 Feb 2027 01:14:47 GMT). The API said `approved`.
-- 02:14Z: proxy restored.
+| Name | Record | Was |
+|---|---|---|
+| `automancer.uk` | `AAAA 100::`, proxied (originless; id `619a5c005421ca7274845f4549e8fa54`) | four proxied `A` records to `185.199.108.153`, `.109.153`, `.110.153`, `.111.153` |
+| `www.automancer.uk` | `CNAME automancer.uk`, proxied (id `bcf1d7d7478e8b0a5bc2b683d1a339be`) | DNS-only `CNAME waseemilyas.github.io`, redirected by GitHub |
 
-Allow two hours or more. With the proxy back, GitHub cannot renew by itself, so repeat this before
-each expiry: about 30 days before, as Let's Encrypt would.
+Worker route `www.automancer.uk/*` (id `3dcbb990d660434db9a457b6134b1726`) was added beside
+`automancer.uk/*`. No name of the site may point at GitHub any more: with no custom domain on our Pages
+site, GitHub would let anyone's Pages site claim a name that did. `ops/verify-production.sh` fails if
+`automancer.uk` or `www.automancer.uk` resolves to a GitHub Pages address or a `github.io` name
+(`check_no_github_dns`), or if `www` stops answering one 301 from the Worker (`check_www_redirect`).
+Do not put `automancer.uk` back as the Pages custom domain: GitHub would then redirect the project
+address to `automancer.uk`, and every page would answer 502.
+
+Undo (only if the Worker can no longer read the project address): put back the four `A` records,
+proxied; set `www` back to the DNS-only CNAME; set the Pages `cname` to `automancer.uk`
+(`repos.updateInformationAboutPagesSite`); deploy Worker version `c10a0bcd-6d40-4284-bad4-8c01f5977303`.
+That brings back the renewal problem above.
+
+**Lesson from the switch: GitHub's CDN keeps a custom-domain redirect for about an hour.** While a
+Pages site has a custom domain, its project address answers 301 to that domain with no
+`Cache-Control`. Fastly keeps that 301 for each path asked, ignores the query string, and keeps a
+separate copy for each `Accept-Encoding`. It went on serving those 301s after the domain was removed.
+During the switch, the Worker asked the project address before the domain came off. From 05:42 to
+05:53 UTC that left some production pages answering 404 and then 502. The fix was to fetch
+`/automancer-site///<path>` for an hour, a path nobody had asked for. To make a switch like this
+again, remove the custom domain first. Never request the project address while the domain is still
+attached. Serve from the old origin until the new one answers 200 for every path.
 
 ## automancer.co.uk refuses forged mail (t21934)
 

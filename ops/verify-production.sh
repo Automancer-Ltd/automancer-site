@@ -68,6 +68,17 @@ readonly REPORTING_HEADERS=("NEL" "Report-To" "Reporting-Endpoints")
 # and receivers had no policy telling them to refuse it. Read over DNS over
 # HTTPS (DOH_URL), so it works where port 53 is blocked.
 readonly NO_MAIL_DOMAINS=("automancer.co.uk")
+# The site's names. None may resolve to a GitHub Pages address or a github.io
+# name (t22925): the Pages site has no custom domain since then, so GitHub
+# would let anyone's Pages site claim a name that still pointed there. Both
+# are proxied to the edge Worker, which reads the files from the Pages project
+# address. Read over DNS over HTTPS, like NO_MAIL_DOMAINS.
+readonly SITE_NAMES=("automancer.uk" "www.automancer.uk")
+# www.automancer.uk answers one 301 to the same path and query on the apex,
+# from the Worker (so with its security headers). WWW_URL is a variable only
+# so --self-test can point it at its fixture.
+WWW_URL='https://www.automancer.uk'
+readonly WWW_PROBE='/services/?ref=www%20check'
 # The stability & deprecation policy. Checked for SHAPE, not just for a 200:
 # a promise an agent cannot trust is worse than no promise, and any old JSON
 # would pass a parse-only check.
@@ -1016,6 +1027,87 @@ check_no_mail_domains() {
   printf 'forged mail is refused: %s\n' "${ok[*]}"
 }
 
+# github_dns_verdict <name> — reads the name's A, AAAA and CNAME answers from
+# DOH_URL and prints any that lead to GitHub Pages (185.199.108.0/22,
+# 192.30.252.0/22, 2606:50c0::/32 or a *.github.io name), or a one-line summary
+# when none does. An unreadable answer is a failure, never "no record".
+github_dns_verdict() {
+  python3 - "$DOH_URL" "$1" "$HTTP_TIMEOUT_SECS" <<'PY'
+import ipaddress, json, sys, urllib.request
+doh, name, timeout = sys.argv[1], sys.argv[2], float(sys.argv[3])
+GITHUB = [ipaddress.ip_network(n) for n in ("185.199.108.0/22", "192.30.252.0/22", "2606:50c0::/32")]
+seen, bad = [], []
+for rtype in ("A", "AAAA", "CNAME"):
+    req = urllib.request.Request(f"{doh}?name={name}&type={rtype}", headers={"Accept": "application/dns-json"})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            data = json.load(r)
+    except Exception as e:
+        sys.exit(f"{rtype} {name}: DNS-over-HTTPS query to {doh} failed ({e})")
+    if data.get("Status") not in (0, 3):
+        sys.exit(f"{rtype} {name}: resolver answered DNS status {data.get('Status')}")
+    for a in data.get("Answer") or []:
+        v = str(a.get("data", "")).rstrip(".").lower()
+        seen.append(v)
+        if v == "github.io" or v.endswith(".github.io"):
+            bad.append(v)
+            continue
+        try:
+            ip = ipaddress.ip_address(v)
+        except ValueError:
+            continue
+        if any(ip in n for n in GITHUB):
+            bad.append(v)
+if bad:
+    print(f"{name} leads to GitHub Pages ({', '.join(sorted(set(bad)))}): another Pages site could claim it")
+    sys.exit(1)
+if not seen:
+    print(f"{name} has no A, AAAA or CNAME answer")
+    sys.exit(1)
+print(f"{name}: {len(set(seen))} answer(s), none at GitHub")
+PY
+}
+
+check_no_github_dns() {
+  local name verdict ok=()
+  for name in "${SITE_NAMES[@]}"; do
+    if ! verdict=$(github_dns_verdict "$name" 2>&1); then
+      printf '%s\n' "$(printf '%s' "$verdict" | tr '\n' ' ')"
+      return 1
+    fi
+    ok+=("$verdict")
+  done
+  local IFS=';'
+  printf 'no site name points at GitHub Pages: %s\n' "${ok[*]}"
+}
+
+# check_www_redirect — www answers exactly one 301 to the same path and query
+# on the apex, carrying the edge HSTS header (so it came from the Worker, not
+# from GitHub or a bare Cloudflare redirect).
+check_www_redirect() {
+  local url="${WWW_URL}${WWW_PROBE}" want="https://automancer.uk${WWW_PROBE}" hdr err rc=0 code location hsts
+  hdr=$(need_tmp) err=$(need_tmp)
+  curl -sS --max-time "$HTTP_TIMEOUT_SECS" -o /dev/null -D "$hdr" "$url" 2>"$err" || rc=$?
+  if (( rc != 0 )); then
+    printf 'GET %s did not complete: %s (%s)\n' "$url" "$(tr -d '\n' <"$err")" "$(curl_exit_hint "$rc")"
+    rm -f "$hdr" "$err"
+    return 1
+  fi
+  code=$(head -1 "$hdr" | awk '{print $2}')
+  location=$(grep -i '^location:' "$hdr" | head -1 | cut -d' ' -f2- | tr -d '\r')
+  hsts=$(grep -i '^strict-transport-security:' "$hdr" | head -1 | cut -d' ' -f2- | tr -d '\r')
+  rm -f "$hdr" "$err"
+  if [[ $code != 301 || $location != "$want" ]]; then
+    printf 'GET %s answered HTTP %s to %s, not one 301 to %s\n' "$url" "$code" "${location:-nowhere}" "$want"
+    return 1
+  fi
+  if [[ $hsts != 'max-age=15552000' ]]; then
+    printf 'GET %s redirected without the edge HSTS header (got %s): it did not come from the Worker\n' "$url" "${hsts:-none}"
+    return 1
+  fi
+  printf 'GET %s -> 301 %s with the edge headers\n' "$url" "$location"
+}
+
 xml_parses() {
   # Real XML parse, not a substring sniff. python3 ships on GitHub's Ubuntu
   # runners and every machine this repo is developed on.
@@ -1500,6 +1592,37 @@ print(json.dumps({"routes": routes, "default": {"status": 404, "body": ""}}))
 PY
 }
 
+# self_test_github_dns_scenario <mutation> — DNS-over-HTTPS answers for every
+# SITE_NAMES entry: Cloudflare proxy addresses in the control, a GitHub Pages
+# address or github.io CNAME in a mutation, a SERVFAIL, or no answer at all.
+self_test_github_dns_scenario() {
+  python3 - "$1" "${SITE_NAMES[@]}" >"$SELFTEST_SCENARIO" <<'PY'
+import json, sys
+mutation, names = sys.argv[1], sys.argv[2:]
+known = {"none", "apex_github_ip", "www_github_cname", "apex_github_ipv6", "servfail", "empty"}
+if mutation not in known:
+    sys.exit(f"unknown mutation {mutation}")
+CODE = {"A": 1, "AAAA": 28, "CNAME": 5}
+routes = {}
+for i, n in enumerate(names):
+    ans = {"A": ["104.21.9.246", "172.67.189.212"], "AAAA": ["2606:4700:3030::ac43:bdd4"], "CNAME": []}
+    if mutation == "apex_github_ip" and i == 0:
+        ans["A"].append("185.199.110.153")
+    if mutation == "apex_github_ipv6" and i == 0:
+        ans["AAAA"] = ["2606:50c0:8001::153"]
+    if mutation == "www_github_cname" and i == 1:
+        ans = {"A": ["185.199.108.153"], "AAAA": [], "CNAME": ["waseemilyas.github.io."]}
+    if mutation == "empty" and i == 1:
+        ans = {"A": [], "AAAA": [], "CNAME": []}
+    for t, data in ans.items():
+        status = 2 if mutation == "servfail" and t == "AAAA" else 0
+        routes[f"/dns-query?name={n}&type={t}"] = {
+            "body": json.dumps({"Status": status, "Answer": [{"name": n, "type": CODE[t], "data": d} for d in data]}),
+            "headers": {"Content-Type": "application/dns-json"}}
+print(json.dumps({"routes": routes, "default": {"status": 404, "body": ""}}))
+PY
+}
+
 # self_test_expect <expected> <label> <fn> [args...]
 # Run one check directly (no poll_check retry budget) and assert its result is
 # the expected direction. Records a failure in SELF_TEST_FAILURES and always
@@ -1716,6 +1839,30 @@ PY
     self_test_no_mail_scenario none
     self_test_expect pass "$label" check_no_mail_domains
   done
+
+  for mutation in apex_github_ip www_github_cname apex_github_ipv6 servfail empty; do
+    case $mutation in
+      servfail) label="an unreadable DNS answer fails the GitHub pointer check" ;;
+      empty) label="a site name with no address fails the GitHub pointer check" ;;
+      *) label="no site name resolves to GitHub Pages" ;;
+    esac
+    self_test_github_dns_scenario "$mutation"
+    self_test_expect fail "$label" check_no_github_dns
+    self_test_github_dns_scenario none
+    self_test_expect pass "$label" check_no_github_dns
+  done
+
+  WWW_URL=$BASE_URL
+  local www_want="https://automancer.uk${WWW_PROBE}" www_hsts='"Strict-Transport-Security":"max-age=15552000"'
+  self_test_scenario "{\"routes\":{\"${WWW_PROBE}\":{\"status\":404,\"body\":\"Site not found\"}},\"default\":{\"status\":404,\"body\":\"\"}}"
+  self_test_expect fail "www answers one 301 to the same address on the apex" check_www_redirect
+  self_test_scenario "{\"routes\":{\"${WWW_PROBE}\":{\"status\":301,\"body\":\"\",\"headers\":{\"Location\":\"https://automancer.uk/\",${www_hsts}}}},\"default\":{\"status\":404,\"body\":\"\"}}"
+  self_test_expect fail "www answers one 301 to the same address on the apex" check_www_redirect
+  self_test_scenario "{\"routes\":{\"${WWW_PROBE}\":{\"status\":301,\"body\":\"\",\"headers\":{\"Location\":\"${www_want}\"}}},\"default\":{\"status\":404,\"body\":\"\"}}"
+  self_test_expect fail "the www redirect comes from the Worker" check_www_redirect
+  self_test_scenario "{\"routes\":{\"${WWW_PROBE}\":{\"status\":301,\"body\":\"\",\"headers\":{\"Location\":\"${www_want}\",${www_hsts}}}},\"default\":{\"status\":404,\"body\":\"\"}}"
+  self_test_expect pass "www answers one 301 to the same address on the apex" check_www_redirect
+  self_test_expect pass "the www redirect comes from the Worker" check_www_redirect
 
   self_test_route_scenario "/agent.json" 200 "{ not json"
   self_test_expect fail "agent manifest is valid JSON" check_agent_manifest
@@ -1963,6 +2110,8 @@ main() {
     if ! poll_check "the edge Worker's security headers are sent on pages, twins and 404s" check_security_headers; then :; fi
     if ! poll_check "active XML/SVG carry default-src 'none' + Trusted Types and legacy stub paths 301 at the edge" check_edge_active_surfaces; then :; fi
     if ! poll_check "${NO_MAIL_DOMAINS[*]} refuses forged mail (null MX, SPF -all, DMARC p=reject)" check_no_mail_domains; then :; fi
+    if ! poll_check "${SITE_NAMES[*]} point at no GitHub Pages address" check_no_github_dns; then :; fi
+    if ! poll_check "www.automancer.uk answers one 301 to the apex from the Worker" check_www_redirect; then :; fi
   fi
   if ! poll_check "served HTML pages enforce default-src 'none', Trusted Types and DSN-matched connect-src" check_page_csp; then :; fi
   if ! poll_check "homepage contains structural anchor \"${HOMEPAGE_ANCHOR}\"" check_homepage_anchor; then :; fi
