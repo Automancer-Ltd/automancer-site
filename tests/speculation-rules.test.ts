@@ -14,6 +14,7 @@
  * what a `not` clause lets through.
  */
 import { describe, expect, it } from 'vitest';
+import { prefetchUrl } from '../src/scripts/prefetch';
 import { SITE_URL, allHtmlFiles, distHasFile } from './support/dist';
 
 interface Predicate {
@@ -101,6 +102,33 @@ describe('speculation rules', () => {
       }
     }
     expect(offsite).toEqual([]);
+  });
+
+  // Firefox and Safari ignore the rules; src/scripts/prefetch.ts fetches on hover there instead
+  // (t23288). It must never fetch a link the rules would not, or the off-site and file guarantees
+  // above stop holding in those browsers.
+  it('the Firefox and Safari hover prefetch fetches exactly the links the rules prefetch', () => {
+    const differ: string[] = [];
+    let fetched = 0;
+    for (const page of pages) {
+      const rules = rulesOf(page.route);
+      const here = new URL(SITE_URL + page.route);
+      for (const a of page.doc.querySelectorAll('a[href]')) {
+        const href = a.getAttribute('href') ?? '';
+        if (/^(mailto|tel|javascript|data):/i.test(href) || href.startsWith('#')) continue;
+        const url = new URL(href, here);
+        const rel = (a.getAttribute('rel') ?? '').split(/\s+/);
+        const flags = { download: a.hasAttribute('download'), blank: a.getAttribute('target') === '_blank', nofollow: rel.includes('nofollow') };
+        const ruled = !flags.download && !flags.blank && !flags.nofollow && (rules.prefetch ?? []).some((r) => holds(r.where, url.href));
+        const same = url.pathname === here.pathname && url.search === here.search;
+        const ours = prefetchUrl(url, here, flags);
+        if (ours) fetched++;
+        if (ours && new URL(ours).origin !== SITE_URL) differ.push(`${page.route}: fetches off-site ${href}`);
+        if (Boolean(ours) !== (ruled && !same)) differ.push(`${page.route}: ${href} rules ${ruled}, hover prefetch ${ours}`);
+      }
+    }
+    expect(differ).toEqual([]);
+    expect(fetched, 'the hover prefetch matched no link at all').toBeGreaterThan(100);
   });
 
   it('do something: the nav pages and /contact/ are prerendered', () => {

@@ -103,6 +103,11 @@ ops/preview/                the non-production preview target
   `tests/journey/security.spec.ts`). Keep it the first script, after the CSP meta and before any
   `<link>`, and never widen it to hosts other than `*.github.io` (the preview target, localhost and
   translation proxies must keep working).
+- Pages are fetched ahead of a click only by Chromium's Speculation Rules (`BaseLayout.astro`) and,
+  in browsers that cannot prerender, by the hover prefetch in `src/scripts/prefetch.ts` (t23288),
+  both same-origin pages only (`tests/speculation-rules.test.ts` holds them to the same links).
+  Keep the prefetch's `Accept` equal to a navigation's: the Worker's `Vary: Accept` otherwise
+  stops the click from reusing it.
 - `/privacy/` and `/terms/` are `legalNoMirror` and hash-pinned (`tests/legal-integrity.test.ts`);
   their wording changes only on Waseem's instruction.
 - The contact form never shows a raw API error code (`tests/contact-errors.test.ts`).

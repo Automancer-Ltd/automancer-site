@@ -17,6 +17,10 @@ gets a real 404 with a way back.
 - `homepage prices are one scroll away and link to the matching offer`.
 - `a page that does not exist is a real 404 with a way back`.
 - `every page keeps its words on screen at 320px and with text at 200%` (every sitemap page).
+- Vitest on `dist/`: `tests/speculation-rules.test.ts` (Chromium's hover prerender, and the
+  Firefox/Safari hover prefetch in `src/scripts/prefetch.ts`, fetch only this site's pages, the
+  same links). Click speed in Firefox and WebKit: `node ops/perf/click-wait.mjs dist <label>
+  --engine=firefox --persistent` (or a URL for production); see `docs/PERFORMANCE.md`.
 - Vitest on `dist/`: `tests/pages.test.ts` (one `h1`, title, description, canonical, JSON-LD) and
   `tests/a11y.test.ts` (landmarks, skip link, named navs) on every page and the 404.
 
