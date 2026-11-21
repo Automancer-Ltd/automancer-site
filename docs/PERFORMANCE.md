@@ -18,6 +18,37 @@ exact `dist/` it publishes, so a heavier production build fails the release inst
 
 ## Decisions behind the numbers
 
+- **Page-to-page clicks are quick in Firefox and Safari too (t23288, 21 Nov 2026).**
+  Firefox and Safari do not act on the Speculation Rules below, so every click there waited a
+  whole round trip for the next page's HTML. `src/scripts/prefetch.ts` (in the page-load module)
+  now fetches a page's HTML into the browser's own cache once a mouse rests on a link to it for
+  65 ms, in any browser that cannot prerender (`'prerendering' in document` is false). It fetches
+  exactly what the rules prefetch: this site's pages, never a file, never a `download`,
+  `target=_blank` or `nofollow` link or the page already open, each once per page view, nothing on
+  Save-Data (`tests/speculation-rules.test.ts` holds it to the rules on every built link). The
+  request carries the navigation's own `Accept`, because the Worker sends `Vary: Accept`: with
+  fetch()'s default `*/*` the click would not reuse it. Two traps found while measuring: Safari's
+  WebKit answers `HTMLScriptElement.supports('speculationrules')` with true yet fetched nothing for
+  these rules, so that is not the test; and a tap is shorter than the page's round trip, while
+  neither engine hands a fetch still under way to the click, so fetching on a press or tap only
+  downloaded the page twice. Taps and presses therefore fetch nothing, and the tap figures below
+  are unchanged. Measured with `ops/perf/click-wait.mjs` (`dist/` served locally with production's
+  cache headers and 200 ms before each page's first byte; 5 fresh browsers with a profile on disk,
+  `--persistent`, 5 nav clicks each; time from pressing the button to the next page's first paint):
+
+  | Click to first paint, median (p75) | before | after | from the cache |
+  | --- | ---: | ---: | ---: |
+  | Firefox 159, 300 ms hover (auto-bee) | 365 (383) ms | 117 (139) ms | 5 → 25 of 25 |
+  | Safari's WebKit 27.2, 300 ms hover (m6) | 327 (330) ms | 120 (124) ms | 5 → 25 of 25 |
+  | Firefox 159, tap (no hover, 90 ms press) | 331 ms | 332 ms | 5 → 5 of 25 |
+  | WebKit 27.2, tap | 336 ms | 336 ms | 5 → 5 of 25 |
+
+  Chromium is unchanged: the script stops at once there, and its prerendered or prefetched clicks
+  measure 135 ms in the same harness. Cost: about 1,160 B of script on every page (about 500 B
+  gzipped; `MEASURED_JS` re-pinned) and, per hovered link, one page of HTML the visitor may not
+  open (about 17 KB compressed), as Chromium's rules already cost. Phones gain nothing yet: no
+  hover, and a tap is too short.
+
 - **Firefox keeps the page's shape while the web fonts load (t23138, 21 Nov 2026).**
   Firefox never starts a `local()` fallback face by itself while the web font before it is
   pending: it drew the waiting text in its default font, so t23013's and t23067's faces did
@@ -244,7 +275,8 @@ exact `dist/` it publishes, so a heavier production build fails the release inst
   production showed: five-click journey, 300 ms hover, 25 clicks a side, median perceived LCP
   344 ms → 96 ms (p75 368 → 142 ms); with a 400 ms delay 532 → 202 ms. Every click was served
   from a prerendered page, and only hovered pages were fetched. Re-measure with
-  `ops/perf/nav-journey.mjs` (usage in its header), never with a Playwright test.
+  `ops/perf/nav-journey.mjs` (usage in its header), never with a Playwright test. Firefox and
+  Safari get a hover prefetch instead (t23288, above).
 - **Send on the contact form pays only for the POST (t20932, 19 Nov 2026).** The form posts JSON
   to `api.automancer.uk`, another host, so a cold Send first opened a connection and waited for a
   CORS preflight (`OPTIONS`, answered by the API's single Durable Object in ~200-300 ms) before the

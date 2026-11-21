@@ -60,7 +60,8 @@ const jsonLdType = pageType ?? (listedType && SCHEMA_PAGE_TYPES.has(listedType) 
 // too: its third-party security check loads only after the page is seen and
 // loaded (t21450), so rendering it in the background requests nothing from
 // another site. Files (.md, .json, .txt, .xml, images) are never speculated.
-// Browsers without support ignore it.
+// Browsers without support ignore it; src/scripts/prefetch.ts then fetches
+// the same links on hover or press (t23288).
 const SPECULATION_RULES = {
   prerender: [
     {
@@ -159,9 +160,12 @@ const SPECULATION_RULES = {
     */}
 
     <!-- Production-only browser error monitoring. The module itself requires
-         PUBLIC_AUT_SENTRY_WEB_DSN, so preview/dev builds never emit events. -->
+         PUBLIC_AUT_SENTRY_WEB_DSN, so preview/dev builds never emit events.
+         Then the hover and press prefetch for browsers that ignore the
+         Speculation Rules above (Firefox, Safari; src/scripts/prefetch.ts). -->
     <script>
       import '../scripts/sentry';
+      import '../scripts/prefetch';
     </script>
   </head>
   <body>
