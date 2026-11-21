@@ -133,14 +133,15 @@ The response, now enforced in code and tests:
 3. **Everything advertises the servable URLs.** `llms.txt`, `robots.txt`,
    `api/index.json` and `agent.json` itself point at `/agent.json` and
    `/security.txt`. A `/.well-known/` mention may appear only after the
-   working URL and clearly marked secondary. `security.txt`'s `Canonical`
-   names `/security.txt` — RFC 9116 requires Canonical to be a URL the file
-   is actually served from; one resolving to a 404 makes the document
-   non-conformant.
+   working URL and clearly marked secondary. `security.txt` has one `Canonical`
+   line for each URL it is served at (`/.well-known/security.txt`, then
+   `/security.txt`, t23673): RFC 9116 §2.5.2 says a copy fetched from a URL
+   no Canonical lists should not be trusted, and one resolving to a 404 makes
+   the document non-conformant.
 4. **Production is checked, not just the artifact.** `ops/verify-production.sh`
    asserts `/agent.json` answers 200 with parseable JSON and `/security.txt`
-   answers 200 satisfying RFC 9116 (including that `Canonical` matches the
-   served URL). It runs post-deploy and on the auto-vps 30-minute timer.
+   answers 200 satisfying RFC 9116 (including that `Canonical` lists both
+   served URLs). It runs post-deploy and on the auto-vps 30-minute timer.
 
 ## How is-agentic.com scores
 
@@ -186,7 +187,7 @@ from each other or from the HTML pages.
 | Developer documentation | Done | `src/pages/developers.astro` at `/developers` | Human-readable docs for every endpoint (with example requests), twins, feeds, manifests and policies; states no-authentication/read-only plainly. Linked from homepage, llms.txt, robots.txt, api/index.json and agent.json. |
 | Feeds | Done | `src/data/feeds.ts`, `src/pages/{work,field-notes}/{rss.xml,feed.json}.ts` | RSS 2.0 with full `content:encoded`, and JSON Feed 1.1 with full `content_text` — not excerpts. |
 | `agent.json` (capability manifest) | Done | `src/data/wellknown-agent.ts` rendered at BOTH `/agent.json` (`src/pages/agent.json.ts`, served by GitHub Pages) and `/.well-known/agent.json` (injected in `astro.config.mjs`) | Byte-identical copies, asserted. Capability manifest: contact routes (with JS caveats stated), every endpoint, policy, permissions, legal-page stance, and a pointer to `/security.txt`. |
-| `security.txt` (RFC 9116) | Done | `src/data/wellknown-security.ts` rendered at BOTH `/security.txt` (`src/pages/security.txt.ts`, served) and `/.well-known/security.txt` (injected) | RFC 9116 valid: `Contact`, `Expires` (generated at build, ~1 year out — can never silently expire), `Preferred-Languages`, and `Canonical: https://automancer.uk/security.txt` — the URL the file actually resolves at on this host. Byte-identical copies, asserted. |
+| `security.txt` (RFC 9116) | Done | `src/data/wellknown-security.ts` rendered at BOTH `/security.txt` (`src/pages/security.txt.ts`, served) and `/.well-known/security.txt` (injected) | RFC 9116 valid: `Contact`, `Expires` (generated at build, ~1 year out — can never silently expire), `Preferred-Languages`, and `Canonical` for both `https://automancer.uk/.well-known/security.txt` and `https://automancer.uk/security.txt`, the URLs it is served at (t23673). Byte-identical copies, asserted. |
 | robots.txt welcoming AI crawlers | Done | `src/pages/robots.txt.ts` | Generated. No Disallow rules for content; major AI crawlers explicitly Allowed; machine-readable surfaces advertised in comments; sitemap declared. |
 
 ### Markdown twins convention

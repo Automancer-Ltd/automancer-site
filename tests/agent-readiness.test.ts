@@ -477,10 +477,9 @@ describe('/api/*.json endpoints', () => {
 });
 
 describe('security.txt — RFC 9116, served from one builder at two routes', () => {
-  // /security.txt is the copy GitHub Pages actually serves (dot-prefixed
-  // paths 404 live on this host, measured 2026-08-22);
-  // /.well-known/security.txt stays emitted for hosts that serve dot-paths.
-  // Both render from src/data/wellknown-security.ts and must be identical.
+  // Both /security.txt and /.well-known/security.txt are served (dot-paths
+  // since 22 Oct 2026). Both render from src/data/wellknown-security.ts and
+  // must be identical.
   const copies = [
     { label: 'dist/security.txt', raw: readDistFile('security.txt') },
     { label: 'dist/.well-known/security.txt', raw: readDistFile('.well-known/security.txt') },
@@ -493,6 +492,13 @@ describe('security.txt — RFC 9116, served from one builder at two routes', () 
       if (kv && !fields.has(kv[1])) fields.set(kv[1], kv[2].trim());
     }
     return fields;
+  }
+
+  function allOf(raw: string, field: string): string[] {
+    return raw
+      .split('\n')
+      .map((line) => new RegExp(`^${field}:\\s*(.+)$`).exec(line.trim())?.[1].trim())
+      .filter((value): value is string => Boolean(value));
   }
 
   it('both copies are byte-identical — one builder, zero drift', () => {
@@ -517,12 +523,14 @@ describe('security.txt — RFC 9116, served from one builder at two routes', () 
     }
   });
 
-  it('Canonical names the SERVED url (/security.txt) in both copies — a Canonical resolving to a 404 is non-conformant', () => {
+  // RFC 9116 §2.5.2: a file fetched from a URI no Canonical lists should not be trusted. Until
+  // t23673 only /security.txt was listed, so the copy at the standard location was distrusted.
+  it('Canonical lists every URL the file is served at, the standard location first', () => {
     for (const { label, raw } of copies) {
-      expect(
-        fieldsOf(raw!).get('Canonical'),
-        `${label}: Canonical must be the URL the file actually resolves at`
-      ).toBe(`${SITE_URL}/security.txt`);
+      expect(allOf(raw!, 'Canonical'), `${label}: Canonical must list each served URL`).toEqual([
+        `${SITE_URL}/.well-known/security.txt`,
+        `${SITE_URL}/security.txt`,
+      ]);
     }
   });
 
