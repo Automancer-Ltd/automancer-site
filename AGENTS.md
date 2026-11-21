@@ -92,6 +92,11 @@ ops/preview/                the non-production preview target
   there on purpose. No response may carry `NEL`, `Report-To` or `Reporting-Endpoints`: they make the
   browser report to a server for days, outside the CSP (Cloudflare zone setting `nel` stays off;
   the Worker strips them and `ops/verify-production.sh` fails on one).
+- The edge Worker reads the site from its Pages project address (`automancer-ltd.github.io/automancer-site`),
+  never from `automancer.uk`: the Pages site has no custom domain, and no name of the site may point at
+  GitHub (`tests/edge-worker.test.ts`; `check_no_github_dns` and `check_www_redirect` in
+  `ops/verify-production.sh`; `docs/DEPLOYMENT.md` › The origin). Never put `automancer.uk` back as the
+  Pages custom domain: every page would answer 502.
 - `/privacy/` and `/terms/` are `legalNoMirror` and hash-pinned (`tests/legal-integrity.test.ts`);
   their wording changes only on Waseem's instruction.
 - The contact form never shows a raw API error code (`tests/contact-errors.test.ts`).

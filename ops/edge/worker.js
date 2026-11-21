@@ -8,6 +8,7 @@
 //   - Errors under /api/ are RFC 9457 application/problem+json.
 //   - /.well-known/api-catalog gets its RFC 9727 media type.
 //   - Plain HTTP is redirected to HTTPS, as GitHub Pages did before the proxy.
+//   - www.automancer.uk gets one 301 to the same path on automancer.uk.
 //   - A legacy *.html URL gets one real 301 to its page.
 //   - Every response, HTML, Markdown, JSON, error or redirect, carries the
 //     same SECURITY_HEADERS, so people and machines get the same answers.
@@ -15,11 +16,27 @@
 //     day, in browsers and at the edge (cachePolicy; t18923).
 // Everything else passes through untouched. Deploy and undo: docs/DEPLOYMENT.md.
 //
+// The files come from the GitHub Pages project address (PAGES), not from
+// automancer.uk itself (t22925). The Pages site has no custom domain, so GitHub
+// serves it on its own *.github.io certificate, which GitHub renews. While
+// automancer.uk was the Pages custom domain, GitHub could not renew that
+// certificate behind Cloudflare's proxy: every renewal meant hours with the
+// proxy off, and a missed one would have answered 526 on every page.
+//
 // It runs as this ES module, byte for byte, on the Workers runtime of the
 // compatibility date in ops/edge/deploy.sh (t21891). Until then it ran as a
 // rewritten service-worker script with no date, on the 2021 runtime.
 
 const ORIGIN = 'https://automancer.uk';
+// Where the published files are fetched from: the Pages site of
+// Automancer-Ltd/automancer-site, which carries no custom domain.
+const PAGES_HOST = 'automancer-ltd.github.io';
+const PAGES_PATH = '/automancer-site';
+// Other names for the site, each sent to the same path on ORIGIN. www was a
+// DNS-only CNAME to GitHub, which redirected it while automancer.uk was the
+// Pages custom domain; it is now proxied to this Worker instead, so no DNS
+// name of the site points at GitHub for someone else's Pages site to claim.
+const ALIASES = new Set(['www.automancer.uk']);
 const MARKDOWN = 'text/markdown; charset=utf-8';
 const PROBLEM = 'application/problem+json';
 // RFC 8288 discovery links on every HTML page; each target is a published file.
@@ -94,7 +111,7 @@ export function cachePolicy(pathname, search) {
 }
 
 /**
- * `pathname` and `search` on the origin. Never `new URL(path, ORIGIN)`: under
+ * `pathname` and `search` on the public site. Never `new URL(path, ORIGIN)`: under
  * the standard URL parser a path that starts with `//` (`//services/`) names
  * another host, so the request would leave for `https://services/`.
  */
@@ -103,6 +120,27 @@ export function atOrigin(pathname, search = '') {
   out.pathname = pathname;
   out.search = search;
   return out;
+}
+
+/** The same `pathname` and `search` on the Pages project the files are fetched from. */
+export function atPages(pathname, search = '') {
+  const out = new URL(`https://${PAGES_HOST}`);
+  out.pathname = PAGES_PATH + pathname;
+  out.search = search;
+  return out;
+}
+
+/**
+ * A redirect GitHub Pages sent (`/services` → `/services/`) moved back onto the
+ * public site, or null when it leaves the Pages project. GitHub names its own
+ * address in Location; a visitor must never be sent there.
+ */
+export function fromPages(location) {
+  if (!location) return null;
+  const to = new URL(location, atPages('/'));
+  if (to.host !== PAGES_HOST) return null;
+  if (to.pathname !== PAGES_PATH && !to.pathname.startsWith(`${PAGES_PATH}/`)) return null;
+  return atOrigin(to.pathname.slice(PAGES_PATH.length) || '/', to.search).toString();
 }
 
 /** The page a legacy URL moved to (including /x.html/index.html or //x.html/), or null. */
@@ -187,6 +225,7 @@ export default {
 
 async function respond(request) {
   const url = new URL(request.url);
+  if (ALIASES.has(url.hostname)) return Response.redirect(atOrigin(url.pathname, url.search).toString(), 301);
   if (url.protocol === 'http:') {
     url.protocol = 'https:';
     return Response.redirect(url.toString(), 301);
@@ -203,12 +242,10 @@ async function respond(request) {
     return res;
   }
 
-  const originUrl = atOrigin(url.pathname, url.search);
-
   if (readOnly && prefers(accept, 'text/markdown', 'text/html')) {
     const twin = twinPath(url.pathname);
     if (twin) {
-      const res = await fetch(atOrigin(twin), { method: request.method });
+      const res = await fetch(atPages(twin), { method: request.method });
       if (res.ok) {
         const out = withVary(res);
         out.headers.set('Content-Type', MARKDOWN);
@@ -219,12 +256,21 @@ async function respond(request) {
   }
 
   const policy = readOnly ? cachePolicy(url.pathname, url.search) : null;
-  const res = await fetch(new Request(originUrl, request), {
+  const res = await fetch(new Request(atPages(url.pathname, url.search), request), {
     redirect: 'manual',
     // Only a found file is kept; a 404 or an error is asked for again next time.
     ...(policy && { cf: { cacheTtlByStatus: { '200-299': policy.edge, '300-599': -1 } } }),
   });
 
+  if (res.status >= 300 && res.status < 400 && res.headers.has('Location')) {
+    const back = fromPages(res.headers.get('Location'));
+    // Anywhere else means the Pages site is misconfigured (a custom domain put
+    // back on it sends every file to automancer.uk, which would loop forever).
+    if (!back) return problem(502, 'Upstream error', 'The static host sent this request somewhere else. Try again shortly.', url.pathname);
+    const out = withVary(res);
+    out.headers.set('Location', back);
+    return out;
+  }
   if (res.status >= 400 && (isApi || prefers(accept, 'application/json', 'text/html'))) {
     return res.status === 404
       ? problem(404, 'Not Found', `No resource at ${url.pathname}. Every endpoint is listed at ${ORIGIN}/api/index.json.`, url.pathname)

@@ -1,8 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import worker, { atOrigin, cachePolicy, legacyRedirect } from '../ops/edge/worker.js';
+import worker, { atOrigin, atPages, cachePolicy, fromPages, legacyRedirect } from '../ops/edge/worker.js';
 import { DIST, allHtmlFiles } from './support/dist';
+
+// The Pages project the Worker reads (t22925): the site has no custom domain on GitHub.
+const PAGES = 'https://automancer-ltd.github.io/automancer-site';
 
 // A stand-in for GitHub Pages: two pages, one twin, everything else 404.
 const origin: Record<string, [number, string, string]> = {
@@ -15,7 +18,14 @@ const origin: Record<string, [number, string, string]> = {
 };
 
 function serve(input: RequestInfo | URL) {
-  const path = new URL(input instanceof Request ? input.url : String(input)).pathname;
+  const url = new URL(input instanceof Request ? input.url : String(input));
+  // Anything not asked of the Pages project is a request that left it.
+  if (url.host !== 'automancer-ltd.github.io' || !url.pathname.startsWith('/automancer-site/')) {
+    return Promise.resolve(new Response('wrong origin', { status: 421 }));
+  }
+  const path = url.pathname.slice('/automancer-site'.length);
+  // Pages adds the slash to a directory itself, naming its own address.
+  if (path === '/privacy') return Promise.resolve(new Response('', { status: 301, headers: { Location: `${PAGES}/privacy/${url.search}` } }));
   const [status, type, body] = origin[path] ?? [404, 'text/html; charset=utf-8', '<html>404</html>'];
   // GitHub Pages sends Vary: Accept-Encoding; the Worker must add Accept to it.
   // It also sends the reporting headers a host may add, which must never reach a visitor.
@@ -123,13 +133,56 @@ describe('edge Worker in front of GitHub Pages', () => {
       await get(path);
       const sent = fetchSpy.mock.calls.at(-1)?.[0];
       const url = new URL(sent instanceof Request ? sent.url : String(sent));
-      expect(`${url.origin}${url.pathname}${url.search}`, path).toBe(`https://automancer.uk${path}`);
+      expect(`${url.origin}${url.pathname}${url.search}`, path).toBe(`${PAGES}${path}`);
     }
     const twin = await get('//', 'text/markdown');
     expect(twin.headers.get('Content-Location')).toBe('/index.md');
     const twinAsked = fetchSpy.mock.calls.at(-1)?.[0];
-    expect(twinAsked instanceof Request ? twinAsked.url : String(twinAsked as URL)).toBe('https://automancer.uk/index.md');
+    expect(twinAsked instanceof Request ? twinAsked.url : String(twinAsked as URL)).toBe(`${PAGES}/index.md`);
     expect(atOrigin('//evil.example/x', '?a=b').toString()).toBe('https://automancer.uk//evil.example/x?a=b');
+    expect(atPages('//evil.example/x', '?a=b').toString()).toBe(`${PAGES}//evil.example/x?a=b`);
+  });
+
+  // GitHub can renew its *.github.io certificate; it could not renew automancer.uk's behind
+  // Cloudflare's proxy (t15154). So the files come from the Pages project, and a visitor never sees
+  // its address.
+  it("moves GitHub's own redirects back onto automancer.uk", async () => {
+    vi.stubGlobal('fetch', vi.fn(serve));
+    const res = await get('/privacy?ref=a%20b');
+    expect(res.status).toBe(301);
+    expect(res.headers.get('Location')).toBe('https://automancer.uk/privacy/?ref=a%20b');
+    expect(res.headers.get('Strict-Transport-Security')).toBe('max-age=15552000');
+    expect(fromPages(`${PAGES}`)).toBe('https://automancer.uk/');
+    expect(fromPages('/automancer-site/work/')).toBe('https://automancer.uk/work/');
+    expect(fromPages('https://automancer-ltd.github.io/automancer-site-other/')).toBeNull();
+    expect(fromPages('https://automancer-ltd.github.io/')).toBeNull();
+    expect(fromPages('https://evil.example/automancer-site/')).toBeNull();
+  });
+
+  // Putting automancer.uk back as the Pages custom domain makes GitHub send every file to
+  // automancer.uk, which is this Worker again: answer an error, never a redirect loop.
+  it('refuses a redirect that leaves the Pages project', async () => {
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(new Response('', { status: 301, headers: { Location: 'https://automancer.uk/services/' } }))));
+    const page = await get('/services/', 'text/html');
+    expect(page.status).toBe(502);
+    expect(page.headers.get('Location')).toBeNull();
+    expect(page.headers.get('Content-Type')).toBe('application/problem+json');
+  });
+
+  it('sends www to the same address on automancer.uk without touching the origin', async () => {
+    const fetchSpy = vi.fn(serve);
+    vi.stubGlobal('fetch', fetchSpy);
+    for (const [from, to] of [
+      ['https://www.automancer.uk/services/?utm_campaign=spring%20offer', 'https://automancer.uk/services/?utm_campaign=spring%20offer'],
+      ['http://www.automancer.uk/', 'https://automancer.uk/'],
+      ['https://www.automancer.uk//evil.example/', 'https://automancer.uk//evil.example/'],
+    ]) {
+      const res = (await worker.fetch(new Request(from))) as Response;
+      expect(res.status, from).toBe(301);
+      expect(res.headers.get('Location'), from).toBe(to);
+      expect(res.headers.get('Strict-Transport-Security'), from).toBe('max-age=15552000');
+    }
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 
   it("keeps a legacy URL's query exactly as the visitor sent it", async () => {
@@ -169,6 +222,8 @@ describe('edge Worker in front of GitHub Pages', () => {
       ['API success', await get('/api/services.json')],
       ['legacy 301', await get('/about.html')],
       ['HTTPS 301', (await worker.fetch(new Request('http://automancer.uk/about/'))) as Response],
+      ['www 301', (await worker.fetch(new Request('https://www.automancer.uk/about/'))) as Response],
+      ['Pages slash 301', await get('/privacy')],
     ];
     for (const [label, res] of responses) {
       for (const [name, value] of Object.entries(expected)) expect(res.headers.get(name), `${label}: ${name}`).toBe(value);
@@ -194,7 +249,7 @@ describe('edge Worker in front of GitHub Pages', () => {
   it('keeps only content-addressed files for a year; pages keep the origin lifetime', async () => {
     const fetchSpy = vi.fn((input: RequestInfo | URL, _init?: RequestInit) => {
       const path = new URL(input instanceof Request ? input.url : String(input)).pathname;
-      const found = /^\/(_astro|assets)\/[^/]+/.test(path) && !path.includes('missing');
+      const found = /^\/automancer-site\/(_astro|assets)\/[^/]+/.test(path) && !path.includes('missing');
       return Promise.resolve(
         new Response(found ? 'x' : '<html>404</html>', { status: found ? 200 : 404, headers: { 'Cache-Control': 'max-age=600', Expires: 'Thu, 01 Jan 2026 00:00:00 GMT' } })
       );
