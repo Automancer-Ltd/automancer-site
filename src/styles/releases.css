@@ -1,0 +1,35 @@
+/* ─────────────────────── Release notes: a dated timeline ───────────────────────
+   /releases groups the changelog by month, then by day: one date per day on a
+   line down the left, each release under it with its version (its anchor).
+   The month and day list is the field notes' contents (ArticleContents): a
+   rail beside the timeline on wide screens, a closed fold-out above it on
+   phones. */
+.releases { --rel-pad: clamp(1.25rem, 4vw, 2.25rem); max-width: var(--w-read); }
+
+.rel-month + .rel-month { margin-top: clamp(3.5rem, 7vw, 5.5rem); }
+.rel-month__title { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-2) var(--sp-4);
+  padding-bottom: var(--sp-5); border-bottom: 1px solid var(--border);
+  font-size: var(--t-3); letter-spacing: -0.03em; line-height: 1.1; scroll-margin-top: 6rem; }
+.rel-month__count { font-family: var(--font-mono); font-size: .74rem; font-weight: 400; letter-spacing: .04em; color: var(--faint); }
+
+/* The line runs down each day's left edge; a dot on it marks the day. */
+.rel-day { padding: clamp(2rem, 4vw, 2.75rem) 0 0 var(--rel-pad); border-left: 1px solid var(--border); }
+.rel-day__date { position: relative; font-size: var(--t-2); letter-spacing: -0.02em; line-height: 1.15; scroll-margin-top: 6rem; }
+.rel-day__date::before { content: ""; position: absolute; top: .4em; left: calc(-1 * var(--rel-pad) - 5px);
+  width: 9px; height: 9px; border-radius: 50%; border: 1px solid var(--g-500); background: var(--bg); }
+/* The newest day is the one the site runs now. */
+.rel-month:first-child .rel-day:first-of-type .rel-day__date::before { border-color: var(--spec-4); background: var(--spec-4); }
+
+.rel { margin-top: var(--sp-4); scroll-margin-top: 6rem; }
+.rel + .rel { margin-top: var(--sp-8); padding-top: var(--sp-8); border-top: 1px dashed var(--border); }
+.rel__version { font-family: var(--font-mono); font-size: .74rem; letter-spacing: .04em; color: var(--faint);
+  transition: color var(--dur-1); }
+.rel__version:hover, .rel:target .rel__version { color: var(--ink); }
+
+.rel__notes { margin-top: var(--sp-2); font-size: var(--t-0); line-height: 1.7; }
+.rel__notes > p:first-child { font-size: var(--t-1); line-height: 1.55; color: var(--ink); }
+/* A release's parts ("Improvements", "Fixes") are labels, not headlines. */
+.rel__notes h4 { margin-top: 1.9em; font-family: var(--font-mono); font-size: .72rem; font-weight: 500;
+  letter-spacing: .12em; line-height: 1.4; text-transform: uppercase; color: var(--muted); }
+.rel__notes > h4 + * { margin-top: .9em; }
+.rel__notes ul { gap: .55em; }
