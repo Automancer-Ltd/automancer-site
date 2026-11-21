@@ -6,17 +6,19 @@
 //   /.well-known/security.txt   (injected in astro.config.mjs — standardised location)
 //
 // Until 22 Oct 2026 the deploy dropped dot-prefixed paths from its upload (measured live 2026-08-22,
-// with .nojekyll present), so /security.txt is where the file actually
-// resolves; the /.well-known/ route stays emitted for when the host supports
-// it. Canonical MUST name a URL the file is really served from (RFC 9116
-// §3), so it points at /security.txt: a Canonical resolving to a 404 makes
-// the whole document non-conformant.
-//
+// with .nojekyll present), so /security.txt was where the file resolved; both routes are served
+// since then. RFC 9116 §2.5.2: a file fetched from a URI that no Canonical field lists "SHOULD NOT
+// be trusted", and /.well-known/security.txt is where every scanner and researcher looks first. It
+// named only /security.txt until t23673 (internet.nl reported it as an error), so there is one
+// Canonical line for each URL the file is served at, the standard location first.
 // Expires is REQUIRED by RFC 9116 and is generated at build time (~1 year
 // out), so it never goes stale silently.
 import type { APIRoute } from 'astro';
 import { business } from './business';
 import { build } from './build';
+
+/** Every path the file is served at; each is a Canonical field. */
+export const SECURITY_TXT_PATHS = ['/.well-known/security.txt', '/security.txt'] as const;
 
 /** The RFC 9116 field set, shared by both routes — build it exactly once here. */
 export function securityTxt(): string {
@@ -27,7 +29,7 @@ export function securityTxt(): string {
     `Contact: mailto:${business.email}`,
     `Expires: ${expires.toISOString()}`,
     'Preferred-Languages: en',
-    `Canonical: ${new URL('/security.txt', business.url).toString()}`,
+    ...SECURITY_TXT_PATHS.map((path) => `Canonical: ${new URL(path, business.url).toString()}`),
   ];
 
   return lines.join('\n') + '\n';

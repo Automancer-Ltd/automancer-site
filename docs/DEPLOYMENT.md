@@ -328,6 +328,37 @@ If the domain ever needs mail, replace all three records in one change and remov
 `NO_MAIL_DOMAINS`. To undo, delete the three records (Executor `cloudflare-full-access`
 `dnsRecordsForAZone.dnsRecordsForAZoneDeleteDnsRecord`) and revert the verifier change.
 
+## automancer.co.uk upgrades to HTTPS on its own name first (t23673)
+
+`automancer.co.uk` and `www.automancer.co.uk` answer from a Cloudflare redirect rule on their own
+zone (`4d8f72d51dbdbf945ae9f6b15db0ac44`, ruleset `5c664ad16b3a4ada8c9998e9eb9aa2b1`, rule
+`bd3bdf9549934d4085bc5ff92a2f0b13`), not from the Worker. Until 21 Nov 2026 the rule matched plain
+HTTP too, so `http://automancer.co.uk/` went straight to `https://automancer.uk/`. A browser ignores
+HSTS sent over HTTP, so it never stored this domain's policy, and every typed or old-link visit
+started in the clear, open to a network that rewrites the redirect. The rule also dropped the query
+(`?service=` and any campaign tag). Since then:
+
+| Setting | Now | Before |
+|---|---|---|
+| Rule expression | `(http.host eq "automancer.co.uk" or http.host eq "www.automancer.co.uk") and ssl` | the same without `and ssl` |
+| Rule `preserve_query_string` | `true` | unset (query dropped) |
+| Zone `security_header` HSTS | `max-age=31536000; includeSubDomains`, `preload` off, `nosniff` on | `max-age=15552000`, no `includeSubDomains` |
+| Zone `always_use_https` | `on` (unchanged): plain HTTP gets a 301 to HTTPS on the same name | `on` |
+
+So `http://automancer.co.uk/x?q` → `https://automancer.co.uk/x?q` (HSTS stored) →
+`https://automancer.uk/x?q`. The zone carries only these two names, so `includeSubDomains` binds
+nothing else. `check_redirect_domains` in `ops/verify-production.sh` reads both hops back for both
+names after every deploy. Custom TLS 1.2 cipher suites (internet.nl flags the CBC and RSA
+key-exchange suites Cloudflare offers by default) need Advanced Certificate Manager on the zone, a
+paid add-on (Cloudflare refused the setting with error 1023); the shared `automancer.uk` zone's
+ciphers and HSTS also cover every estate hostname, so neither was changed there.
+
+Undo (Executor `cloudflare-full-access`): `zoneRulesets.updateZoneRulesetRule` on the rule above with
+the expression without `and ssl` and no `preserve_query_string`, and
+`zoneSettings.zoneSettingsEditSingleSetting` `security_header` back to `max_age: 15552000,
+include_subdomains: false`; then revert the verifier change. Browsers that already stored the
+year-long policy keep using HTTPS for it, which is harmless while the zone serves HTTPS.
+
 ## Rollback
 
 Revert the commit and merge the revert: it deploys and verifies like any change. This path was

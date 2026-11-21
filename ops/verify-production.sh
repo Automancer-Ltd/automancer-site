@@ -79,6 +79,19 @@ readonly SITE_NAMES=("automancer.uk" "www.automancer.uk")
 # so --self-test can point it at its fixture.
 WWW_URL='https://www.automancer.uk'
 readonly WWW_PROBE='/services/?ref=www%20check'
+# automancer.co.uk and its www only redirect to automancer.uk (a Cloudflare
+# redirect rule on their own zone; docs/DEPLOYMENT.md › automancer.co.uk). Plain
+# HTTP must first go to HTTPS on the SAME name, and only HTTPS goes on to the
+# apex, keeping the path and query: a browser ignores HSTS sent over HTTP, so a
+# redirect straight from http://automancer.co.uk to automancer.uk never let it
+# store this domain's HSTS, and every typed visit started in the clear (t23673).
+# The HTTPS hop carries the zone's HSTS: at least a year, with includeSubDomains.
+# The bases are variables only so --self-test can point them at its fixture.
+readonly REDIRECT_DOMAINS=("automancer.co.uk" "www.automancer.co.uk")
+readonly REDIRECT_PROBE='/contact/?service=check%20redirect'
+REDIRECT_HTTP_BASE='http://'
+REDIRECT_HTTPS_BASE='https://'
+readonly REDIRECT_HSTS_MIN_AGE=31536000
 # The stability & deprecation policy. Checked for SHAPE, not just for a 200:
 # a promise an agent cannot trust is worse than no promise, and any old JSON
 # would pass a parse-only check.
@@ -570,11 +583,14 @@ rfc9116_conformant() {
   python3 - "$1" "$2" <<'PY' || return 1
 import sys, datetime
 
-path, expected_canonical = sys.argv[1], sys.argv[2]
+path, expected_canonicals = sys.argv[1], sys.argv[2].split()
 fields = {}
+canonicals = []
 with open(path, encoding="utf-8") as fh:
     for line in fh:
         key, sep, value = line.partition(":")
+        if sep and key.strip() == "Canonical":
+            canonicals.append(value.strip())
         if sep and key.strip() and key.strip() not in fields:
             fields[key.strip()] = value.strip()
 
@@ -613,15 +629,18 @@ if expires is not None and expires <= datetime.datetime.now(datetime.timezone.ut
     )
     sys.exit(1)
 
-canonical = fields.get("Canonical")
-if canonical is not None and not canonical.startswith(("http://", "https://")):
-    print(f"Canonical \"{canonical}\" is not an absolute http(s) URL", file=sys.stderr)
-    sys.exit(1)
+for canonical in canonicals:
+    if not canonical.startswith(("http://", "https://")):
+        print(f"Canonical \"{canonical}\" is not an absolute http(s) URL", file=sys.stderr)
+        sys.exit(1)
 
-if canonical is not None and expected_canonical and canonical != expected_canonical:
+# RFC 9116 §2.5.2: a file fetched from a URI that no Canonical field lists
+# SHOULD NOT be trusted, so every URL the file is served at must be listed.
+unlisted = [url for url in expected_canonicals if url not in canonicals]
+if unlisted:
     print(
-        f"Canonical \"{canonical}\" does not match the served URL \"{expected_canonical}\" "
-        "- a Canonical that does not resolve makes the file non-conformant",
+        f"Canonical lists {canonicals}, not the served URL(s) {unlisted} "
+        "- a copy fetched from an unlisted URL is not to be trusted (RFC 9116 §2.5.2)",
         file=sys.stderr,
     )
     sys.exit(1)
@@ -956,17 +975,17 @@ PY
 check_security_txt() {
   local url="${BASE_URL}${SECURITY_TXT_PATH}" verdict expected_canonical=''
   fetch_body "$url" || return 1
-  # Exact Canonical match only on the origin the file is generated to name;
+  # Canonical must list both served URLs only on the origin the file is generated to name;
   # preview origins get structural validation (see rfc9116_conformant).
   case "$HOST" in
-    automancer.uk | www.automancer.uk) expected_canonical="${BASE_URL}${SECURITY_TXT_PATH}" ;;
+    automancer.uk | www.automancer.uk) expected_canonical="${BASE_URL}/.well-known/security.txt ${BASE_URL}${SECURITY_TXT_PATH}" ;;
   esac
   if ! verdict=$(rfc9116_conformant "$BODY_FILE" "$expected_canonical" 2>&1); then
     printf 'GET %s returned HTTP 200 but VIOLATES RFC 9116: %s\n' "$url" "$(printf '%s' "$verdict" | tr -d '\n')"
     rm -f "$BODY_FILE"
     return 1
   fi
-  printf 'GET %s -> 200 and satisfies RFC 9116 (Contact, future Expires, Canonical resolves)\n' "$url"
+  printf 'GET %s -> 200 and satisfies RFC 9116 (Contact, future Expires, Canonical lists every served URL)\n' "$url"
   rm -f "$BODY_FILE"
 }
 
@@ -1109,6 +1128,68 @@ check_www_redirect() {
     return 1
   fi
   printf 'GET %s -> 301 %s with the edge headers\n' "$url" "$location"
+}
+
+# redirect_hop <url> — one request, no redirect followed. Prints
+# "<status>|<location>|<hsts>", or a reason and returns 1.
+redirect_hop() {
+  local url=$1 hdr err rc=0 code location hsts
+  hdr=$(need_tmp) err=$(need_tmp)
+  curl -sS --max-time "$HTTP_TIMEOUT_SECS" -o /dev/null -D "$hdr" "$url" 2>"$err" || rc=$?
+  if (( rc != 0 )); then
+    printf 'GET %s did not complete: %s (%s)\n' "$url" "$(tr -d '\n' <"$err")" "$(curl_exit_hint "$rc")"
+    rm -f "$hdr" "$err"
+    return 1
+  fi
+  code=$(head -1 "$hdr" | awk '{print $2}')
+  location=$(grep -i '^location:' "$hdr" | head -1 | cut -d' ' -f2- | tr -d '\r')
+  hsts=$(grep -i '^strict-transport-security:' "$hdr" | head -1 | cut -d' ' -f2- | tr -d '\r')
+  rm -f "$hdr" "$err"
+  printf '%s|%s|%s\n' "$code" "$location" "$hsts"
+}
+
+# hsts_strong <value> — max-age of at least REDIRECT_HSTS_MIN_AGE and includeSubDomains.
+hsts_strong() {
+  local value=${1,,} age
+  [[ $value =~ (^|;)[[:space:]]*max-age=\"?([0-9]+) ]] || return 1
+  age=${BASH_REMATCH[2]}
+  (( 10#$age >= REDIRECT_HSTS_MIN_AGE )) || return 1
+  [[ $value =~ (^|;)[[:space:]]*includesubdomains[[:space:]]*(;|$) ]]
+}
+
+# check_redirect_domains — every REDIRECT_DOMAINS name upgrades plain HTTP on
+# its own name first, then answers HTTPS with one 301 to the same path and
+# query on automancer.uk, carrying an HSTS policy a browser will keep.
+check_redirect_domains() {
+  local name http_url https_url hop code location hsts want ok=()
+  for name in "${REDIRECT_DOMAINS[@]}"; do
+    http_url="${REDIRECT_HTTP_BASE}${name}${REDIRECT_PROBE}"
+    https_url="${REDIRECT_HTTPS_BASE}${name}${REDIRECT_PROBE}"
+    hop=$(redirect_hop "$http_url") || { printf '%s\n' "$hop"; return 1; }
+    IFS='|' read -r code location hsts <<<"$hop"
+    want="https://${name}${REDIRECT_PROBE}"
+    if [[ $code != 301 || $location != "$want" ]]; then
+      printf 'GET %s answered HTTP %s to %s, not one 301 to %s: plain HTTP must upgrade on the same name first, or the browser never keeps its HSTS\n' \
+        "$http_url" "$code" "${location:-nowhere}" "$want"
+      return 1
+    fi
+    hop=$(redirect_hop "$https_url") || { printf '%s\n' "$hop"; return 1; }
+    IFS='|' read -r code location hsts <<<"$hop"
+    want="https://automancer.uk${REDIRECT_PROBE}"
+    if [[ $code != 301 || $location != "$want" ]]; then
+      printf 'GET %s answered HTTP %s to %s, not one 301 to %s (same path and query)\n' \
+        "$https_url" "$code" "${location:-nowhere}" "$want"
+      return 1
+    fi
+    if ! hsts_strong "$hsts"; then
+      printf 'GET %s sent HSTS "%s", not max-age>=%s with includeSubDomains\n' \
+        "$https_url" "${hsts:-none}" "$REDIRECT_HSTS_MIN_AGE"
+      return 1
+    fi
+    ok+=("$name")
+  done
+  local IFS=' '
+  printf '%s: HTTP upgrades on the same name, HTTPS 301s to automancer.uk with path, query and HSTS kept\n' "${ok[*]}"
 }
 
 xml_parses() {
@@ -1521,6 +1602,31 @@ self_test_route_scenario() {
   fi
 }
 
+# self_test_redirect_domains_scenario <mutation> — both REDIRECT_DOMAINS names
+# answer as production does under ${BASE_URL}/http/<name> and /https/<name>;
+# <mutation> breaks one rule on the last name ("none" is the control).
+self_test_redirect_domains_scenario() {
+  python3 - "$1" "$REDIRECT_PROBE" "${REDIRECT_DOMAINS[@]}" >"$SELFTEST_SCENARIO" <<'PY'
+import json, sys
+mutation, probe, names = sys.argv[1], sys.argv[2], sys.argv[3:]
+routes = {}
+for i, name in enumerate(names):
+    broken = mutation if i == len(names) - 1 else "none"
+    upgrade = "https://automancer.uk" + probe if broken == "skips_upgrade" else f"https://{name}{probe}"
+    target = "https://automancer.uk/contact/" if broken == "drops_query" else "https://automancer.uk" + probe
+    hsts = {
+        "short_hsts": "max-age=15552000; includeSubDomains",
+        "no_subdomains": "max-age=31536000",
+    }.get(broken, "max-age=31536000; includeSubDomains")
+    https_headers = {"Location": target}
+    if broken != "no_hsts":
+        https_headers["Strict-Transport-Security"] = hsts
+    routes[f"/http/{name}{probe}"] = {"status": 301, "body": "", "headers": {"Location": upgrade}}
+    routes[f"/https/{name}{probe}"] = {"status": 301, "body": "", "headers": https_headers}
+print(json.dumps({"routes": routes, "default": {"status": 404, "body": ""}}))
+PY
+}
+
 # self_test_pages_scenario <mutation> — a small published site for
 # check_published_pages: a sitemap with every ROUTES page plus /work/a/,
 # a matching /api/pages.json with Markdown twins, every URL served with its
@@ -1873,6 +1979,20 @@ PY
   self_test_expect pass "www answers one 301 to the same address on the apex" check_www_redirect
   self_test_expect pass "the www redirect comes from the Worker" check_www_redirect
 
+  REDIRECT_HTTP_BASE="${BASE_URL}/http/" REDIRECT_HTTPS_BASE="${BASE_URL}/https/"
+  for mutation in skips_upgrade drops_query no_hsts short_hsts no_subdomains; do
+    case "$mutation" in
+      skips_upgrade) label="a redirect domain upgrades plain HTTP on its own name first" ;;
+      drops_query) label="a redirect domain keeps the path and query" ;;
+      *) label="a redirect domain sends HSTS of a year with includeSubDomains" ;;
+    esac
+    self_test_redirect_domains_scenario "$mutation"
+    self_test_expect fail "$label" check_redirect_domains
+    self_test_redirect_domains_scenario none
+    self_test_expect pass "$label" check_redirect_domains
+  done
+  REDIRECT_HTTP_BASE='http://' REDIRECT_HTTPS_BASE='https://'
+
   self_test_route_scenario "/agent.json" 200 "{ not json"
   self_test_expect fail "agent manifest is valid JSON" check_agent_manifest
   self_test_route_scenario "/agent.json" 200 "{}"
@@ -1894,6 +2014,7 @@ PY
   security_valid="Contact: mailto:security@automancer.uk
 Expires: 2099-01-01T00:00:00Z
 Preferred-Languages: en
+Canonical: ${BASE_URL}/.well-known/security.txt
 Canonical: ${canonical_url}
 "
   HOST='automancer.uk'
@@ -1975,6 +2096,18 @@ Canonical: https://example.com/security.txt
   self_test_expect fail "security.txt Canonical matches the served URL" check_security_txt
   self_test_route_scenario "/security.txt" 200 "$security_valid"
   self_test_expect pass "security.txt Canonical matches the served URL" check_security_txt
+
+  # The file production served until t23673: only /security.txt listed, so the
+  # copy at /.well-known/ was one a reader should not trust.
+  security_body="Contact: mailto:security@automancer.uk
+Expires: 2099-01-01T00:00:00Z
+Preferred-Languages: en
+Canonical: ${canonical_url}
+"
+  self_test_route_scenario "/security.txt" 200 "$security_body"
+  self_test_expect fail "security.txt Canonical lists the standard location too" check_security_txt
+  self_test_route_scenario "/security.txt" 200 "$security_valid"
+  self_test_expect pass "security.txt Canonical lists the standard location too" check_security_txt
   HOST='127.0.0.1'
 
   self_test_route_scenario "/" 200 "<html><body>nothing to see</body></html>"
@@ -2124,6 +2257,7 @@ main() {
     if ! poll_check "${NO_MAIL_DOMAINS[*]} refuses forged mail (null MX, SPF -all, DMARC p=reject)" check_no_mail_domains; then :; fi
     if ! poll_check "${SITE_NAMES[*]} point at no GitHub Pages address" check_no_github_dns; then :; fi
     if ! poll_check "www.automancer.uk answers one 301 to the apex from the Worker" check_www_redirect; then :; fi
+    if ! poll_check "${REDIRECT_DOMAINS[*]} upgrade to HTTPS on their own name, then 301 to automancer.uk with HSTS" check_redirect_domains; then :; fi
   fi
   if ! poll_check "served HTML pages enforce default-src 'none', Trusted Types and DSN-matched connect-src" check_page_csp; then :; fi
   if ! poll_check "homepage contains structural anchor \"${HOMEPAGE_ANCHOR}\"" check_homepage_anchor; then :; fi
