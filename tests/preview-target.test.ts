@@ -39,9 +39,10 @@ async function fixture({ marked }: { marked: boolean }) {
   await mkdir(join(dir, 'services'), { recursive: true });
   await writeFile(
     join(dir, 'index.html'),
-    '<!DOCTYPE html><html lang="en-GB"><head><title>Automancer</title></head><body><span>build:</span><b>abcdef0</b></body></html>',
+    `<!DOCTYPE html><html lang="en-GB"><head>${OFFSITE_LOCK}<title>Automancer</title></head><body><span>build:</span><b>abcdef0</b></body></html>`,
   );
   await writeFile(join(dir, 'services', 'index.html'), '<html><body>services</body></html>');
+  await writeFile(join(dir, 'services.md'), '# Services\n');
   await writeFile(join(dir, '404.html'), '<html><body>not found here</body></html>');
   if (marked) {
     await markRelease(dir, { ref: 'preview/rehearsal', sha: SHA, url: 'http://example.invalid' });
@@ -83,13 +84,6 @@ describe('marking a release', () => {
     expect(markHtml(once, stamp)).toBe(once);
   });
 
-  it("takes the GitHub Pages copy's lock out, as the edge Worker does on automancer.uk (t23484)", () => {
-    const html = `<html><head><script>guard</script>${OFFSITE_LOCK}<title>t</title></head><body><h1>hi</h1></body></html>`;
-    const marked = markHtml(html, { ref: 'preview/x', short: 'abc1234' });
-    expect(marked).not.toContain(OFFSITE_LOCK);
-    expect(marked).toContain('<script>guard</script><title>t</title>');
-  });
-
   it('writes the marker the server requires, naming the ref and revision', async () => {
     const { dir } = await fixture({ marked: true });
     const stamp = JSON.parse(await readFile(join(dir, STAMP_FILE), 'utf8'));
@@ -115,18 +109,33 @@ describe('serving a marked release', () => {
     expect(home.headers.get('x-robots-tag')).toBe('noindex, nofollow, noarchive');
     expect(home.headers.get('cache-control')).toContain('no-store');
     expect(home.headers.get('x-preview-target')).toBe('preview/rehearsal@aaaaaaa');
-    expect(await home.text()).toContain(BANNER_ID);
+    const body = await home.text();
+    expect(body).toContain(BANNER_ID);
+    expect(body).not.toContain(OFFSITE_LOCK);
 
     const missing = await fetch(`${url}/definitely-not-a-page`);
     expect(missing.status).toBe(404);
     expect(await missing.text()).toContain('not found here');
   });
 
-  it('redirects directory paths the way GitHub Pages does', async () => {
+  it('negotiates Markdown and sends the security headers without caching the preview', async () => {
     const { url } = await fixture({ marked: true });
-    const hop = await fetch(`${url}/services`, { redirect: 'manual' });
-    expect(hop.status).toBe(301);
-    expect(hop.headers.get('location')).toBe('/services/');
+    const twin = await fetch(`${url}/services/`, { headers: { Accept: 'text/markdown' } });
+    expect(twin.status).toBe(200);
+    expect(twin.headers.get('content-type')).toMatch(/^text\/markdown/);
+    expect(twin.headers.get('content-location')).toBe('/services.md');
+    expect(twin.headers.get('cross-origin-opener-policy')).toBe('same-origin');
+    expect(twin.headers.get('cache-control')).toContain('no-store');
+    expect(await twin.text()).toBe('# Services\n');
+  });
+
+  it('keeps both the Pages and Worker redirects on the preview with their query', async () => {
+    const { url } = await fixture({ marked: true });
+    for (const path of ['/services', '/services.html']) {
+      const hop = await fetch(`${url}${path}?service=audit`, { redirect: 'manual' });
+      expect(hop.status).toBe(301);
+      expect(hop.headers.get('location')).toBe('/services/?service=audit');
+    }
     const direct = await fetch(`${url}/services/`);
     expect(direct.status).toBe(200);
     expect(await direct.text()).toContain('services');
@@ -146,7 +155,7 @@ describe('serving a marked release', () => {
 
   it('never escapes its root', async () => {
     const { url } = await fixture({ marked: true });
-    for (const path of ['/../etc/passwd', '/%2e%2e/%2e%2e/etc/passwd', '/..%2fetc%2fpasswd']) {
+    for (const path of ['/../etc/passwd', '/%2e%2e/%2e%2e/etc/passwd', '/..%2fetc%2fpasswd', '/%zz']) {
       const res = await fetch(`${url}${path}`);
       expect(res.status).toBe(404);
       expect(await res.text()).not.toContain('root:');

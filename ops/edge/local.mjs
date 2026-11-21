@@ -36,6 +36,7 @@ import worker, { atOrigin, atPages } from './worker.js';
 export const ORIGIN = atOrigin('/').origin;
 /** The Pages project address the Worker reads every file from, without its trailing slash. */
 const PAGES = atPages('/').href.replace(/\/$/, '');
+const PAGES_PATH = new URL(PAGES).pathname;
 
 // GitHub Pages' Content-Type for each file the build emits (read from the Pages copy).
 const TYPES = {
@@ -62,15 +63,21 @@ export function pagesFromDist(dist) {
   const root = path.resolve(dist);
   return async (request) => {
     const url = new URL(request.url);
-    const rel = decodeURIComponent(url.pathname.slice(new URL(PAGES).pathname.length)) || '/';
+    const encoded = url.pathname.slice(PAGES_PATH.length) || '/';
+    let rel;
+    try {
+      rel = decodeURIComponent(encoded);
+    } catch {
+      // A malformed escape has no file behind it. Serve the same missing-page body.
+    }
     const always = { 'Access-Control-Allow-Origin': '*', Vary: 'Accept-Encoding' };
-    let file = path.join(root, rel);
-    let found = file === root || file.startsWith(root + path.sep) ? await stat(file).catch(() => null) : null;
+    let file = rel && path.join(root, rel);
+    let found = file && (file === root || file.startsWith(root + path.sep)) ? await stat(file).catch(() => null) : null;
     if (found?.isDirectory()) {
       if (!rel.endsWith('/')) {
         return new Response(null, {
           status: 301,
-          headers: { ...always, 'Cache-Control': 'max-age=600', 'Content-Type': 'text/html', Location: `${PAGES}${rel}/${url.search}` },
+          headers: { ...always, 'Cache-Control': 'max-age=600', 'Content-Type': 'text/html', Location: `${PAGES}${encoded}/${url.search}` },
         });
       }
       file = path.join(file, 'index.html');

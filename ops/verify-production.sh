@@ -814,7 +814,7 @@ check_security_headers() {
 # than serving static HTML from the origin.
 check_edge_active_surfaces() {
   local verdict
-  if ! verdict=$(python3 - "$BASE_URL" "$HTTP_TIMEOUT_SECS" 2>&1 <<'PY'
+  if ! verdict=$(python3 - "$BASE_URL" "$HTTP_TIMEOUT_SECS" "$PREVIEW_MODE" 2>&1 <<'PY'
 import http.client, ssl, sys
 from urllib.parse import urlparse
 
@@ -847,13 +847,14 @@ for path in ("/assets/images/logo.svg", "/field-notes/rss.xml"):
             "— active XML/SVG must send default-src 'none' and Trusted Types"
         )
 
+target = "/services/" if sys.argv[3] == "1" else "https://automancer.uk/services/"
 for path in ("/services.html/index.html", "//services.html/"):
     code, hdrs = req(path)
     loc = hdrs.get("location", "")
-    if code != 301 or loc != "https://automancer.uk/services/":
+    if code != 301 or loc != target:
         sys.exit(
             f"GET {sys.argv[1]}{path} answered HTTP {code} (Location: {loc or 'absent'}), "
-            "expected 301 to https://automancer.uk/services/"
+            f"expected 301 to {target}"
         )
 
 print("SVG/XML carry default-src 'none' + Trusted Types, and legacy stub paths 301 cleanly at the edge")
@@ -2248,12 +2249,11 @@ main() {
   if ! poll_check "${STABILITY_POLICY_PATH} answers 200 and serves the published policy" check_stability_policy; then :; fi
   if ! poll_check "every /api/index.json endpoint and /openapi.json answer 200 with JSON" check_api_surface; then :; fi
   if ! poll_check "${SECURITY_TXT_PATH} answers 200 and satisfies RFC 9116" check_security_txt; then :; fi
-  # Production only: the preview server is not the Pages upload this guards.
+  if ! poll_check "the /.well-known/ copies are served" check_well_known; then :; fi
+  if ! poll_check "the edge Worker's security headers are sent on pages, twins and 404s" check_security_headers; then :; fi
+  if ! poll_check "active XML/SVG carry default-src 'none' + Trusted Types and legacy stub paths 301 at the edge" check_edge_active_surfaces; then :; fi
+  # These checks address production's DNS, mail and redirect domains.
   if (( ! PREVIEW_MODE )); then
-    if ! poll_check "the /.well-known/ copies are served" check_well_known; then :; fi
-    # The edge Worker sends these; the preview server has no Worker in front.
-    if ! poll_check "the edge Worker's security headers are sent on pages, twins and 404s" check_security_headers; then :; fi
-    if ! poll_check "active XML/SVG carry default-src 'none' + Trusted Types and legacy stub paths 301 at the edge" check_edge_active_surfaces; then :; fi
     if ! poll_check "${NO_MAIL_DOMAINS[*]} refuses forged mail (null MX, SPF -all, DMARC p=reject)" check_no_mail_domains; then :; fi
     if ! poll_check "${SITE_NAMES[*]} point at no GitHub Pages address" check_no_github_dns; then :; fi
     if ! poll_check "www.automancer.uk answers one 301 to the apex from the Worker" check_www_redirect; then :; fi

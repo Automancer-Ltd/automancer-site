@@ -37,11 +37,10 @@
  * proof strip, exactly as it does against automancer.uk.
  */
 import { createServer } from 'node:http';
-import { createReadStream } from 'node:fs';
-import { readFile, readdir, stat, writeFile } from 'node:fs/promises';
-import { extname, join, normalize, resolve, sep } from 'node:path';
+import { readFile, readdir, realpath, writeFile } from 'node:fs/promises';
+import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { OFFSITE_LOCK } from '../edge/worker.js';
+import { ORIGIN, siteFromDist } from '../edge/local.mjs';
 
 /** Marker file written by `mark`; its absence makes a root unservable. */
 export const STAMP_FILE = '.preview-target';
@@ -49,27 +48,6 @@ export const STAMP_FILE = '.preview-target';
 export const BANNER_ID = 'preview-target-banner';
 const BANNER_MARK = `<!-- ${BANNER_ID} -->`;
 const ROBOTS_MARK = '<!-- preview-target-noindex -->';
-
-const TYPES = {
-  '.avif': 'image/avif',
-  '.css': 'text/css; charset=utf-8',
-  '.gif': 'image/gif',
-  '.html': 'text/html; charset=utf-8',
-  '.ico': 'image/vnd.microsoft.icon',
-  '.jpeg': 'image/jpeg',
-  '.jpg': 'image/jpeg',
-  '.js': 'text/javascript; charset=utf-8',
-  '.json': 'application/json; charset=utf-8',
-  '.map': 'application/json; charset=utf-8',
-  '.md': 'text/markdown; charset=utf-8',
-  '.png': 'image/png',
-  '.svg': 'image/svg+xml',
-  '.txt': 'text/plain; charset=utf-8',
-  '.webmanifest': 'application/manifest+json',
-  '.webp': 'image/webp',
-  '.woff2': 'font/woff2',
-  '.xml': 'application/xml; charset=utf-8',
-};
 
 const escapeHtml = (s) =>
   String(s).replace(
@@ -87,14 +65,12 @@ const escapeHtml = (s) =>
  * Exported for tests.
  */
 export function markHtml(html, stamp) {
-  // The preview target serves the release itself, with no edge Worker in front, so it takes the
-  // GitHub Pages copy's lock out as the Worker does on automancer.uk (OFFSITE_LOCK, t23484).
-  let out = html.replace(OFFSITE_LOCK, '');
+  let out = html;
   if (!out.includes(BANNER_MARK)) {
     const banner =
       `${BANNER_MARK}<div id="${BANNER_ID}" role="note" style="` +
       'margin:0;padding:.6rem .9rem;background:#3b1d00;color:#ffd7a8;' +
-      'font:600 14px/1.4 ui-sans-serif,system-ui,sans-serif;text-align:center">' +
+      'font:600 14px/1.4 ui-sans-serif,system-ui,sans-serif;text-align:center;overflow-wrap:anywhere">' +
       `PREVIEW TARGET — non-production. Not automancer.uk. ` +
       `Ref <code>${escapeHtml(stamp.ref)}</code>, revision <code>${escapeHtml(stamp.short)}</code>.` +
       '</div>';
@@ -194,58 +170,10 @@ export function readPort(value, fallback) {
   return port;
 }
 
-/**
- * Resolve a request path against `root`. Never escapes root.
- *
- * Returns one of:
- *   { kind: 'file', file }                  — serve it
- *   { kind: 'redirect', location }          — GitHub Pages' trailing-slash hop
- *   null                                    — no such page (caller serves 404)
- * Exported so the behaviour can be driven directly in tests.
- */
-export async function resolveRequest(root, rawUrl) {
-  let encoded, pathname;
-  try {
-    encoded = new URL(rawUrl, 'http://preview.invalid').pathname;
-    pathname = decodeURIComponent(encoded);
-  } catch {
-    return null;
-  }
-  if (pathname.includes('\0')) return null;
-  const rel = normalize(pathname).replace(/^([.]{2}[/\\])+/, '').replace(/^[/\\]+/, '');
-  const target = join(root, rel);
-  if (target !== root && !target.startsWith(root + sep)) return null;
-  let info;
-  try {
-    info = await stat(target);
-  } catch {
-    return null;
-  }
-  if (info.isDirectory()) {
-    // A directory URL without its trailing slash gets the same 301 GitHub
-    // Pages issues, so a rehearsal exercises the hop production has. Built from
-    // the still-encoded path: always ASCII (a decoded non-Latin-1 character made
-    // writeHead throw and crash the process) and never `//host` (a decoded
-    // `%2F` prefix made it an open redirect).
-    if (!pathname.endsWith('/')) return { kind: 'redirect', location: `/${encoded.replace(/^\/+/, '')}/` };
-    const index = join(target, 'index.html');
-    try {
-      const indexInfo = await stat(index);
-      if (indexInfo.isFile()) return { kind: 'file', file: index };
-    } catch {
-      /* fall through to the 404 body */
-    }
-    return null;
-  }
-  if (!info.isFile()) return null;
-  return { kind: 'file', file: target };
-}
-
-const headers = (stamp, extra = {}) => ({
-  'X-Robots-Tag': 'noindex, nofollow, noarchive',
-  'Cache-Control': 'no-store, max-age=0',
-  'X-Preview-Target': stamp ? `${stamp.ref}@${stamp.short}` : 'placeholder',
-  ...extra,
+const headers = (stamp) => ({
+  'x-robots-tag': 'noindex, nofollow, noarchive',
+  'cache-control': 'no-store, max-age=0',
+  'x-preview-target': stamp ? `${stamp.ref}@${stamp.short}` : 'placeholder',
 });
 
 async function loadStamp(root) {
@@ -276,66 +204,43 @@ export async function startServer(options) {
       : `preview target: ${rootDir} has no ${STAMP_FILE} marker — serving the placeholder until a release is stamped`,
   );
 
-  const server = createServer((req, res) => {
-    handle(req, res).catch((error) => {
-      // One bad request must not take the target down (Restart=always would
-      // bring it back, but a repeated request would keep it down).
-      log(`preview target: ${req.method} ${req.url}: ${error?.message ?? error}`);
-      if (!res.headersSent) res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
-      res.end();
-    });
-  });
-  const handle = async (req, res) => {
-    // Re-read the stamp per request: `current` is a symlink flipped atomicly by
-    // deploy-preview.sh, so a release published after this process started must
-    // take effect without a restart. Cheap (one small file) and it is what makes
-    // "flip the symlink" a complete deploy.
-    const stamp = await loadStamp(rootDir);
-    if (req.method !== 'GET' && req.method !== 'HEAD') {
-      res.writeHead(405, headers(stamp, { Allow: 'GET, HEAD' }));
-      res.end();
-      return;
-    }
-    const url = new URL(req.url ?? '/', 'http://preview.invalid');
-    if (!stamp) {
-      const body = banner('automancer-site preview target', placeholderBody(null));
-      res.writeHead(url.pathname === '/' ? 200 : 404, headers(null, {
-        'Content-Type': TYPES['.html'],
-        'Content-Length': Buffer.byteLength(body),
-      }));
-      res.end(req.method === 'HEAD' ? undefined : body);
-      return;
-    }
-    const hit = await resolveRequest(rootDir, req.url ?? '/');
-    if (hit?.kind === 'redirect') {
-      res.writeHead(301, headers(stamp, { Location: hit.location }));
-      res.end();
-      return;
-    }
-    if (!hit) {
-      let body;
-      try {
-        body = await readFile(join(rootDir, '404.html'));
-      } catch {
-        body = banner('404 — not found', 'No such page in this preview release.');
+  const server = createServer(async (req, res) => {
+    try {
+      // Pin the release for this request. A deploy flips the current symlink;
+      // its stamp and the files the Worker reads must come from the same release.
+      const release = await realpath(rootDir).catch(() => null);
+      const stamp = release && await loadStamp(release);
+      const previewHeaders = headers(stamp);
+      if (req.method !== 'GET' && req.method !== 'HEAD') {
+        res.writeHead(405, { ...previewHeaders, Allow: 'GET, HEAD' });
+        res.end();
+        return;
       }
-      res.writeHead(404, headers(stamp, {
-        'Content-Type': TYPES['.html'],
-        'Content-Length': Buffer.byteLength(body),
-      }));
-      res.end(req.method === 'HEAD' ? undefined : body);
-      return;
-    }
-    res.writeHead(200, headers(stamp, {
-      'Content-Type': TYPES[extname(hit.file).toLowerCase()] ?? 'application/octet-stream',
-      'Content-Length': (await stat(hit.file)).size,
-    }));
-    if (req.method === 'HEAD') {
+
+      const request = new Request(ORIGIN + (req.url ?? '/'), { method: req.method, headers: req.headers });
+      if (!stamp) {
+        const body = banner('automancer-site preview target', placeholderBody(null));
+        res.writeHead(new URL(request.url).pathname === '/' ? 200 : 404, {
+          ...previewHeaders, 'Content-Type': 'text/html; charset=utf-8',
+        });
+        res.end(req.method === 'HEAD' ? undefined : body);
+        return;
+      }
+
+      const response = await siteFromDist(release)(request);
+      const out = { ...Object.fromEntries(response.headers), ...previewHeaders };
+      if (out.location?.startsWith(`${ORIGIN}/`)) {
+        out.location = out.location.slice(ORIGIN.length).replace(/^\/+/, '/');
+      }
+      const body = response.body ? Buffer.from(await response.arrayBuffer()) : undefined;
+      res.writeHead(response.status, out);
+      res.end(body);
+    } catch (error) {
+      log(`preview target: ${req.method} ${req.url}: ${error?.message ?? error}`);
+      if (!res.headersSent) res.writeHead(500, { ...headers(null), 'Content-Type': 'text/plain; charset=utf-8' });
       res.end();
-      return;
     }
-    createReadStream(hit.file).on('error', () => res.destroy()).pipe(res);
-  };
+  });
 
   await new Promise((ok, fail) => {
     server.once('error', fail);
