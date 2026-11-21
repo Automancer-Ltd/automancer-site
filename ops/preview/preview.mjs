@@ -67,12 +67,13 @@ const escapeHtml = (s) =>
 export function markHtml(html, stamp) {
   let out = html;
   if (!out.includes(BANNER_MARK)) {
+    // Keep the marker out of the page flow so rehearsals measure the same layout.
     const banner =
       `${BANNER_MARK}<div id="${BANNER_ID}" role="note" style="` +
-      'margin:0;padding:.6rem .9rem;background:#3b1d00;color:#ffd7a8;' +
-      'font:600 14px/1.4 ui-sans-serif,system-ui,sans-serif;text-align:center;overflow-wrap:anywhere">' +
-      `PREVIEW TARGET — non-production. Not automancer.uk. ` +
-      `Ref <code>${escapeHtml(stamp.ref)}</code>, revision <code>${escapeHtml(stamp.short)}</code>.` +
+      'position:absolute;z-index:1000;top:0;left:50%;transform:translateX(-50%);' +
+      'margin:0;padding:1px 6px;background:#3b1d00;color:#ffd7a8;' +
+      'font:600 11px/1.2 ui-sans-serif,system-ui,sans-serif;white-space:nowrap;pointer-events:none">' +
+      `PREVIEW TARGET · <code>${escapeHtml(stamp.short)}</code>` +
       '</div>';
     out = out.replace(/<body([^>]*)>/i, (m, attrs) => `<body${attrs}>${banner}`);
     if (!out.includes(BANNER_ID)) {
