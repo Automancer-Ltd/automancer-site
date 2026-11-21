@@ -1,5 +1,16 @@
 # Release notes
 
+## v2026.11.21.5 — 21 November 2026
+
+The site now presents a clearer, more consistent experience across its domains.
+
+### Improvements
+
+- The Syne display font starts loading with the page response, helping the site show its intended typography sooner.
+- Visiting automancer.co.uk or www.automancer.co.uk now takes you securely to the matching page on automancer.uk.
+- The site’s security contact details can now be verified from both published security.txt addresses.
+
+
 ## v2026.11.21.4 — 21 November 2026
 
 This release makes it easier for visitors to find their way around the site and explore its work.
