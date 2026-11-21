@@ -18,6 +18,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
+import { OFFSITE_LOCK } from '../ops/edge/worker.js';
 
 import {
   BANNER_ID,
@@ -80,6 +81,13 @@ describe('marking a release', () => {
     expect(once).toContain('PREVIEW TARGET');
     expect(once.indexOf('<meta name="robots"')).toBeLessThan(once.indexOf('<body'));
     expect(markHtml(once, stamp)).toBe(once);
+  });
+
+  it("takes the GitHub Pages copy's lock out, as the edge Worker does on automancer.uk (t23484)", () => {
+    const html = `<html><head><script>guard</script>${OFFSITE_LOCK}<title>t</title></head><body><h1>hi</h1></body></html>`;
+    const marked = markHtml(html, { ref: 'preview/x', short: 'abc1234' });
+    expect(marked).not.toContain(OFFSITE_LOCK);
+    expect(marked).toContain('<script>guard</script><title>t</title>');
   });
 
   it('writes the marker the server requires, naming the ref and revision', async () => {

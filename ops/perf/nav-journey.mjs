@@ -15,6 +15,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { OFFSITE_LOCK } from '../edge/worker.js'; // this server stands in for the Worker, which takes it out
 
 const [distArg, label, roundsArg, delayArg] = process.argv.slice(2);
 const upstream = /^https?:\/\//.test(distArg) ? distArg.replace(/\/$/, '') : null; // live origin through a local probe proxy
@@ -35,7 +36,7 @@ if(document.prerendering)document.addEventListener('prerenderingchange',go,{once
 // Pages carry a hash-based script policy (security.csp): name the probe's hash in it, or the
 // browser refuses the probe and no beacon ever arrives.
 const PROBE_HASH = `'sha256-${crypto.createHash('sha256').update(PROBE.slice('<script>'.length, -'</script>'.length)).digest('base64')}'`;
-const withProbe = (html) => html.replace(/(script-src(?:-elem)? )/g, `$1${PROBE_HASH} `).replace('</head>', PROBE + '</head>');
+const withProbe = (html) => html.replace(OFFSITE_LOCK, '').replace(/(script-src(?:-elem)? )/g, `$1${PROBE_HASH} `).replace('</head>', PROBE + '</head>');
 
 const types = { '.html': 'text/html; charset=utf-8', '.css': 'text/css', '.js': 'text/javascript', '.woff2': 'font/woff2', '.svg': 'image/svg+xml', '.png': 'image/png', '.json': 'application/json' };
 let waiter = null;

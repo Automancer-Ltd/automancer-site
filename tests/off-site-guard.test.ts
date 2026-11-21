@@ -9,9 +9,12 @@
  * local run elsewhere fails here, not in front of a visitor.
  */
 import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import { describe, expect, it } from 'vitest';
-import { pageCheckPages } from './support/dist';
+import { OFFSITE_LOCK } from '../ops/edge/worker.js';
+import { siteFromDist } from '../ops/edge/local.mjs';
+import { DIST, pageCheckPages } from './support/dist';
 
 const GUARD = /<script>(if\(location\.hostname\.endsWith\('\.github\.io'\)\)[^<]*)<\/script>/;
 
@@ -77,5 +80,44 @@ describe('the GitHub Pages copy', () => {
       'https://automancer-uk.translate.goog/services/',
       'https://notgithub.io/',
     ]) expect(sentTo(body, href), href).toBeNull();
+  });
+});
+
+/**
+ * The lock (t23484). A frame sandboxed without allow-scripts never runs the guard above, so the
+ * GitHub Pages copy drew the whole page inside it. Every built page carries a style that hides it,
+ * and the edge Worker takes that style out of every page it serves on automancer.uk.
+ */
+describe('the GitHub Pages lock', () => {
+  const pages = pageCheckPages();
+  const css = /^<style>([^<]*)<\/style>$/.exec(OFFSITE_LOCK)![1]!;
+
+  it('is on every built page once, straight after the guard, under a hash the page policy allows', () => {
+    const wrong = pages.filter(({ html }) => {
+      const head = html.slice(0, html.indexOf('</head>'));
+      const guard = GUARD.exec(head);
+      const policy = /http-equiv="content-security-policy" content="([^"]*)"/.exec(html)?.[1] ?? '';
+      return !guard
+        || head.indexOf(OFFSITE_LOCK) !== guard.index + guard[0].length
+        || html.split(OFFSITE_LOCK).length !== 2
+        || !policy.includes(`'sha256-${createHash('sha256').update(css).digest('base64')}'`);
+    }).map((p) => p.route);
+    expect(wrong, 'BaseLayout: OFFSITE_LOCK once, right after the github.io guard, its hash in style-src').toEqual([]);
+  });
+
+  it('is what the production verifier looks for on the served homepage', () => {
+    const mark = /^readonly OFFSITE_LOCK_MARK='([^']+)'$/m.exec(readFileSync('ops/verify-production.sh', 'utf8'))?.[1];
+    expect(mark && OFFSITE_LOCK.startsWith(mark)).toBe(true);
+  });
+
+  it('is taken out of every page automancer.uk serves, and only it', async () => {
+    const site = siteFromDist(DIST);
+    const kept: string[] = [];
+    for (const { route, html } of pages) {
+      const res = await site(new Request(new URL(route, 'https://automancer.uk'), { headers: { Accept: 'text/html' } }));
+      const served = await res.text();
+      if (served !== html.replace(OFFSITE_LOCK, '')) kept.push(`${route} ${res.status}`);
+    }
+    expect(kept, 'the Worker must serve each page exactly as built, minus the lock').toEqual([]);
   });
 });

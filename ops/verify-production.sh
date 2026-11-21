@@ -87,6 +87,9 @@ readonly STABILITY_POLICY_PATH="/api/stability.json"
 # site footer (src/components/Footer.astro ← src/data/business.ts). Marketing
 # wording changes; the registered company number does not.
 readonly HOMEPAGE_ANCHOR="Company No. 17060907"
+# The start of the lock every built page carries for its GitHub Pages copy (ops/edge/worker.js
+# OFFSITE_LOCK, t23484). The edge Worker takes it out; a page served with it is drawn blank.
+readonly OFFSITE_LOCK_MARK='<style>body>*{display:none!important}'
 # MEASURED 2026-08-22, not estimated. The live certificate is Let's Encrypt,
 # 89-day lifetime, and LE renews at ~1/3 life remaining (~29 days out). So the
 # threshold must sit BELOW 29 or it fires on every renewal cycle. 21 does, and
@@ -1158,7 +1161,13 @@ check_homepage_anchor() {
     rm -f "$BODY_FILE"
     return 1
   fi
-  printf 'GET %s -> 200 and contains \"%s\"\n' "$url" "$HOMEPAGE_ANCHOR"
+  if grep -qF -- "$OFFSITE_LOCK_MARK" "$BODY_FILE"; then
+    printf 'homepage %s still carries the GitHub Pages lock (%s): the edge Worker did not take it out, so visitors see a blank page with one line of text\n' \
+      "$url" "$OFFSITE_LOCK_MARK"
+    rm -f "$BODY_FILE"
+    return 1
+  fi
+  printf 'GET %s -> 200, contains \"%s\" and no GitHub Pages lock\n' "$url" "$HOMEPAGE_ANCHOR"
   rm -f "$BODY_FILE"
 }
 
@@ -1970,8 +1979,11 @@ Canonical: https://example.com/security.txt
 
   self_test_route_scenario "/" 200 "<html><body>nothing to see</body></html>"
   self_test_expect fail "homepage contains its structural anchor" check_homepage_anchor
+  self_test_route_scenario "/" 200 "<html><head>${OFFSITE_LOCK_MARK}</style></head><body>Company No. 17060907</body></html>"
+  self_test_expect fail "homepage is served without the GitHub Pages lock" check_homepage_anchor
   self_test_route_scenario "/" 200 "<html><body>Company No. 17060907</body></html>"
   self_test_expect pass "homepage contains its structural anchor" check_homepage_anchor
+  self_test_expect pass "homepage is served without the GitHub Pages lock" check_homepage_anchor
 
   EXPECTED_REVISION='abc1234'
   self_test_route_scenario "/" 200 "<html><body>no build marker</body></html>"

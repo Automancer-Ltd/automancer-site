@@ -111,6 +111,12 @@ ops/preview/                the non-production preview target
   `tests/journey/security.spec.ts`). Keep it the first script, after the CSP meta and before any
   `<link>`, and never widen it to hosts other than `*.github.io` (the preview target, localhost and
   translation proxies must keep working).
+- A frame sandboxed without `allow-scripts` never runs that script, so every built page also
+  carries `OFFSITE_LOCK` (`ops/edge/worker.js`), a `<style>` that hides it, straight after the
+  script; the edge Worker takes it out of every page it serves (t23484; `tests/off-site-guard.test.ts`,
+  `tests/edge-worker.test.ts`, `check_homepage_anchor`). Anything that serves a built page without
+  the Worker must take it out too (the preview target's `mark`, `ops/perf/nav-journey.mjs`). Deploy
+  the Worker before merging a change to the lock, or every page is blank.
 - Pages are fetched ahead of a click only by Chromium's Speculation Rules (`BaseLayout.astro`) and,
   in browsers that cannot prerender, by the hover prefetch in `src/scripts/prefetch.ts` (t23288),
   both same-origin pages only (`tests/speculation-rules.test.ts` holds them to the same links).
