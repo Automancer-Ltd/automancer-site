@@ -206,6 +206,13 @@ Undo via Executor `sentry-guarded` (`projects.updateProject` and `projects.updat
   Compare the probe with the live Worker: `node ops/edge/probe-matrix.mjs <base-url>` asks each
   the same 28 awkward questions (twins, 404s, the API, legacy URLs with encoded queries, doubled
   slashes) and prints one JSON line per answer; diff the two runs.
+- **Changing the display-font hint:** the Worker reads up to the first 4 KiB of the HTML it serves
+  and sends Syne's existing preload in the `Link` header, using the URL from that release.
+  The in-document preload still works if the Worker is rolled back. Verify a GET to the probe
+  returns the same HTML and a single font preload, with the same fingerprint as the
+  `<head>` link. Check that a Markdown twin and a 404 have no font preload. Roll back by
+  deploying the preceding Worker version. Reverting the Pages merge alone leaves the
+  Worker version running.
 - **Runtime (t21891, 20 Nov 2026):** `deploy.sh` uploads `worker.js` byte for byte as an ES module
   through Cloudflare's JSON Workers API (`api.versions.createWorkerVersion`, `deploy=true`) with
   `COMPATIBILITY_DATE`, then reads the date back. Before t21891 it rewrote the module into a

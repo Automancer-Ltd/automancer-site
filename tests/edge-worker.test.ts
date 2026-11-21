@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import worker, { OFFSITE_LOCK, atOrigin, atPages, cachePolicy, fromPages, legacyRedirect, unlocked } from '../ops/edge/worker.js';
-import { DIST, allHtmlFiles } from './support/dist';
+import { DIST, allHtmlFiles, contentPages } from './support/dist';
 
 // The Pages project the Worker reads (t22925): the site has no custom domain on GitHub.
 const PAGES = 'https://automancer-ltd.github.io/automancer-site';
@@ -296,6 +296,30 @@ describe('edge Worker in front of GitHub Pages', () => {
     expect(missing.status).toBe(404);
     expect(await missing.text()).toBe('<html><head></head>404</html>');
     expect(await (await get('/', 'text/html')).text()).toBe('<html>home</html>');
+  });
+
+  it('starts the display-font request from the HTML response headers, with the page body intact', async () => {
+    for (const page of contentPages()) {
+      const href = page.doc.querySelectorAll('head link[rel="preload"][as="font"]')
+        .map((el) => el.getAttribute('href'))
+        .find((path) => path?.startsWith('/_astro/syne.'));
+      expect(href, page.route).toBeTruthy();
+
+      // Split the early head across chunks as it may arrive from Pages.
+      const split = page.html.indexOf(href!) + 12;
+      const encoder = new TextEncoder();
+      vi.stubGlobal('fetch', () => Promise.resolve(new Response(new ReadableStream({
+        start(controller) {
+          controller.enqueue(encoder.encode(page.html.slice(0, split)));
+          controller.enqueue(encoder.encode(page.html.slice(split)));
+          controller.close();
+        },
+      }), { headers: { 'Content-Type': 'text/html; charset=utf-8' } })));
+      const response = await get(page.route);
+      const preloads = response.headers.get('Link')?.split(', ').filter((link) => link.includes('rel=preload'));
+      expect(preloads, page.route).toEqual([`<${href!}>; rel=preload; as=font; type="font/woff2"; crossorigin`]);
+      expect(await response.text(), page.route).toBe(page.html.replace(OFFSITE_LOCK, ''));
+    }
   });
 
   it('finds the lock however the page arrives in chunks, and leaves one outside <head> alone', async () => {

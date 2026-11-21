@@ -18,6 +18,26 @@ exact `dist/` it publishes, so a heavier production build fails the release inst
 
 ## Decisions behind the numbers
 
+- **The display font starts downloading with the response headers (t23740, 21 Nov 2026).**
+  The Worker reads the Syne preload from the early HTML and adds it to the `Link` header.
+  The URL comes from the page being served, so the hint follows its content hash on each release.
+  Both HTML preloads still work as before. Sending both fonts in the header made first paint
+  slower on a constrained connection, so only Syne gets the earlier start.
+
+  Measured on the Cloudflare probe with the same HTML and assets, seven interleaved cold
+  Chromium phone visits per variant at 390 px, 300 ms latency and 400 kbps:
+
+  | Median | Before | With Syne in the header |
+  | --- | ---: | ---: |
+  | Home, first content | 908 ms | 908 ms |
+  | Home, last font downloaded | 2,252 ms | 1,962 ms |
+  | Services, first content | 832 ms | 828 ms |
+  | Services, last font downloaded | 2,196 ms | 1,934 ms |
+  | Services, layout shift | 0.0422 | 0.0125 |
+
+  Each Services visit transferred the same 73,228 B in seven requests. The in-document
+  preload reused the earlier request for Syne.
+
 - **Case cards link the evidence behind their figures (t23577, 21 Nov 2026).**
   The home page's case cards now carry a Sources link beside "Read", which needs the title's link
   stretched over the card instead of the whole card being one link (a link cannot hold another).
