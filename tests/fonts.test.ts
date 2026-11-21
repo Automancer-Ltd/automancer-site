@@ -203,4 +203,18 @@ describe('fallback faces sized to the web fonts', () => {
     }
     expect([...missing], "A font stack names a web font without its two fallbacks (Arial, then Android) right after it (global.css's --font-* stacks)").toEqual([]);
   });
+
+  // Firefox never starts a local() fallback face by itself while the web font is pending, so
+  // without this it drew its default font and every line moved when the fonts landed: median
+  // 45 px on a phone, 68 px on a laptop (t23138). The script must come after every @font-face
+  // (in <head>) and before any text (first in <body>).
+  it('are asked for before any text, so Firefox uses them too', () => {
+    // The raw HTML, not the parsed page: the character check above removes the page's scripts.
+    const late = pages.filter(({ html }) => {
+      const body = html.indexOf('<body');
+      const first = /^<body[^>]*>\s*<script>([^<]*)<\/script>/.exec(html.slice(body));
+      return !first || !/document\.fonts\?\.forEach.*'Fallback'.*\.load\(\)/.test(first[1]!) || html.lastIndexOf('@font-face') > body;
+    }).map((p) => p.route);
+    expect(late, 'BaseLayout: the script that loads the fallback faces must be the first thing in <body>').toEqual([]);
+  });
 });

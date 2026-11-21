@@ -117,6 +117,8 @@ ops/preview/                the non-production preview target
   from, or a stack lacks either face). `node ops/perf/font-swap.mjs` measures how far every page
   moves when the fonts arrive; with `FONTCONFIG_FILE` from `python3 -I ops/perf/android-fonts.py`
   and `--dpr=3` it measures an Android phone (`docs/PERFORMANCE.md`).
+  Firefox uses the faces only because the first thing in `<body>` asks for them (a hashed inline
+  script in `BaseLayout.astro`, t23138): keep it after every `@font-face` and before any text.
 
 ## Stack choices (t13220)
 

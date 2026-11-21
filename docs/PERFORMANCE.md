@@ -18,6 +18,27 @@ exact `dist/` it publishes, so a heavier production build fails the release inst
 
 ## Decisions behind the numbers
 
+- **Firefox keeps the page's shape while the web fonts load (t23138, 21 Nov 2026).**
+  Firefox never starts a `local()` fallback face by itself while the web font before it is
+  pending: it drew the waiting text in its default font, so t23013's and t23067's faces did
+  nothing there and every line re-wrapped when the fonts landed. The first thing in `<body>` is
+  now one hashed inline script that calls `load()` on every `* Fallback` face. It runs after the
+  head's styles are parsed and before any text. It fetches nothing (the faces are `local()` only);
+  a face whose font is not installed (Roboto on a Mac) fails quietly, and a browser without
+  `document.fonts` skips it. `tests/fonts.test.ts` fails if a page lacks it or declares a face
+  after it. Measured with `ops/perf/font-swap.mjs --engine=firefox` on m6 (Mac, Firefox 159), all
+  32 pages:
+
+  | Firefox, all 32 pages | 390 px before → after | 1280 px before → after |
+  | --- | ---: | ---: |
+  | Page height change, median | 87 → 23 px | 99 → 63 px |
+  | A text block moved, median | 45 → 1 px | 68 → 1 px |
+
+  Firefox now matches Chromium and WebKit (23 px and 62-63 px height, 0 px moved); those two are
+  unchanged (Chromium 390 px layout shift sum 0.058, 1280 px 0.140). Firefox reports no layout
+  shift score. Settled pages are unchanged: `pnpm run compare` found none of 192 views (Chromium,
+  Firefox, WebKit at 390 and 1280 px) differing from main. Cost: 231 B of HTML per page.
+
 - **Android text keeps its place when the web fonts arrive (t23067, 21 Nov 2026).**
   t23013's fallback faces are drawn in Arial, which Android does not have, so an Android phone
   skipped them and drew the waiting text in Roboto at its own size; every line re-wrapped when
@@ -69,9 +90,9 @@ exact `dist/` it publishes, so a heavier production build fails the release inst
   What still moves is a line that sat within a fraction of a percent of wrapping and flips (the
   Syne 700 "Sounds like your Tuesday?" heading at 1280 px). Headless Chromium on Linux rounds
   glyph advances to whole pixels at reading sizes, which skews its absolute numbers (a field note
-  on a phone went from shrinking 532 px to 65 px there). Firefox does not start loading a local
-  fallback face while the web font is pending, so it still draws its default font and gains
-  nothing; Android has no Arial and falls through to Roboto as before. Cost: 3,518 B of inline CSS
+  on a phone went from shrinking 532 px to 65 px there). Firefox did not start loading a local
+  fallback face while the web font was pending, so it drew its default font and gained
+  nothing until t23138; Android has no Arial and falls through to Roboto as before. Cost: 3,518 B of inline CSS
   on every page, about 450 B gzipped; `LAYOUT_MEASURED` and the `/contact/` exception were
   re-pinned. Measured with the fonts held until the page settled, not on a network: what a
   visitor sees on a slow connection, without timing claims.
