@@ -40,9 +40,16 @@ const PINNED: Record<string, { sha256: string; lastUpdated: string | null }> = {
   // of describing security as a blanket exception.
   // The date does NOT move: it already reads 23 August 2026, which is still
   // the day the substance changed.
+  //
+  // Moved 2026-11-21 for a SUBSTANTIVE change, approved by Waseem on decision
+  // card t22413 ("Approve as written", 21 Nov 2026 13:45 UK): Cloudflare is named
+  // as the site's delivery proxy in front of GitHub Pages and as a processor of
+  // visitors' IP addresses and requests; the form section no longer says there
+  // is "no third-party in the middle", since Cloudflare carries form submissions
+  // to api.automancer.uk. The date moves to the day the words changed.
   '/privacy/': {
-    sha256: 'cf3a28bc8dd8928449e6c32cc5227a05135f6289d89470cc0f7a851565b046b8',
-    lastUpdated: '23 August 2026',
+    sha256: 'fda168d99d5f0ab9609566babbad24e3fe645978c8e3817e19e8e13aeff64450',
+    lastUpdated: '21 November 2026',
   },
   // Date derived 2026-08-30 for q-auto-acf7. `git log -1 --format=%cs --
   // src/pages/terms.astro` returns 2026-08-21, but that commit (d412e77) only

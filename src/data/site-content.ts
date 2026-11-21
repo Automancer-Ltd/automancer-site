@@ -153,7 +153,7 @@ export const staticPages: PageMeta[] = [
     description: 'How Automancer Ltd handles your data — in plain English. What we collect, why, where it lives, who touches it, and the rights you have over it.',
     type: 'PrivacyPolicy',
     // Single source for the date shown on /privacy itself; imported there.
-    lastUpdated: '23 August 2026',
+    lastUpdated: '21 November 2026',
     legalNoMirror: true,
   },
   {
