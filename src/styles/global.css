@@ -720,7 +720,7 @@ strong { font-weight: 600; color: inherit; }
      label: squeezed into one row, "human in the loop:" broke over four lines
      and a phone cut off everything after "maintained by". */
   .proof-strip__track { animation: none !important; display: block; }
-  .proof-strip__item-group { flex-wrap: wrap; row-gap: var(--sp-2); }
+  .proof-strip__item-group { flex-wrap: wrap; row-gap: var(--sp-2) !important; }
   .proof-strip__item-group + .proof-strip__item-group { display: none !important; }
 }
 

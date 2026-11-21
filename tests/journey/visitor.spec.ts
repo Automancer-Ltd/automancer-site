@@ -204,6 +204,34 @@ test('enlarged text keeps the headline, service names and prices inside their pa
   }
 });
 
+test('a printed price list carries every offer, its price, what is included and the answers (t23850)', async ({ page }) => {
+  // Printed before this, /services/ was five blank A4 pages out of eight: its
+  // offers are scroll reveals that start at opacity 0, and its light-on-black
+  // text vanished once the browser dropped the backgrounds for paper.
+  await page.goto('/services/');
+  await page.evaluate(() => dispatchEvent(new Event('beforeprint')));
+  await page.emulateMedia({ media: 'print' });
+  const ink = (selector: string) =>
+    page.locator(selector).evaluateAll((els) =>
+      els.map((el) => {
+        let opacity = 1;
+        for (let a: Element | null = el; a; a = a.parentElement) opacity *= Number(getComputedStyle(a).opacity);
+        // Ink is black or the dark grey of secondary text: no channel above 64.
+        const dark = Math.max(...getComputedStyle(el).color.match(/\d+/g)!.slice(0, 3).map(Number)) <= 64;
+        return { text: el.textContent!.trim(), opacity, dark };
+      }),
+    );
+  const prices = await ink('.service-detail .offer__price');
+  expect(prices.map((p) => p.text)).toEqual(services.map((s) => expect.stringContaining(formatGBP(s.priceFrom))));
+  for (const printed of [...prices, ...(await ink('.service-detail .ticks li')), ...(await ink('.faq__a'))]) {
+    expect(printed, `"${printed.text.slice(0, 40)}" prints in dark ink`).toMatchObject({ opacity: 1, dark: true });
+  }
+  for (const answer of await page.locator('.faq__a').all()) await expect(answer).toBeVisible();
+  await expect(page.locator('.nav__links, .nav__actions, .proof-strip').first()).toBeHidden();
+  await page.evaluate(() => dispatchEvent(new Event('afterprint')));
+  await expect(page.locator('.faq details[open]')).toHaveCount(0);
+});
+
 test('homepage prices are one scroll away and link to the matching offer', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/');
