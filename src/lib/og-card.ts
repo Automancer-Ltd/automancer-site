@@ -17,6 +17,7 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 import { initWasm, Resvg } from '@resvg/resvg-wasm';
+import sharp from 'sharp';
 
 export const OG_WIDTH = 1200;
 export const OG_HEIGHT = 630;
@@ -320,8 +321,14 @@ export async function renderCard(input: CardInput): Promise<Uint8Array<ArrayBuff
     font: { fontBuffers: fontBuffers!, loadSystemFonts: false, defaultFontFamily: FAMILY['space-grotesk-400'] },
     fitTo: { mode: 'original' },
   });
-  // Copied out of WebAssembly memory into a buffer a Response can own.
-  const png = new Uint8Array(resvg.render().asPng());
+  const image = resvg.render();
+  const pixels = image.pixels;
+  image.free();
   resvg.free();
-  return png;
+
+  // Repeated colours in the glow compress best without adaptive filtering.
+  const png = await sharp(pixels, { raw: { width: OG_WIDTH, height: OG_HEIGHT, channels: 4 } })
+    .png({ compressionLevel: 9, adaptiveFiltering: false })
+    .toBuffer();
+  return Uint8Array.from(png);
 }
