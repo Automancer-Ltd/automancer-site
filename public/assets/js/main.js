@@ -44,44 +44,24 @@
       onScroll();
     }
 
-    /* ── Mobile menu ── */
-    var hamburger = document.querySelector('.hamburger');
-    var menu = document.querySelector('.mobile-menu');
-    var closeBtn = document.querySelector('.mobile-menu__close');
-    if (hamburger && menu) {
-      var setOpen = function (open) {
-        var wasOpen = menu.classList.contains('is-open');
-        menu.classList.toggle('is-open', open);
-        // Cached HTML may still use a div.
-        if (menu.showModal) {
-          if (open) menu.showModal();
-          else menu.close();
-        }
-        hamburger.setAttribute('aria-expanded', String(open));
-        hamburger.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
-        document.body.style.overflow = open ? 'hidden' : '';
-        // Focus the menu on open, then return to its button on close.
-        if (open && closeBtn) closeBtn.focus();
-        else if (wasOpen && !open && hamburger.offsetParent) hamburger.focus();
-      };
-      // The menu only exists below 821px; rotating a tablet past it with the
-      // menu open left the page unscrollable and the menu unclosable.
-      var wide = window.matchMedia('(min-width: 821px)');
-      var onWide = function () { if (wide.matches) setOpen(false); };
-      if (wide.addEventListener) wide.addEventListener('change', onWide);
-      hamburger.addEventListener('click', function () {
-        setOpen(!menu.classList.contains('is-open'));
+    /* ── Mobile menu: native toggle with keyboard and outside dismissal ── */
+    var disclosure = document.querySelector('.nav__disclosure');
+    if (disclosure) {
+      function dismissOutside(event) {
+        if (disclosure.open && !disclosure.contains(event.target)) disclosure.open = false;
+      }
+      document.addEventListener('click', dismissOutside);
+      document.addEventListener('focusin', dismissOutside);
+      document.addEventListener('keydown', function (event) {
+        if (event.key !== 'Escape' || !disclosure.open) return;
+        disclosure.open = false;
+        disclosure.querySelector('summary').focus();
       });
-      if (closeBtn) closeBtn.addEventListener('click', function () { setOpen(false); });
-      menu.querySelectorAll('a').forEach(function (a) {
-        a.addEventListener('click', function () { setOpen(false); });
+      window.matchMedia('(width <= 820px)').addEventListener('change', function () {
+        disclosure.open = false;
       });
-      document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape' && menu.classList.contains('is-open')) setOpen(false);
-      });
-      menu.addEventListener('cancel', function (e) {
-        e.preventDefault();
-        setOpen(false);
+      window.addEventListener('pageshow', function (event) {
+        if (event.persisted) disclosure.open = false;
       });
     }
 
