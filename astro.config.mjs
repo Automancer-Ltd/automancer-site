@@ -3,7 +3,7 @@ import { defineConfig } from 'astro/config';
 import { readFileSync, writeFileSync } from 'node:fs';
 import sitemap from '@astrojs/sitemap';
 import { pageDates } from './src/integrations/page-dates';
-import { deliverStylesheets } from './src/integrations/deliver-stylesheets';
+import { earlyCsp } from './src/integrations/early-csp';
 
 /**
  * Where browser error reports go: the origin of the Sentry DSN this build
@@ -114,6 +114,8 @@ const stubCsp = {
 export default defineConfig({
   site: 'https://automancer.uk',
   output: 'static',
+  // Avoid a stylesheet round trip on cold visits. Astro hashes the inline CSS.
+  build: { inlineStylesheets: 'always' },
   // Astro and InlineScript authorize approved script bytes at build time. Unhashed
   // inline JavaScript and eval stay blocked; the external application script
   // and lazy Sentry modules load from our origin. Turnstile is the only
@@ -166,5 +168,5 @@ export default defineConfig({
   // draft is never emitted as a page and therefore never enters the sitemap.
   // pageDates must come before sitemap: its build:done hook dates
   // dist/api/pages.json, which the sitemap's build:done hook then reads.
-  integrations: [pageDates(), sitemap({ serialize: withLastmod }), wellKnownRoutes, stubCsp, deliverStylesheets()],
+  integrations: [pageDates(), sitemap({ serialize: withLastmod }), wellKnownRoutes, stubCsp, earlyCsp()],
 });

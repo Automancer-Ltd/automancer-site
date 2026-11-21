@@ -153,29 +153,21 @@ describe('page-weight budgets', () => {
 });
 
 describe('asset integrity behind the budgets', () => {
-  it('ships homepage styles with the document and starts font and stylesheet requests early under CSP', () => {
+  it('ships each page with its styles and starts font requests early under CSP', () => {
     for (const page of pageCheckPages()) {
       const head = page.doc.querySelector('head')!;
-      const styles = head.querySelectorAll('link[rel="stylesheet"]');
-      if (page.route === '/') {
-        expect(styles, 'the homepage should paint without a stylesheet request').toHaveLength(0);
-      } else {
-        expect(styles.length, page.route).toBeGreaterThan(0);
-      }
-
-      const preloads = head.querySelectorAll('link[rel="preload"][as="style"]');
+      const styles = head.querySelectorAll('style');
       const fonts = head.querySelectorAll('link[rel="preload"][as="font"]');
       const policy = head.querySelector('meta[http-equiv="content-security-policy"]')!;
       const metadata = head.querySelector('title')!;
+      expect(head.querySelectorAll('link[rel="stylesheet"], link[as="style"]'), page.route).toHaveLength(0);
+      expect(styles.length, page.route).toBeGreaterThan(0);
       expect(fonts.length, page.route).toBeGreaterThan(0);
-      expect(preloads.map((link) => link.getAttribute('href')), page.route)
-        .toEqual(styles.map((link) => link.getAttribute('href')));
-      for (const preload of [...fonts, ...preloads]) {
-        expect(preload.range[0], page.route).toBeGreaterThanOrEqual(policy.range[1]);
-        expect(preload.range[1], page.route).toBeLessThanOrEqual(metadata.range[0]);
+      for (const hint of [...fonts, ...styles]) {
+        expect(hint.range[0], page.route).toBeGreaterThanOrEqual(policy.range[1]);
       }
-      if (preloads.length) {
-        expect(fonts.at(-1)!.range[1], page.route).toBeLessThanOrEqual(preloads[0].range[0]);
+      for (const preload of fonts) {
+        expect(preload.range[1], page.route).toBeLessThanOrEqual(metadata.range[0]);
       }
     }
   });
