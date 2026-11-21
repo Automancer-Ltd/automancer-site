@@ -782,6 +782,19 @@ test("a case study's contents list its sections and their parts, and follow the 
   await expectNoSidewaysScroll(page);
 });
 
+test("a case study figure's Source link lands on the line of evidence behind it", async ({ page }) => {
+  await page.goto('/work/care-provider-transformation/');
+  const stat = page.locator('.statband .stat').filter({ hasText: '588' });
+  await stat.getByRole('link', { name: 'Source for 588' }).click();
+  const item = page.locator('.evidence__item:target');
+  await expect(item).toContainText('588 supervision/spot-check schedules instantiated automatically');
+  // It lands below the fixed header, not under it.
+  await expect.poll(async () => (await item.boundingBox())!.y).toBeLessThan(260);
+  expect((await item.boundingBox())!.y).toBeGreaterThan(40);
+  await expect(page.getByRole('link', { name: '/api/claims.json' })).toBeVisible();
+  await expectNoSidewaysScroll(page);
+});
+
 test('a page that does not exist is a real 404 with a way back', async ({ page }) => {
   const res = await page.goto('/no-such-page-journey/');
   expect(res?.status()).toBe(404);

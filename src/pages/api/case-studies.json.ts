@@ -22,7 +22,7 @@ export const GET: APIRoute = async () => {
       sector: e.data.sector,
       tags: e.data.tags,
       status: e.data.status,
-      stats: e.data.stats.map((s) => ({ value: s.v, label: s.l })),
+      stats: e.data.stats.map((s) => ({ value: s.v, label: s.l, claims: s.claims })),
       body: e.body,
     })),
   };

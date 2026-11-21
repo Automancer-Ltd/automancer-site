@@ -7,7 +7,7 @@ It does not outrank anything: `VISION.md` is authority 0 and `SPEC.md` describes
 When this file and `SPEC.md` disagree about what exists, `SPEC.md` and the code are right and this
 file is out of date.
 
-Last updated: 21 November 2026 (the chosen service carried into an enquiry, t22871).
+Last updated: 21 November 2026 (case-study figures show their evidence, t23334).
 
 ## Where the site stands against the vision
 
@@ -20,7 +20,7 @@ disagree. Against that, today:
 | A UK business reads pages that answer plainly and publish the price | Built. `/services/` prices render from `src/data/business.ts`; a build test fails if a from-price in the output is not a published `priceFrom` (`v2026.10.14.1`, PR #69). |
 | An agent can quote, price and act on it correctly | Built. The `/api/*.json` endpoints in one registry (`src/data/api.ts`) behind the discovery document, the OpenAPI 3.1 spec and `/developers`; `agent.json`, `security.txt`, `llms.txt`, Markdown twins and full-content feeds. `/api/services.json` `includes` is the same included list `/services/` shows, and the build fails if they disagree. Acting still means email: the form needs a browser security check, and since 12 Nov 2026 that is data: `/api/enquiry.json` names email as the route an agent can complete, with the form's fields, limits and an email template that asks the same questions. |
 | What a machine is told never differs from what a person is shown | Enforced for the facts that matter most: prices, service names, each service's included list, page inventory, JSON-LD, twins and feeds all read shared modules, and dist-level tests compare the payloads with the pages. |
-| Its own honesty audited | Partly. Production is verified after every deploy and every 30 minutes (`ops/verify-production.sh`), including the revision served, the legal block, TLS and the machine surfaces. Nothing yet audits the *claims* on the pages against the truth layer continuously. |
+| Its own honesty audited | Partly. Production is verified after every deploy and every 30 minutes (`ops/verify-production.sh`), including the revision served, the legal block, TLS and the machine surfaces. Nothing yet audits the *claims* on the pages against the truth layer continuously. Since t23334 a person sees the same evidence a machine gets: every case-study figure the claims registry backs links to the dossier line behind it. |
 | Published identifiers are promises | **Built in this slice.** The promise is now a document an agent can fetch and check: `/api/stability.json`. |
 | Nothing reaches the public without Waseem | Honoured: this repository ships the site; it never speaks to a prospect itself. |
 
@@ -125,6 +125,23 @@ The former cache and release-note slices shipped in PRs #164 and #165 respective
 "gap above a field note's first paragraph on phones" slice is dropped from the list: t22126
 measured every note's opening line already on a 390×844 phone's first screen (17 of 17), so the
 gap is a spacing taste call, not lost content.
+
+## Frontend slice: where these numbers come from (21 November 2026, t23334)
+
+`/api/claims.json` gave machines the dossier line behind each case-study figure ("roster import
+created 294 carers + 293 service users ..."), but a person reading the case study saw the number
+with nothing behind it: the machine view said more than the page, against the vision's equal-truth
+rule, and a sceptical buyer had only "we don't invent numbers" to go on.
+
+- The ten figures the registry backs, on three case studies, each carry a "Source ↓" link to their
+  row under "Where these numbers come from", after the story: the figure, then the record's own
+  line quoted word for word, and a link to `/api/claims.json`. Figures without a registry entry
+  ("Computed", "One workflow", the website study's four) get no link.
+- One source: `stats[].claims` in each study's frontmatter names claim ids; the page, the Markdown
+  twin and `/api/case-studies.json` (`stats[].claims`, additive) all read it.
+- `pnpm run compare`: 6 of 64 views differ, the three case studies at both widths. Their page dates
+  move, because their words changed.
+- Undo: revert this slice's merge commit.
 
 ## Frontend slice: the chosen service travels into the enquiry (21 November 2026, t22871)
 

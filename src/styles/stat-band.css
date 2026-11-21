@@ -23,3 +23,27 @@
   letter-spacing: -0.03em; line-height: 1.08; text-wrap: balance;
   font-variant-numeric: lining-nums; }
 .stat__l { margin-top: var(--sp-3); font-size: var(--t--1); color: var(--muted); line-height: 1.4; }
+
+/* A figure's link to the line of evidence behind it (t23334). */
+.stat__src { display: inline-block; margin-top: var(--sp-3); font-family: var(--font-mono);
+  font-size: 0.74rem; letter-spacing: 0.04em; color: var(--muted); text-decoration: underline;
+  text-decoration-color: var(--border); text-underline-offset: 0.25em; }
+.stat__src:hover, .stat__src:focus-visible { color: var(--ink); text-decoration-color: currentColor; }
+
+/* Where these numbers come from: one row per sourced figure, its record's line quoted beneath. */
+.evidence__title { font-family: var(--font-display); font-weight: 700; letter-spacing: -0.03em;
+  font-size: var(--t-3); line-height: 1.15; margin: 0; }
+.evidence__intro { margin: var(--sp-4) 0 0; max-width: 62ch; color: var(--muted); line-height: 1.6; }
+.evidence__list { list-style: none; margin: clamp(1.5rem, 3vw, 2.25rem) 0 0; padding: 0;
+  border-top: 1px solid var(--border); max-width: 70ch; }
+.evidence__item { padding-block: var(--sp-5); border-bottom: 1px solid var(--border);
+  scroll-margin-top: 6rem; overflow-wrap: break-word; }
+.evidence__item:target { background: linear-gradient(90deg, var(--g-975), transparent); }
+.evidence__fig { margin: 0; color: var(--muted); line-height: 1.5; }
+.evidence__fig strong { color: var(--ink); font-family: var(--font-display); font-weight: 700;
+  letter-spacing: -0.02em; margin-inline-end: var(--sp-2); }
+.evidence__quote { margin: var(--sp-3) 0 0; padding-inline-start: var(--sp-4);
+  border-inline-start: 2px solid var(--border); font-family: var(--font-mono); font-size: 0.84rem;
+  line-height: 1.6; color: var(--ink); }
+.evidence__quote p { margin: 0; }
+.evidence__machine { margin: var(--sp-6) 0 0; font-size: var(--t--1); color: var(--muted); }

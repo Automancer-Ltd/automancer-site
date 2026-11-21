@@ -8,6 +8,7 @@
 import { getCollection, type CollectionEntry } from 'astro:content';
 import { formatGBP, serviceById } from './business';
 import { noteTopics } from './note-topics';
+import { SOURCES_INTRO, statQuotes } from './claims';
 import { abs, pagePath } from './urls';
 
 export { abs };
@@ -78,6 +79,21 @@ export function studyMarkdown(entry: CaseStudy): string {
     parts.push(...d.stats.map((s) => `- **${s.v}** — ${s.l}`), '');
   }
   parts.push(entry.body ?? '');
+  // The page's "Where these numbers come from", word for word (t23334).
+  const sourced = d.stats.filter((s) => s.claims.length > 0);
+  if (sourced.length > 0) {
+    parts.push(
+      '',
+      '## Where these numbers come from',
+      '',
+      SOURCES_INTRO,
+      '',
+      ...sourced.flatMap((s) => [`- **${s.v}** ${s.l}`, ...statQuotes(s.claims).map((q) => `  > “${q}”`)]),
+      '',
+      `The same lines, as data for agents: ${abs('/api/claims.json')}`,
+      ''
+    );
+  }
   return parts.join('\n');
 }
 
