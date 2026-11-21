@@ -18,6 +18,23 @@ exact `dist/` it publishes, so a heavier production build fails the release inst
 
 ## Decisions behind the numbers
 
+- **Link preview images take half the bytes (t23539, 21 Nov 2026).**
+  The build passes resvg's RGBA pixels straight to Sharp's lossless PNG encoder. Compression
+  level 9 without adaptive filtering worked best for the repeated colours in the glows.
+  Across 31 cards, all 1200×630 decoded pixel buffers match the previous build exactly.
+  The cards total 3,620,050 → 1,796,578 B, and the largest is 66,919 B. The dist audit caps
+  each card at 80,000 B.
+
+  For each page below, the probe fetched its HTML, followed its `og:image` and timed the
+  image request through Chromium's decode. Five interleaved cold image loads per build
+  through the local edge Worker, 300 ms latency and 400 kbps, medians:
+
+  | Shared page | PNG bytes before → after | Time to decoded image before → after |
+  | --- | ---: | ---: |
+  | Home | 134,020 → 66,919 | 3.01 → 1.69 s |
+  | Services | 130,188 → 66,319 | 2.95 → 1.66 s |
+  | What does an AI agent actually cost? | 120,389 → 60,048 | 2.74 → 1.54 s |
+
 - **Page-to-page clicks are quick in Firefox and Safari too (t23288, 21 Nov 2026).**
   Firefox and Safari do not act on the Speculation Rules below, so every click there waited a
   whole round trip for the next page's HTML. `src/scripts/prefetch.ts` (in the page-load module)

@@ -41,15 +41,17 @@ describe('share cards', () => {
     expect(articles.filter((p) => p.route.startsWith('/work/')).length).toBeGreaterThan(2);
   });
 
-  it("every page's og:image is a built PNG of the size its tags state", () => {
+  it("every page's og:image is a PNG of the stated dimensions within the 80 kB transfer budget", () => {
     for (const page of pages) {
       const url = meta(page, 'meta[property="og:image"]');
       expect(url.startsWith(`${SITE_URL}/`), `${page.route}: og:image ${url} is not on this site`).toBe(true);
       expect(meta(page, 'meta[name="twitter:image"]'), `${page.route}: twitter:image differs from og:image`).toBe(url);
       const rel = new URL(url).pathname.slice(1);
       expect(distHasFile(rel), `${page.route}: og:image ${url} was not built`).toBe(true);
-      const size = pngSize(readFileSync(join(DIST, rel)));
+      const png = readFileSync(join(DIST, rel));
+      const size = pngSize(png);
       expect(size, `${page.route}: ${rel} is not a PNG`).not.toBeNull();
+      expect(png.byteLength, `${page.route}: ${rel} exceeds the share card budget`).toBeLessThanOrEqual(80_000);
       expect(meta(page, 'meta[property="og:image:type"]')).toBe('image/png');
       expect(Number(meta(page, 'meta[property="og:image:width"]')), `${page.route}: og:image:width`).toBe(size!.width);
       expect(Number(meta(page, 'meta[property="og:image:height"]')), `${page.route}: og:image:height`).toBe(size!.height);
