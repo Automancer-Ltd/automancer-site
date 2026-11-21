@@ -21,8 +21,13 @@ sits where the web font's line will.
   barely change width with weight, so a regular and a bold face each.
 - Arial's widths and heights are read from Liberation Sans and Liberation Mono, which were drawn
   to Arial's and Courier New's metrics exactly. `local()` lists Arial's names first (macOS, iOS,
-  Windows), then Liberation (Linux) and Arimo/Cousine (ChromeOS). A device with none of them
-  (Android) skips the face and falls through to the system font, as before.
+  Windows), then Liberation (Linux) and Arimo/Cousine (ChromeOS).
+- Android has none of those, so each web font has a second face, '<family> Android Fallback',
+  right after the first: Roboto (and Droid Sans Mono for JetBrains Mono) sized the same way
+  (t23067). A device with Arial never reaches it; one with neither skips both, as before. Their
+  widths are read from ops/fonts/stand-ins/, Roboto 3 (SIL OFL 1.1) and Droid Sans Mono
+  (Apache 2.0) cut to charset.txt with their kerning kept. Droid Sans Mono has no bold, so
+  Android draws both mono weights from the one file.
 
 The result replaces the block between the markers in src/styles/fonts.css, with the hash of each
 web font it was measured from; tests/fonts.test.ts fails when a font file no longer matches its
@@ -46,18 +51,33 @@ END = "/* fallbacks: end */"
 LIBERATION = [Path("/usr/share/fonts/truetype/liberation"), Path("/usr/share/fonts/liberation"),
               Path.home() / "Library" / "Fonts", Path("/opt/homebrew/share/fonts")]
 
+STAND_INS = ROOT / "ops" / "fonts" / "stand-ins"
+
+# The installed fonts a fallback face can be drawn in: for regular and bold, the file its metrics
+# are read from and the local() names that find it on a visitor's device.
 SANS = {"regular": ("LiberationSans-Regular.ttf", ["Arial", "ArialMT", "Liberation Sans", "Arimo"]),
         "bold": ("LiberationSans-Bold.ttf", ["Arial Bold", "Arial-BoldMT", "Liberation Sans Bold", "Arimo Bold"])}
 MONO = {"regular": ("LiberationMono-Regular.ttf", ["Courier New", "CourierNewPSMT", "Liberation Mono", "Cousine"]),
         "bold": ("LiberationMono-Bold.ttf", ["Courier New Bold", "CourierNewPS-BoldMT", "Liberation Mono Bold", "Cousine Bold"])}
+# Android 5-11 ship Roboto-Regular and Roboto-Bold; Android 12 and later one variable Roboto-Regular,
+# which Chrome finds only by that file's own names and draws bold through its weight axis.
+ANDROID_SANS = {"regular": ("Roboto-Regular.woff2", ["Roboto Regular", "Roboto-Regular"]),
+                "bold": ("Roboto-Bold.woff2", ["Roboto Bold", "Roboto-Bold", "Roboto-Regular"])}
+ANDROID_MONO = {"regular": ("DroidSansMono.woff2", ["Droid Sans Mono", "DroidSansMono"]),
+                "bold": ("DroidSansMono.woff2", ["Droid Sans Mono", "DroidSansMono"])}
 
-# family, its file, the installed font it stands in for, and its faces:
+# Each web font's fallback faces, in stack order: the face's family-name suffix and the installed
+# fonts it is drawn in, desktop and iOS first, then Android.
+SANS_FALLBACKS = [("Fallback", SANS), ("Android Fallback", ANDROID_SANS)]
+MONO_FALLBACKS = [("Fallback", MONO), ("Android Fallback", ANDROID_MONO)]
+
+# family, its file, its fallbacks, and its faces:
 # (the CSS font-weight the face covers, the weight to measure the web font at, regular or bold)
 FAMILIES = [
-    ("Syne", "syne", SANS, [("600", 600, "bold"), ("700", 700, "bold"), ("800", 800, "bold")]),
-    ("Space Grotesk", "space-grotesk", SANS, [("400 500", 400, "regular"), ("600 700", 700, "bold")]),
-    ("Outfit", "outfit", SANS, [("400 500", 400, "regular"), ("600", 600, "bold")]),
-    ("JetBrains Mono", "jetbrains-mono", MONO, [("400 500", 400, "regular"), ("600", 600, "bold")]),
+    ("Syne", "syne", SANS_FALLBACKS, [("600", 600, "bold"), ("700", 700, "bold"), ("800", 800, "bold")]),
+    ("Space Grotesk", "space-grotesk", SANS_FALLBACKS, [("400 500", 400, "regular"), ("600 700", 700, "bold")]),
+    ("Outfit", "outfit", SANS_FALLBACKS, [("400 500", 400, "regular"), ("600", 600, "bold")]),
+    ("JetBrains Mono", "jetbrains-mono", MONO_FALLBACKS, [("400 500", 400, "regular"), ("600", 600, "bold")]),
 ]
 
 
@@ -147,6 +167,8 @@ def unicode_range(codepoints: list[int]) -> str:
 
 
 def installed(name: str) -> TTFont:
+    if (STAND_INS / name).exists():
+        return TTFont(STAND_INS / name)
     for folder in LIBERATION:
         if (folder / name).exists():
             return TTFont(folder / name)
@@ -161,7 +183,7 @@ def pct(x: float) -> str:
 def block() -> str:
     chars, pairs = corpus()
     out = [START]
-    for family, file, stands_in, faces in FAMILIES:
+    for family, file, fallbacks, faces in FAMILIES:
         path = FONTS / f"{file}.woff2"
         digest = hashlib.sha256(path.read_bytes()).hexdigest()[:16]
         web = TTFont(path)
@@ -171,24 +193,33 @@ def block() -> str:
         # these fonts carry the same values in both, so either reads the same.
         ascent, descent, gap = hhea.ascent / upm, -hhea.descent / upm, hhea.lineGap / upm
         out.append(f"/* {family}: {file}.woff2 sha256 {digest} */")
-        for css_weight, measure_at, kind in faces:
-            fallback_file, names = stands_in[kind]
-            fallback = installed(fallback_file)
-            instance = instancer.instantiateVariableFont(TTFont(path), {"wght": measure_at})
-            size = average_width(instance, chars, pairs) / average_width(fallback, chars, pairs)
-            local = ", ".join(f"local('{n}')" for n in names)
-            out.append(
-                "@font-face {\n"
-                f"  font-family: '{family} Fallback';\n"
-                f"  font-weight: {css_weight};\n"
-                f"  src: {local};\n"
-                f"  size-adjust: {pct(size)};\n"
-                f"  ascent-override: {pct(ascent / size)};\n"
-                f"  descent-override: {pct(descent / size)};\n"
-                f"  line-gap-override: {pct(gap / size)};\n"
-                f"  unicode-range: {unicode_range(draws)};\n"
-                "}"
-            )
+        for suffix, stands_in in fallbacks:
+            sized = []
+            for css_weight, measure_at, kind in faces:
+                fallback_file, names = stands_in[kind]
+                fallback = installed(fallback_file)
+                instance = instancer.instantiateVariableFont(TTFont(path), {"wght": measure_at})
+                size = average_width(instance, chars, pairs) / average_width(fallback, chars, pairs)
+                local = ", ".join(f"local('{n}')" for n in names)
+                # A face drawn from the same font at the same size as the one before (a monospace,
+                # whose letters are all one width) extends that face's weight range instead.
+                if sized and sized[-1][1] == local and pct(sized[-1][2]) == pct(size):
+                    sized[-1] = (f"{sized[-1][0].split()[0]} {css_weight.split()[-1]}", local, sized[-1][2])
+                else:
+                    sized.append((css_weight, local, size))
+            for css_weight, local, size in sized:
+                out.append(
+                    "@font-face {\n"
+                    f"  font-family: '{family} {suffix}';\n"
+                    f"  font-weight: {css_weight};\n"
+                    f"  src: {local};\n"
+                    f"  size-adjust: {pct(size)};\n"
+                    f"  ascent-override: {pct(ascent / size)};\n"
+                    f"  descent-override: {pct(descent / size)};\n"
+                    f"  line-gap-override: {pct(gap / size)};\n"
+                    f"  unicode-range: {unicode_range(draws)};\n"
+                    "}"
+                )
     out.append(END)
     return "\n".join(out)
 

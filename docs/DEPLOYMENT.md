@@ -20,8 +20,10 @@
    - the `journey` job then runs the same Playwright visitor journey against `https://automancer.uk`
      (read-only: the enquiry endpoint and Turnstile are stubbed, nothing is sent).
 3. Record the production verification with estate-watch (`deploy-verify` skill in Executor):
-   `deploy.start({ product: "site", url: "https://automancer.uk", commit })` before the merge,
-   `deploy.verify({ run })` after the deploy run is green, `deploy.get({ run })` for the verdict.
+   `deploy.start({ product: "site", url: "https://automancer.uk", commit })` straight after the
+   merge, with the merge commit's full SHA (it exists only once merged) and before Pages publishes
+   it (about 3 minutes), `deploy.verify({ run })` after the deploy run is green, `deploy.get({ run })`
+   for the verdict.
    Every page names its full commit in `<meta name="build-revision">`, which the version check
    matches; the footer shows the short form (`deploy.json` holds the regex Guardian reads).
 
@@ -63,7 +65,7 @@ never a working checkout:
 | Sentry project `automancer-site` (id `4511769898647632`, org `automancer`), events tagged with the release SHA | browser errors on the live site | Executor `sentry-guarded.events.listAProjectSIssues` |
 
 To record a deploy check in estate-watch, call `deploy.start {product: "site", commit: "<sha>"}`
-before the deploy and `deploy.verify {run: "<run id>"}` after it. Calling `deploy.verify` with only
+straight after the merge, before Pages publishes it, and `deploy.verify {run: "<run id>"}` after it. Calling `deploy.verify` with only
 `product` still reads production, but it warns that it has no baseline and no commit to compare
 against, so it cannot prove the served revision.
 

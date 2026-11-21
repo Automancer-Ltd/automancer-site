@@ -24,20 +24,21 @@ import { allHtmlFiles, pageCheckPages } from './support/dist';
 import { DIST, measureAllPages } from './support/perf';
 
 /**
- * Measured 2026-11-21 (t23013): heaviest fixed-budget page (/, 149,809 B). Every page gained
- * 3,518 B of inline CSS (about 450 B gzipped): the nine fallback font faces in src/styles/fonts.css.
+ * Measured 2026-11-21 (t23067): heaviest fixed-budget page (/, 152,874 B). Every page carries the
+ * fallback font faces in src/styles/fonts.css as inline CSS: nine sized to Arial (t23013, 3,518 B,
+ * about 450 B gzipped), then eight sized to Roboto for Android (t23067, 3,065 B, about 270 B gzipped).
  */
-const LAYOUT_MEASURED = 149809;
+const LAYOUT_MEASURED = 152874;
 
 /**
  * Layout pages that genuinely need more than the default, each with its own
  * measured value and the reason.
  */
 const LAYOUT_EXCEPTIONS: Record<string, { measured: number; reason: string }> = {
-  // Measured 2026-11-21 (t22871): 148,994 B + 4,887 B of HTML, CSS and script; + 3,518 B of
-  // fallback font faces every page carries (t23013).
+  // Measured 2026-11-21 (t22871): 148,994 B + 4,887 B of HTML, CSS and script; + 3,518 B and
+  // 3,115 B of fallback font faces every page carries (t23013, t23067).
   '/contact/': {
-    measured: 157399,
+    measured: 160439,
     reason: 'the "What are you interested in?" choice: five option cards, their styles, and the script that picks one from ?service=',
   },
 };

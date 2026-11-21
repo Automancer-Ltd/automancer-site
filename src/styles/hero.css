@@ -21,7 +21,7 @@
 }
 
 .hero__headline {
-  font-family: 'Syne', 'Syne Hero Fallback', var(--font-ui); font-weight: 800;
+  font-family: 'Syne', 'Syne Hero Fallback', 'Syne Android Fallback', var(--font-ui); font-weight: 800;
   font-size: min(clamp(2.35rem, 0.6rem + 7.6vw, 5.75rem), 14cqi); line-height: 0.96; letter-spacing: -0.045em;
   /* 17ch in Syne 800, expressed in em so the measure survives the font swap. */
   max-width: min(18.122em, 100%); margin-top: var(--sp-6); text-wrap: balance;

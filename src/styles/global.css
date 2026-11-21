@@ -91,10 +91,10 @@ h1, h2, h3, h4, h5, h6 { overflow-wrap: break-word; }
     #ff446688, #33dd7788, #3399ff88, #cc44dd88);
 
   /* Typography */
-  --font-display: 'Syne', 'Syne Fallback', 'Space Grotesk', 'Space Grotesk Fallback', system-ui, sans-serif;
-  --font-ui:      'Space Grotesk', 'Space Grotesk Fallback', system-ui, sans-serif;
-  --font-read:    'Outfit', 'Outfit Fallback', 'Space Grotesk', 'Space Grotesk Fallback', system-ui, sans-serif;
-  --font-mono:    'JetBrains Mono', 'JetBrains Mono Fallback', ui-monospace, 'Cascadia Code', monospace;
+  --font-display: 'Syne', 'Syne Fallback', 'Syne Android Fallback', 'Space Grotesk', 'Space Grotesk Fallback', 'Space Grotesk Android Fallback', system-ui, sans-serif;
+  --font-ui:      'Space Grotesk', 'Space Grotesk Fallback', 'Space Grotesk Android Fallback', system-ui, sans-serif;
+  --font-read:    'Outfit', 'Outfit Fallback', 'Outfit Android Fallback', 'Space Grotesk', 'Space Grotesk Fallback', 'Space Grotesk Android Fallback', system-ui, sans-serif;
+  --font-mono:    'JetBrains Mono', 'JetBrains Mono Fallback', 'JetBrains Mono Android Fallback', ui-monospace, 'Cascadia Code', monospace;
 
   /* Fluid type scale (~1.28 ratio) */
   --t--1: clamp(0.78rem, 0.75rem + 0.15vw, 0.86rem);
