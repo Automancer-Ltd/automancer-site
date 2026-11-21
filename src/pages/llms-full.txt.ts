@@ -4,14 +4,14 @@
 // Sources are the same single modules every other surface uses:
 //   - hand-authored pages: static-markdown.ts (facts from business.ts)
 //   - case studies + field notes: the collection entries themselves
-//     (via feeds.ts item builders) so full text can never drift
+//     (the same text as the Markdown twins, including evidence)
 //   - legal/compliance pages: metadata + canonical link ONLY — their bodies
 //     are deliberately not mirrored anywhere (see docs/AGENT-READINESS.md).
 import type { APIRoute } from 'astro';
 import { business } from '../data/business';
 import { build } from '../data/build';
 import { abs } from '../data/urls';
-import { getStudies, getNotes, staticPages } from '../data/site-content';
+import { getStudies, getNotes, noteText, staticPages, studyText } from '../data/site-content';
 import { staticBodies } from '../data/static-markdown';
 
 const RULE = '='.repeat(72);
@@ -43,14 +43,10 @@ export const GET: APIRoute = async () => {
   // straight from the collection entries.
   const [studies, notes] = await Promise.all([getStudies(), getNotes()]);
   for (const e of studies) {
-    const parts: string[] = [`# ${e.data.headline ?? e.data.title}`, ''];
-    if (e.data.subhead) parts.push(e.data.subhead, '');
-    if (e.data.stats.length > 0) parts.push(...e.data.stats.map((s) => `- **${s.v}** — ${s.l}`), '');
-    parts.push(e.body ?? '');
-    pushSection(`/work/${e.id}`, e.data.title, e.data.description, parts.join('\n'));
+    pushSection(`/work/${e.id}`, e.data.title, e.data.description, studyText(e));
   }
   for (const e of notes) {
-    pushSection(`/field-notes/${e.id}`, e.data.title, e.data.description, e.body ?? '');
+    pushSection(`/field-notes/${e.id}`, e.data.title, e.data.description, noteText(e));
   }
 
   // Legal pages: pointer-only, never transcribed bodies.

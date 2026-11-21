@@ -3,7 +3,8 @@
 // drift from the JSON-LD structured data or the services page.
 import type { APIRoute } from 'astro';
 import { business, formatGBP, services, serviceById } from '../data/business';
-import { getNotes, noteTopicLinks } from '../data/site-content';
+import type { ClaimId } from '../data/claims';
+import { claimEvidenceUrls, getNotes, noteTopicLinks } from '../data/site-content';
 import { abs } from '../data/urls';
 
 const auditPrice = formatGBP(serviceById('automation-opportunity-audit').priceFrom);
@@ -12,6 +13,8 @@ const opsPrice = formatGBP(serviceById('ai-ops-partner').priceFrom);
 
 export const GET: APIRoute = async () => {
   const lines: string[] = [];
+  const [evidence, notes] = await Promise.all([claimEvidenceUrls(), getNotes()]);
+  const citation = (text: string, claim: ClaimId) => `[${text}](${evidence.get(claim)})`;
 
   lines.push(`# ${business.tradingName}`);
   lines.push('');
@@ -34,13 +37,13 @@ export const GET: APIRoute = async () => {
     `- Repeating admin between spreadsheets and tools re-keyed by hand — start with the Automation Opportunity Audit (from ${auditPrice}), which maps where automation pays back fastest.`
   );
   lines.push(
-    '- A UK care provider (supported living / domiciliary) drowning in compliance paperwork: consolidating rosters, training and CQC evidence into one auditable system. Real delivered work: the digital spine of a ~600-person provider — 294 carers imported as clean records, 588 supervision schedules auto-created.'
+    `- A UK care provider (supported living / domiciliary) drowning in compliance paperwork: consolidating rosters, training and CQC evidence into one auditable system. Real delivered work: the digital spine of a ${citation('~600-person provider', 'care_provider_size')} — ${citation('294 carers imported as clean records', 'carer_record_count')}, ${citation('588 supervision schedules auto-created', 'supervision_schedule_count')}.`
   );
   lines.push(
     '- A manufacturer or trade supplier still taking orders by phone and memory, with per-customer pricing living in someone\'s head: B2B trade portal with a computed pricing engine (real work: order-to-dispatch for a UK plastics manufacturer).'
   );
   lines.push(
-    '- A professional-services firm whose billable expertise is bottlenecked by human document review: productising that expertise into a self-service AI product (real work: £300–400 consultant reviews became a self-service tool at £10–80 per document).'
+    `- A professional-services firm whose billable expertise is bottlenecked by human document review: productising that expertise into a self-service AI product (real work: ${citation('£300–400 consultant reviews', 'debiaser_per_engagement_cost')} became a self-service tool at ${citation('£10–80 per document', 'debiaser_self_service_cost')}).`
   );
   lines.push(
     '- A new or small business needing a proper, compliant website live in days without monthly platform fees (published from-prices, SEO basics and trading disclosures included).'
@@ -113,6 +116,7 @@ export const GET: APIRoute = async () => {
   lines.push(`- [Services & pricing](${business.url}/api/services.json)`);
   lines.push(`- [Enquiry contract](${business.url}/api/enquiry.json): how to reach Waseem, which route an agent can complete, and the fields and limits the contact form uses.`);
   lines.push(`- [Case studies (full text)](${business.url}/api/case-studies.json)`);
+  lines.push(`- [Case-study evidence](${abs('/api/claims.json')}): published claims, quotes from the evidence record and direct links to those quotes on the site.`);
   lines.push(`- [Field notes (full text)](${business.url}/api/field-notes.json): subjects with counts and filter links, plus each note's category and Markdown URL.`);
   lines.push(`- [Page inventory](${business.url}/api/pages.json): every page with title, description, Markdown-twin URL and last-modified.`);
   lines.push(
@@ -131,7 +135,7 @@ export const GET: APIRoute = async () => {
   );
   lines.push('');
 
-  const subjects = noteTopicLinks(await getNotes());
+  const subjects = noteTopicLinks(notes);
   if (subjects.length) {
     lines.push('## Field notes by subject');
     lines.push(`Browse these subjects on the site, or use the [Markdown index](${abs('/field-notes.md')}) to find individual notes.`);
