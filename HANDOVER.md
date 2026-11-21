@@ -7,7 +7,7 @@ It does not outrank anything: `VISION.md` is authority 0 and `SPEC.md` describes
 When this file and `SPEC.md` disagree about what exists, `SPEC.md` and the code are right and this
 file is out of date.
 
-Last updated: 21 November 2026 (field notes: browse by subject, and each note's subject links to it, t22532).
+Last updated: 21 November 2026 (field note subjects for agents, t22833).
 
 ## Where the site stands against the vision
 
@@ -116,17 +116,23 @@ form's fields, limits and what happens after sending were not data an agent coul
 2. **Let siteVerify read the page dates.** Production now publishes when each page's words last
    changed (`contentSha256`, t19631). estate-watch could alert when a page's hash changes without a
    deploy, or when a deploy re-dates pages whose words did not change.
-3. **Give machines the same subjects.** `/field-notes/` now groups notes by subject for people
-   (t22532). `/api/field-notes.json` carries each note's `category` and the index twin
-   (`/field-notes.md`) shows no subject at all; neither has a list of subjects with counts, so an agent cannot ask "which notes are about pricing?" without reading
-   every note. A `topics` array (label, slug, count, the `/field-notes/#topic-<slug>` address) read
-   from `noteTopics` would keep both views equal. Also worth a look: six of the eleven subjects
-   hold one note each; merging labels is an editorial choice (visible wording), not an agent's.
+3. **Carry the selected service into an enquiry.** Each offer's button opens the generic Contact
+   form. Preserve the selected offer as editable context through form submission and the email
+   fallback, with no browser storage. Do this in a task authorizing visible changes to the form.
 
 The former cache and release-note slices shipped in PRs #164 and #165 respectively. The former
 "gap above a field note's first paragraph on phones" slice is dropped from the list: t22126
 measured every note's opening line already on a 390×844 phone's first screen (17 of 17), so the
 gap is a spacing taste call, not lost content.
+
+## Machine-readable slice: browse field notes by subject (21 November 2026, t22833)
+
+- The JSON API publishes `topics` with `label`, `slug`, `count`, a browser filter `url` and
+  `noteSlugs` in reading order. OpenAPI documents how to look up those notes in `fieldNotes`.
+- `/field-notes.md` and `llms.txt` list the same subjects. The twin names the subject for each
+  note and links directly to its Markdown, so an agent can fetch the one note it needs.
+- `tests/note-topics.test.ts` compares the JSON and text with the published HTML buttons and
+  checks that the twin lists every note under the same subject label. Undo by reverting the merge.
 
 ## Frontend slice: browse field notes by subject (21 November 2026, t22532)
 

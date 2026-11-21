@@ -3,6 +3,7 @@
 import type { APIRoute } from 'astro';
 import { getNotes, abs } from '../../data/site-content';
 import { build } from '../../data/build';
+import { noteTopic, noteTopics } from '../../data/note-topics';
 
 export const GET: APIRoute = async () => {
   const notes = await getNotes();
@@ -10,6 +11,7 @@ export const GET: APIRoute = async () => {
     schemaVersion: '1.0',
     generatedAt: build.time.toISOString(),
     count: notes.length,
+    topics: noteTopics(notes).map(({ label, slug, count, url, noteSlugs }) => ({ label, slug, count, url, noteSlugs })),
     fieldNotes: notes.map((e) => ({
       slug: e.id,
       title: e.data.title,
@@ -18,7 +20,7 @@ export const GET: APIRoute = async () => {
       markdownUrl: abs(`/field-notes/${e.id}.md`),
       datePublished: e.data.date.toISOString(),
       author: e.data.author,
-      category: e.data.category ?? e.data.sector,
+      category: noteTopic(e.data),
       tags: e.data.tags,
       body: e.body,
     })),

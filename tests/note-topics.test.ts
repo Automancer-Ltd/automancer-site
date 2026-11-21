@@ -11,8 +11,8 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { ROOT, contentPages } from './support/dist';
-import { TOPIC_SLOTS, UNSPECIFIC_TOPICS, noteTopics, topicSlug } from '../src/data/note-topics';
+import { ROOT, SITE_URL, contentPages, readDistFile } from './support/dist';
+import { TOPIC_SLOTS, UNSPECIFIC_TOPICS, topicSlug } from '../src/data/note-topics';
 
 const pages = contentPages();
 const index = pages.find((p) => p.route === '/field-notes/');
@@ -40,7 +40,6 @@ describe('browse field notes by subject', () => {
     expect(all.hasAttribute('checked'), '"All" is not picked on arrival').toBe(true);
     expect(all.getAttribute('aria-label')).toBe(`All, ${rows().length} notes`);
 
-    const expected = noteTopics(rows().map(rowTopic));
     const buttons = picks().slice(1).map((input) => ({
       id: input.getAttribute('id'),
       slot: Number(input.getAttribute('data-topic-pick')),
@@ -48,13 +47,14 @@ describe('browse field notes by subject', () => {
       label: input.nextElementSibling!.text.trim(),
       name: input.getAttribute('aria-label'),
     }));
-    expect(buttons).toEqual(expected.map((t) => ({
-      id: `pick-${t.slug}`, slot: t.slot, count: t.count, label: t.label,
-      name: `${t.label}, ${t.count} ${t.count === 1 ? 'note' : 'notes'}`,
-    })));
+    const labels = [...new Set(rows().map(rowTopic).filter((label) => !UNSPECIFIC_TOPICS.has(label)))];
+    expect(buttons.map((b) => b.label).sort()).toEqual(labels.sort());
+    expect(buttons.map((b) => b.count)).toEqual(buttons.map((b) => b.count).sort((a, b) => b - a));
     expect(buttons.length).toBeGreaterThan(1);
 
     for (const b of buttons) {
+      expect(b.id).toBe(`pick-${topicSlug(b.label)}`);
+      expect(b.name).toBe(`${b.label}, ${b.count} ${b.count === 1 ? 'note' : 'notes'}`);
       const shown = rows().filter((r) => r.getAttribute('data-topic-slot') === String(b.slot));
       expect(shown.length, `${b.label} counts ${b.count} but leaves ${shown.length} notes`).toBe(b.count);
       expect(shown.every((r) => rowTopic(r) === b.label), `${b.label} leaves a note on another subject`).toBe(true);
@@ -84,5 +84,39 @@ describe('browse field notes by subject', () => {
       expect(ids.has(`pick-${href.split('#topic-')[1]!}`), `${page.route}: ${href} names no button`).toBe(true);
     }
     expect(linked).toBeGreaterThan(0);
+  });
+
+  it('lets agents find the same subjects and notes as readers', () => {
+    const payload = JSON.parse(readDistFile('api/field-notes.json')!) as {
+      topics: Array<{ label: string; slug: string; count: number; url: string; noteSlugs: string[] }>;
+      fieldNotes: Array<{ slug: string; url: string; markdownUrl: string; category: string }>;
+    };
+    const twin = readDistFile('field-notes.md')!;
+    const guide = readDistFile('llms.txt')!;
+    const buttons = picks().slice(1);
+
+    expect(payload.topics).toEqual(buttons.map((input) => ({
+      label: input.nextElementSibling!.text.trim(),
+      slug: input.getAttribute('value'),
+      count: Number(input.getAttribute('data-count')),
+      url: `${SITE_URL}/field-notes/#topic-${input.getAttribute('value')}`,
+      noteSlugs: rows().filter((row) => row.getAttribute('data-topic-slot') === input.getAttribute('data-topic-pick'))
+        .map((row) => row.getAttribute('href')!.split('/')[2]),
+    })));
+
+    for (const { label, count, url, noteSlugs } of payload.topics) {
+      const link = `[${label}](${url}) (${count} ${count === 1 ? 'note' : 'notes'})`;
+      expect(twin).toContain(link);
+      expect(guide).toContain(link);
+      expect(payload.fieldNotes.filter((note) => note.category === label).map((note) => note.slug)).toEqual(noteSlugs);
+    }
+
+    const listed = new Map(rows().map((row) => [new URL(row.getAttribute('href')!, SITE_URL).href, rowTopic(row)]));
+    expect(payload.fieldNotes.map(({ url, category }) => [url, category])).toEqual([...listed]);
+    for (const { url, markdownUrl, category } of payload.fieldNotes) {
+      const line = twin.split('\n').find((line) => line.includes(`](${url})`));
+      expect(line, `${url}: no entry in the Markdown index`).toContain(`· ${category}`);
+      expect(line, `${url}: no direct link to the note's Markdown`).toContain(`](${markdownUrl})`);
+    }
   });
 });

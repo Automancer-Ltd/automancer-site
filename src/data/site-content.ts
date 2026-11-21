@@ -7,6 +7,7 @@
  */
 import { getCollection, type CollectionEntry } from 'astro:content';
 import { formatGBP, serviceById } from './business';
+import { noteTopics } from './note-topics';
 import { abs, pagePath } from './urls';
 
 export { abs };
@@ -25,6 +26,13 @@ export async function getStudies(): Promise<CaseStudy[]> {
 export async function getNotes(): Promise<FieldNote[]> {
   const all = await getCollection('field-notes');
   return all.filter((e) => !e.data.draft).sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
+}
+
+/** The same subject links and counts in the Markdown index and agent guide. */
+export function noteTopicLinks(notes: readonly FieldNote[]): string[] {
+  return noteTopics(notes).map(({ label, url, count }) =>
+    `- [${label}](${url}) (${count} ${count === 1 ? 'note' : 'notes'})`,
+  );
 }
 
 const iso = (d: Date) => d.toISOString();

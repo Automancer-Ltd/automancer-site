@@ -11,6 +11,9 @@
  * the build stops instead. Pure, so the page and tests/note-topics.test.ts
  * agree on every subject, slug and count.
  */
+import { business } from './business';
+
+const topicPath = (slug: string): string => `/field-notes/#topic-${slug}`;
 
 /** Rules in src/styles/note-filter.css; tests/note-topics.test.ts holds them equal. */
 export const TOPIC_SLOTS = 24;
@@ -27,23 +30,41 @@ export const topicSlug = (label: string): string =>
 
 /** Where a note's subject label links: the index, filtered to that subject. */
 export const topicHref = (label: string): string | undefined =>
-  UNSPECIFIC_TOPICS.has(label) ? undefined : `/field-notes/#topic-${topicSlug(label)}`;
+  UNSPECIFIC_TOPICS.has(label) ? undefined : topicPath(topicSlug(label));
 
 export interface NoteTopic {
   label: string;
   slug: string;
   count: number;
+  url: string;
+  noteSlugs: string[];
   /** 1-based; matches data-topic-slot on the button and its notes. */
   slot: number;
 }
 
 /** Every specific subject, most notes first, then by name. */
-export function noteTopics(labels: readonly string[]): NoteTopic[] {
-  const counts = new Map<string, number>();
-  for (const label of labels) if (!UNSPECIFIC_TOPICS.has(label)) counts.set(label, (counts.get(label) ?? 0) + 1);
-  const topics = [...counts]
-    .sort(([a, x], [b, y]) => y - x || a.localeCompare(b))
-    .map(([label, count], i) => ({ label, slug: topicSlug(label), count, slot: i + 1 }));
+export function noteTopics(notes: readonly { id: string; data: Parameters<typeof noteTopic>[0] }[]): NoteTopic[] {
+  const members = new Map<string, string[]>();
+  for (const { id, data } of notes) {
+    const label = noteTopic(data);
+    if (UNSPECIFIC_TOPICS.has(label)) continue;
+    const slugs = members.get(label);
+    if (slugs) slugs.push(id);
+    else members.set(label, [id]);
+  }
+  const topics = [...members]
+    .sort(([a, x], [b, y]) => y.length - x.length || a.localeCompare(b))
+    .map(([label, noteSlugs], i) => {
+      const slug = topicSlug(label);
+      return {
+        label,
+        slug,
+        count: noteSlugs.length,
+        url: new URL(topicPath(slug), business.url).href,
+        noteSlugs,
+        slot: i + 1,
+      };
+    });
   if (topics.length > TOPIC_SLOTS) {
     throw new Error(
       `${topics.length} field-note subjects, but src/styles/note-filter.css filters only ${TOPIC_SLOTS}: add rules there and raise TOPIC_SLOTS`,

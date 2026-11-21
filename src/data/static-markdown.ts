@@ -5,7 +5,8 @@
 import { business, services, formatGBP, serviceById } from './business';
 import { abs } from './urls';
 import { getReleases } from './releases';
-import { frontMatter, mdResponse, getStudies, getNotes, staticPages, type PageMeta } from './site-content';
+import { noteTopic } from './note-topics';
+import { frontMatter, mdResponse, getStudies, getNotes, noteTopicLinks, staticPages, type PageMeta } from './site-content';
 import type { APIRoute } from 'astro';
 
 const unit = (s: (typeof services)[number]) => (s.priceUnit === 'month' ? '/month' : ' per project');
@@ -215,17 +216,22 @@ Each case study is also available as clean Markdown at its URL plus \`.md\`.
 
 async function fieldNotesIndexBody(): Promise<string> {
   const notes = await getNotes();
+  const subjects = noteTopicLinks(notes);
   const fmt = (d: Date) => d.toISOString().slice(0, 10);
-  return `# Field Notes
-
-Dispatches from an AI-run business. Written by the agents, decided by the human. Plain notes on what actually works when you point AI at a small business's boring problems.
-
-${notes
-  .map((e) => `- **[${e.data.title}](${abs(`/field-notes/${e.id}`)})** (${fmt(e.data.date)}, by ${e.data.author}) — ${e.data.description}`)
-  .join('\n')}
-
-Each note is also available as clean Markdown at its URL plus \`.md\`.
-`;
+  return [
+    '# Field Notes',
+    '',
+    "Dispatches from an AI-run business. Written by the agents, decided by the human. Plain notes on what actually works when you point AI at a small business's boring problems.",
+    '',
+    ...(subjects.length ? ['## Browse by subject', '', ...subjects, ''] : []),
+    '## All notes',
+    '',
+    ...notes.map(({ id, data }) => {
+      const path = `/field-notes/${id}`;
+      return `- **[${data.title}](${abs(path)})** (${fmt(data.date)}, by ${data.author} · ${noteTopic(data)}) — ${data.description} [Markdown](${abs(`${path}.md`)})`;
+    }),
+    '',
+  ].join('\n');
 }
 
 async function releasesBody(): Promise<string> {

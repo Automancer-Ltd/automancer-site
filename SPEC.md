@@ -1,7 +1,7 @@
 # Automancer Site — Living Specification
 
 > Internal living spec. Update the relevant module section in the SAME branch
-> as any behaviour change. Last verified against the code: 2026-11-20.
+> as any behaviour change. Last verified against the code: 2026-11-21.
 
 ## North star
 
@@ -46,6 +46,7 @@ Provide a truthful public front door for Automancer. Give people and machines th
 
 ### Machine-readable surface
 
+- Field note subjects (t22833): `/api/field-notes.json` publishes a `topics` array with each filter's `label`, `slug`, `count`, absolute `url` and `noteSlugs` in newest-first order. An agent can look up the matching notes by slug or share the URL to open the matching browser filter. The Markdown twin and `llms.txt` list the same subjects, counts and links. The twin also gives each note's subject and direct Markdown link in the full list. `General` notes remain in that list. The build audit compares the machine formats with the published index.
 - What it does: Publishes Markdown twins, JSON endpoints, OpenAPI, JSON-LD, feeds, `llms.txt`, an agent manifest, a sitemap, security contact data, and the stability policy below. An edge Worker serves a page's Markdown twin to `Accept: text/markdown`, a Markdown 404 to agents that ask for one, RFC 9457 errors under `/api/`, RFC 8288 `Link` headers, and a single 301 from each legacy `*.html` URL to its page (GitHub Pages alone serves a 301 to `/x.html/` and then a meta-refresh stub); `/.well-known/` carries an ARD manifest and an RFC 9727 API catalog. Legal page bodies remain canonical in HTML and are not copied into machine-readable mirrors. Every page in `/api/pages.json` and the sitemap carries a real date: `lastModified` / `<lastmod>` is when the words on the page last changed on the live site, with `contentSha256`, the hash of those words; the deploy carries forward the date production publishes for unchanged words, so a deploy that changes no words changes no date (t19631).
 - State: built
 - Shaped by: `src/data/api.ts`, `src/data/openapi.ts`, `src/data/feeds.ts`, `src/data/static-markdown.ts`, `src/integrations/page-dates.ts`, and the generated routes in `src/pages/`.
