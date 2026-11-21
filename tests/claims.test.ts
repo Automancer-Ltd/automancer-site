@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parse } from 'node-html-parser';
-import { readDistFile } from './support/dist';
+import { readDistFile, SITE_URL } from './support/dist';
 
 describe('/api/claims.json — headline figures trace to truth-layer records', () => {
   const claims = JSON.parse(readDistFile('api/claims.json') ?? 'null');
@@ -96,6 +96,46 @@ describe('/api/claims.json — headline figures trace to truth-layer records', (
       for (const stat of study.stats) for (const id of stat.claims) expect(twin, `${study.slug}.md lacks ${id}'s line`).toContain(`> “${quote(id)}”`);
     }
     expect(sourced, 'no case study shows a sourced figure').toBeGreaterThanOrEqual(10);
+  });
+});
+
+describe('evidence in the plain-text guides', () => {
+  const guide = readDistFile('llms.txt') ?? '';
+  const full = readDistFile('llms-full.txt') ?? '';
+  const { claims } = JSON.parse(readDistFile('api/claims.json') ?? '{"claims":[]}') as {
+    claims: { id: string; evidenceUrl: string; sourceQuote: string }[];
+  };
+
+  it('puts a direct evidence link beside the figures used to recommend a service', () => {
+    const recommendations = [
+      ['drowning in compliance paperwork', ['care_provider_size', 'carer_record_count', 'supervision_schedule_count']],
+      ['human document review', ['debiaser_per_engagement_cost', 'debiaser_self_service_cost']],
+    ] as const;
+    for (const [text, ids] of recommendations) {
+      const line = guide.split('\n').find((line) => line.includes(text));
+      for (const id of ids) {
+        const claim = claims.find((claim) => claim.id === id)!;
+        expect(line, id).toContain(`](${claim.evidenceUrl})`);
+      }
+    }
+    expect(guide).toContain(`](${SITE_URL}/api/claims.json)`);
+  });
+
+  it('carries every published claim quote and its canonical evidence link in its own study section', () => {
+    const sections = full.split(/^={72}$/m);
+    expect(claims.length).toBeGreaterThan(0);
+    for (const claim of claims) {
+      const url = new URL(claim.evidenceUrl);
+      const study = sections.find((section) => section.startsWith(`\nURL: ${url.origin}${url.pathname}\n`));
+      expect(study, claim.id).toContain('## Where these numbers come from');
+      expect(study, claim.id).toContain(`> “${claim.sourceQuote.replace(/\*\*/g, '')}”`);
+      expect(study, claim.id).toContain(`](${claim.evidenceUrl})`);
+      const twin = readDistFile(`${url.pathname.slice(1, -1)}.md`);
+      expect(twin, claim.id).toContain(`](${claim.evidenceUrl})`);
+    }
+    expect(full).not.toMatch(/\]\(\/work\/[^/]+\/#source(?:s\b|-)/);
+    const note = readDistFile('field-notes/automation-for-care-providers-where-to-start.md');
+    expect(note).toContain(`](${claims.find((claim) => claim.id === 'carer_record_count')!.evidenceUrl})`);
   });
 });
 

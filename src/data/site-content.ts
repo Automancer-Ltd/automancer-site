@@ -8,7 +8,7 @@
 import { getCollection, type CollectionEntry } from 'astro:content';
 import { formatGBP, serviceById } from './business';
 import { noteTopics } from './note-topics';
-import { SOURCES_ANCHOR, SOURCES_INTRO, evidenceRows, publishedClaims, type ClaimId } from './claims';
+import { SOURCES_ANCHOR, SOURCES_INTRO, evidenceAnchor, evidenceRows, publishedClaims, type ClaimId } from './claims';
 import { abs, pagePath } from './urls';
 
 export { abs };
@@ -54,11 +54,11 @@ export function mdResponse(markdown: string): Response {
   });
 }
 
-/** Markdown twin of one case study: front matter + hero facts + full body. */
+/** Markdown twin of one case study. */
 export function studyMarkdown(entry: CaseStudy): string {
   const d = entry.data;
   const url = abs(`/work/${entry.id}`);
-  const parts = [
+  return (
     frontMatter({
       // The page <title> derives from fitTitle(d.title) — the twin's
       // front-matter title must be that same string (unfitted), not the
@@ -69,18 +69,29 @@ export function studyMarkdown(entry: CaseStudy): string {
       canonical: url,
       type: 'CaseStudy',
       datePublished: iso(d.date),
-    }),
-  ];
+    }) + '\n' + studyText(entry)
+  );
+}
+
+/** Case study with its headline figures and evidence, shared by the twin and the full guide. */
+export function studyText(entry: CaseStudy): string {
+  const d = entry.data;
+  const url = abs(`/work/${entry.id}`);
+  const sourced = evidenceRows(d);
   // Mirror the rendered page: the h1 shows the editorial headline
   // (`d.headline ?? d.title`), so it stays in the twin as the top heading.
-  parts.push(`# ${d.headline ?? d.title}`, '');
+  const parts = [`# ${d.headline ?? d.title}`, ''];
   if (d.subhead) parts.push(d.subhead, '');
+  if (sourced.length) parts.push(`[Where these numbers come from](${url}#${SOURCES_ANCHOR})`, '');
   if (d.stats.length > 0) {
-    parts.push(...d.stats.map((s) => `- **${s.v}** — ${s.l}`), '');
+    for (const stat of d.stats) {
+      const source = stat.claims.length ? ` ([Source](${url}#${evidenceAnchor(stat.claims)}))` : '';
+      parts.push(`- **${stat.v}** — ${stat.l}${source}`);
+    }
+    parts.push('');
   }
-  parts.push(entry.body ?? '');
+  parts.push(withAbsoluteEvidenceLinks(entry.body ?? ''));
   // The page's "Where these numbers come from", word for word (t23334), hero figures included (t23577).
-  const sourced = evidenceRows(d);
   if (sourced.length > 0) {
     parts.push(
       '',
@@ -88,13 +99,19 @@ export function studyMarkdown(entry: CaseStudy): string {
       '',
       SOURCES_INTRO,
       '',
-      ...sourced.flatMap((s) => [`- **${s.v}** ${s.l}`, ...s.quotes.map((q) => `  > “${q}”`)]),
+      ...sourced.flatMap((s) => [`- [**${s.v}** ${s.l}](${url}#${s.anchor})`, ...s.quotes.map((q) => `  > “${q}”`)]),
       '',
       `The same lines, as data for agents: ${abs('/api/claims.json')}`,
       ''
     );
   }
   return parts.join('\n');
+}
+
+/** Evidence citations still resolve when the guide or twin is copied away from the site. */
+function withAbsoluteEvidenceLinks(markdown: string): string {
+  return markdown.replace(/\]\((\/work\/[\w-]+\/)#(sources|source-[\w-]+)\)/g,
+    (_link, path: string, anchor: string) => `](${abs(path)}#${anchor})`);
 }
 
 /** A case study's evidence section, for a teaser that names its figures; null when it has none. */
@@ -133,8 +150,12 @@ export function noteMarkdown(entry: FieldNote): string {
       type: 'BlogPosting',
       author: d.author,
       datePublished: iso(d.date),
-    }) + (entry.body ?? '')
+    }) + noteText(entry)
   );
+}
+
+export function noteText(entry: FieldNote): string {
+  return withAbsoluteEvidenceLinks(entry.body ?? '');
 }
 
 /** Registry of every hand-authored page — used by /api/pages.json, llms-full.txt and the .md twin decision. */
