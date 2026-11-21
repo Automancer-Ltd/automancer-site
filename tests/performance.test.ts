@@ -29,8 +29,11 @@ import { DIST, measureAllPages } from './support/perf';
  * src/styles/fonts.css as inline CSS: nine sized to Arial (t23013, 3,518 B, about 450 B gzipped),
  * then eight sized to Roboto for Android (t23067, 3,065 B, about 270 B gzipped). t23577 added 1,651 B
  * to / (each case card's Sources link and the card styles that let it sit beside the card's link).
+ * Re-measured 2026-11-21 (t23850): 161,243 B. Every page now carries the print styles
+ * (src/styles/print.css, 3,841 B inline, 1,424 B gzipped), the page's address for the printed
+ * footer, and 523 B more main.js (opening the FAQ answers for a print).
  */
-const LAYOUT_MEASURED = 156733;
+const LAYOUT_MEASURED = 161243;
 
 /**
  * Layout pages that genuinely need more than the default, each with its own
@@ -38,9 +41,10 @@ const LAYOUT_MEASURED = 156733;
  */
 const LAYOUT_EXCEPTIONS: Record<string, { measured: number; reason: string }> = {
   // Measured 2026-11-21 (t22871): 148,994 B + 4,887 B of HTML, CSS and script; + 3,518 B and
-  // 3,115 B of fallback font faces every page carries (t23013, t23067).
+  // 3,115 B of fallback font faces every page carries (t23013, t23067). Re-measured 2026-11-21
+  // (t23850): 166,982 B with the print styles and main.js every page now carries.
   '/contact/': {
-    measured: 160439,
+    measured: 166982,
     reason: 'the "What are you interested in?" choice: five option cards, their styles, and the script that picks one from ?service=',
   },
 };
@@ -55,7 +59,7 @@ const GROWS_WITH_CONTENT: Record<string, string> = {
 };
 
 /** JS measured 2026-11-21. Identical on every layout page. */
-const MEASURED_JS = 10889; // main.js (5,803 B) + the one page-load module (5,086 B): the Sentry bootstrap (src/scripts/sentry.ts) and the Firefox/Safari hover prefetch (src/scripts/prefetch.ts, ~1,160 B, t23288)
+const MEASURED_JS = 11412; // main.js (6,326 B; opens the FAQ for a print, t23850) + the one page-load module (5,086 B): the Sentry bootstrap (src/scripts/sentry.ts) and the Firefox/Safari hover prefetch (src/scripts/prefetch.ts, ~1,160 B, t23288)
 /**
  * The Sentry SDK chunk, fetched only when a visitor's page first throws. It
  * is the error path's whole cost, so it is pinned too: importing the SDK as a
@@ -110,7 +114,7 @@ describe('page-weight budgets', () => {
   });
 
   it('keeps JavaScript within budget on every layout page', () => {
-    const budget = MEASURED_JS + headroom(MEASURED_JS); // 11913 B from 10889 B @ 2026-11-21
+    const budget = MEASURED_JS + headroom(MEASURED_JS); // 12436 B from 11412 B @ 2026-11-21
     for (const p of layoutPages) {
       expect(
         p.jsBytes,

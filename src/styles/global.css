@@ -716,8 +716,12 @@ strong { font-weight: 600; color: inherit; }
   /* The colour animation used to end at once and leave the orb in the text
      colour; the glow keeps that look while its layers stay hidden. */
   .glow { background: radial-gradient(circle at 50% 50%, currentColor 0%, transparent var(--glow-fade)); }
-  .proof-strip__track { animation: none !important; white-space: normal; }
-  .proof-strip { white-space: normal; }
+  /* A still strip shows its one copy, wrapping between items, never inside a
+     label: squeezed into one row, "human in the loop:" broke over four lines
+     and a phone cut off everything after "maintained by". */
+  .proof-strip__track { animation: none !important; display: block; }
+  .proof-strip__item-group { flex-wrap: wrap; row-gap: var(--sp-2) !important; }
+  .proof-strip__item-group + .proof-strip__item-group { display: none !important; }
 }
 
 /* ─────────────────────── Utilities ─────────────────────── */

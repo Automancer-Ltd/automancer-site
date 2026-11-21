@@ -13,6 +13,7 @@ import { build } from '../data/build';
 import { OFFSITE_LOCK } from '../../ops/edge/worker.js';
 import '../styles/fonts.css';
 import '../styles/global.css';
+import '../styles/print.css';
 import spaceGroteskUrl from '../assets/fonts/space-grotesk.woff2?url';
 import syneUrl from '../assets/fonts/syne.woff2?url';
 
@@ -184,7 +185,7 @@ const SPECULATION_RULES = {
       import '../scripts/prefetch';
     </script>
   </head>
-  <body>
+  <body data-print-url={abs(Astro.url.pathname)}>
     {/*
       Firefox draws text with a pending web font in its default font: it never starts a
       local() fallback face on its own, so every line re-wrapped when the fonts arrived there

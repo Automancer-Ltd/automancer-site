@@ -13,6 +13,8 @@ through `/services/#offer-4`. Compare all services and the header link open the 
 - `visitor finds the prices and reaches us through the contact form`: every published from-price
   from `src/data/business.ts` is visible on the page.
 - `enlarged text keeps the headline, service names and prices inside their panels`.
+- `a printed price list carries every offer, its price, what is included and the answers (t23850)`:
+  print and Save as PDF (`src/styles/print.css`) show every offer in black ink with the FAQ open.
 - Vitest: `tests/agent-readiness.test.ts` holds the page, its JSON-LD, `/api/services.json`, the
   twins and `llms.txt` to the same names, prices and included lists.
 

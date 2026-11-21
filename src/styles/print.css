@@ -1,0 +1,122 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   Print and "Save as PDF" (t23850)
+
+   A buyer prints the price list, a case study or a checklist note to take
+   into a meeting. Before this sheet, /services/ printed eight A4 pages, five
+   of them blank: every offer and its price is a scroll reveal that starts at
+   opacity 0, and light-on-black text vanishes once the browser drops
+   backgrounds for paper. Field notes printed in pale grey under a fixed
+   header repeated on every page.
+
+   On paper: black ink on white; everything a scroll would reveal is shown;
+   navigation, motion, glows and buttons are left out; FAQ answers print open
+   (main.js opens them for the print and closes them after); links in an
+   article print where they go; headings stay with what follows; and the page
+   ends with the company's details and its own address. Nothing here applies
+   on screen.
+   ══════════════════════════════════════════════════════════════════════ */
+@media print {
+  @page { margin: 16mm 15mm; }
+
+  :root {
+    color-scheme: light;
+    --border: #cfcfd6; --border-strong: #b4b4bd; --border-dark: #cfcfd6; --ghost-paper: #c4c4cc;
+    --section-y: 1.75rem; --pad-x: 0px;
+  }
+
+  /* Paper is white and ink is black. Backgrounds are dropped (most browsers
+     do so anyway): a dark band printed with "background graphics" on would
+     otherwise put black ink under black text. */
+  *, *::before, *::after {
+    color: #000 !important; background: transparent !important;
+    box-shadow: none !important; text-shadow: none !important;
+    animation: none !important; transition: none !important;
+  }
+  html, body { background: #fff !important; }
+  body { font-size: 11pt; overflow: visible; }
+  main { overflow: visible; }
+
+  /* Everything a scroll would reveal is on the page. */
+  .reveal, .reveal-stagger > *, .page-hero__title, .page-hero__sub {
+    opacity: 1 !important; transform: none !important;
+  }
+
+  /* Screen furniture: navigation, motion, decoration, calls to action. */
+  .skip-link, .nav__links, .nav__actions, .proof-strip, .hero__cue, .hero__caret, .hero__fold, .hero__glow,
+  .page-hero__glow, .glow, .cta__glow, .hatch::before, .btn, .cta__ctas, .hero__ctas,
+  .rule--spectral, .offer__rule, .rung__arrow, .overview-row__arrow, .faq .plus,
+  [data-toc], .read-next, .read-next__all, .article-back,
+  .footer__col, .footer__legal { display: none !important; }
+
+  /* The brand once, at the top of the first page, not stamped on every page. */
+  .nav { position: static !important; display: flex !important; height: auto !important;
+    padding: 0 0 6mm !important; border: 0 !important; backdrop-filter: none !important; }
+  .nav__mark, .footer__mark { filter: brightness(0) !important; }
+
+  /* Full-screen heroes become a page heading. */
+  .hero, .page-hero, .page-hero.services-hero { min-height: 0 !important; height: auto !important;
+    padding: 0 0 6mm !important; overflow: visible !important; }
+  .hero > .hero__inner, .page-hero__inner { max-width: none !important; }
+  .section, .cta { padding-block: var(--section-y) !important; }
+  .wrap, .wrap--text, .wrap--wide { max-width: none !important; padding-inline: 0 !important; }
+
+  /* Spectrum words keep their letters in ink. */
+  .spectral-text { -webkit-background-clip: border-box !important; background-clip: border-box !important;
+    -webkit-mask: none !important; mask: none !important; }
+  .spectral-text::before { content: none !important; }
+
+  /* Secondary text stays a step lighter than the body, still legible. */
+  .muted, .lede, .page-hero__sub, .hero__body, .eyebrow, .sys, .article-meta, .section-head__log,
+  .offer__step, .offer__who, .offer__price .note, .overview-row__what, .overview-row__price .from,
+  .faq__a, .cta__body, .footer__addr { color: #3a3a40 !important; }
+  .ghost-num, .offer__num { color: #c4c4cc !important; }
+
+  /* List marks are drawn with borders, which print whether or not
+     backgrounds do. */
+  .prose ul li::before { width: 0 !important; height: 0 !important; border: 3px solid #000; border-radius: 1px; }
+  .ticks li::before { -webkit-mask: none !important; mask: none !important;
+    width: 0.32rem !important; height: 0.62rem !important; left: 0.3rem !important; top: 0.3em !important;
+    border: solid #000; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+
+  /* Panels and grids that drew their lines with a background colour. */
+  .statband { gap: 0 !important; border-color: var(--border) !important; }
+  .stat { border: 1px solid var(--border); }
+  .case-card, .offer__catch { border-color: var(--border) !important; }
+
+  /* The FAQ answers print with their questions. */
+  /* (main.js opens them before printing; this covers a print without scripts
+     in browsers that style the details' content box.) */
+  .faq details::details-content { content-visibility: visible !important; display: block !important; }
+
+  /* An article's links print where they go: the paper has no hover. */
+  .prose a[href^="/"]:not([href*="#source"])::after { content: " (automancer.uk" attr(href) ")"; }
+  .prose a[href^="http"]::after { content: " (" attr(href) ")"; }
+  .prose a[href^="/"]::after, .prose a[href^="http"]::after {
+    font-family: var(--font-mono); font-size: 0.78em; overflow-wrap: anywhere; }
+  .prose a { background-image: none !important; text-decoration: underline; text-underline-offset: 0.15em; }
+
+  /* Page breaks: a heading stays with what follows it, and a card, an offer's
+     price or a question is never cut in half. */
+  h1, h2, h3, h4, .eyebrow, .section-head, .offer__stepline { break-after: avoid; }
+  h1, h2, h3, h4, .section-head, .section-head.services-path { break-inside: avoid; }
+  p, li, blockquote { orphans: 3; widows: 3; }
+  .case-card, .stat, .proof-cell, .rung, .overview-row, .offer__price, .offer__includes, .offer__catch,
+  .faq details, .note-row, .principle, figure, blockquote, table, pre, .ticks li { break-inside: avoid; }
+
+  /* The closing call to action, at reading size: the footer below it
+     carries the address to write to. */
+  .cta { text-align: start; }
+  .cta__head, .cta .cta__head { font-size: 1.6rem !important; max-width: none; margin: 0; }
+  .cta__body, .cta__reassure { max-width: 60ch; margin: 2mm 0 0; font-size: inherit; }
+
+  /* The last thing on paper: who published it and where it lives. */
+  .footer { border-top: 1px solid var(--border) !important; margin-top: 4mm; break-inside: avoid; }
+  .footer__top { display: block !important; padding-block: 4mm 0 !important; }
+  .footer__brand { margin-bottom: 2mm; }
+  .footer__addr + .footer__addr { display: none; }
+  .footer__bottom { border: 0 !important; padding-block: 2mm 0 !important; }
+  body[data-print-url]::after {
+    content: "This page: " attr(data-print-url); display: block; margin-top: 2mm;
+    font-family: var(--font-mono); font-size: 8pt; color: #3a3a40 !important;
+  }
+}

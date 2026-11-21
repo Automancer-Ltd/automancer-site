@@ -18,6 +18,15 @@ exact `dist/` it publishes, so a heavier production build fails the release inst
 
 ## Decisions behind the numbers
 
+- **Every page prints whole (t23850, 21 Nov 2026).**
+  Printing or saving `/services/` as a PDF gave eight A4 pages, five of them blank: the offers and
+  prices are scroll reveals that start hidden, and light-on-black text vanished once the browser
+  dropped backgrounds. `src/styles/print.css` is inlined into every page like the rest of the
+  site's CSS: 3,841 B, 1,424 B gzipped, applied only to print. A separate `media="print"`
+  stylesheet would save those bytes on a page after the first, but browsers still download it at
+  low priority on every first visit, as one more request. `main.js` grew 523 B to open the FAQ
+  answers for the print. `/` went to 161,243 B and `/contact/` to 166,982 B; both were re-measured.
+
 - **The display font starts downloading with the response headers (t23740, 21 Nov 2026).**
   The Worker reads the Syne preload from the early HTML and adds it to the `Link` header.
   The URL comes from the page being served, so the hint follows its content hash on each release.
