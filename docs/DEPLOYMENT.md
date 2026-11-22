@@ -216,6 +216,15 @@ Undo via Executor `sentry-guarded` (`projects.updateProject` and `projects.updat
   `<head>` link. Check that a Markdown twin and a 404 have no font preload. Roll back by
   deploying the preceding Worker version. Reverting the Pages merge alone leaves the
   Worker version running.
+- **The Brotli copies (t24283, 22 Nov 2026):** the build writes `<file>.br` beside every text
+  file and the Worker sends it to a browser that takes `br` (`brotliCopy()`). The Worker falls
+  back to the file whenever a copy is missing, so either half can ship first; the copies go
+  first (merge, let Pages publish), then the Worker, so the Worker never asks for copies that do
+  not exist yet. Verify on the probe that `curl -H 'Accept-Encoding: br' .../services/` answers
+  `content-encoding: br` with the same Link header and, decoded, the same body as a request
+  without it. Undo the Worker half by deploying the previous Worker version: every browser is
+  back on Cloudflare's own compression at once, and the unused `.br` files are harmless. On the
+  `github.io` copy they are only downloads, never a page.
 - **Runtime (t21891, 20 Nov 2026):** `deploy.sh` uploads `worker.js` byte for byte as an ES module
   through Cloudflare's JSON Workers API (`api.versions.createWorkerVersion`, `deploy=true`) with
   `COMPATIBILITY_DATE`, then reads the date back. Before t21891 it rewrote the module into a

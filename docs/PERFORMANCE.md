@@ -18,6 +18,23 @@ exact `dist/` it publishes, so a heavier production build fails the release inst
 
 ## Decisions behind the numbers
 
+- **Browsers get the build's own Brotli, not Cloudflare's quick compression (t24283, 22 Nov 2026).**
+  Cloudflare compressed each file GitHub Pages sent at a fast, loose level, and chose zstd for
+  Chrome and Firefox: the home page went out at 20,839 B, more than GitHub's own gzip (18,809 B).
+  The build now writes `<file>.br` at Brotli's highest level beside every HTML, Markdown, JSON,
+  text, XML, SVG and script file (`src/integrations/precompress.ts`, HTML with `OFFSITE_LOCK`
+  already out), and the edge Worker sends those bytes untouched to any browser that takes `br`
+  (`brotliCopy()` in `ops/edge/worker.js`, `encodeBody: 'manual'`). Measured on production before
+  the change, the 32 sitemap pages as Chrome receives them: 648,720 B with Cloudflare's zstd,
+  608,496 B with its Brotli (Safari), 494,045 B at Brotli 11: a quarter fewer bytes for Chrome
+  and a fifth fewer for Safari. Page-weight budgets here count uncompressed bytes, so none moved.
+  For an HTML GET the Worker fetches the page itself alongside the copy and reads only its early
+  head for the display-font hint (t23740), as Workers cannot decompress Brotli; that is one more
+  request to GitHub per page, read for at most 4 KiB, and adds no wait because the two run
+  together. A Range request, a client without `br`, a doubled slash or a missing copy gets the
+  file as before. `tests/precompress.test.ts` asks for every compressed file both ways through the
+  Worker and requires the same words and headers.
+
 - **Taps on a phone are quick in Safari and Firefox too (t24026, 22 Nov 2026).**
   The hover prefetch below (t23288) needs a mouse, so on an iPhone, an iPad or Firefox for
   Android every tap still waited a whole round trip for the next page. On a touch screen
