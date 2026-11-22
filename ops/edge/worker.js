@@ -19,6 +19,9 @@
 //     day, in browsers and at the edge (cachePolicy; t18923).
 //   - GitHub Pages is asked for the file only: none of the visitor's IP
 //     address, cookies, Referer or browser details go with it (pagesRequest).
+//   - A browser that takes Brotli gets the copy the build compressed at the
+//     highest level (BROTLI_TYPES, src/integrations/precompress.ts), not
+//     Cloudflare's quicker on-the-fly compression: about a quarter fewer bytes.
 // Everything else passes through untouched. Deploy and undo: docs/DEPLOYMENT.md.
 //
 // The files come from the GitHub Pages project address (PAGES), not from
@@ -81,6 +84,53 @@ const SECURITY_HEADERS = {
 // emits and what is removed, so a change here changes both.
 export const OFFSITE_LOCK =
   '<style>body>*{display:none!important}body::before{content:"This page is at automancer.uk";display:block;padding:2rem;font:1.25rem/1.5 system-ui,sans-serif}</style>';
+/** `html` with its first OFFSITE_LOCK in the <head> taken out, as unlocked() does to a stream. */
+export function withoutLock(html) {
+  const at = html.indexOf(OFFSITE_LOCK);
+  const headEnd = html.indexOf('</head>');
+  return at !== -1 && (headEnd === -1 || at < headEnd) ? html.slice(0, at) + html.slice(at + OFFSITE_LOCK.length) : html;
+}
+
+// Built Brotli copies (t24283). Cloudflare compresses what GitHub Pages sends on
+// the fly, quickly and so loosely: Chrome and Firefox got zstd, Safari Brotli,
+// both larger than GitHub's own gzip. The build writes `<file>.br` beside every
+// file of these types at Brotli's highest level (src/integrations/precompress.ts),
+// HTML with OFFSITE_LOCK already taken out, as this Worker would serve it. A
+// visitor whose browser takes Brotli gets those bytes untouched: 648,720 →
+// 494,045 B for the 32 sitemap pages, and 20,839 → 15,781 B for the home page
+// (measured live, 22 Nov 2026). Pages serves `.br` files as plain bytes, so the
+// type is the one Pages gives the file itself (the same as ops/edge/local.mjs).
+export const BROTLI_TYPES = {
+  '.html': 'text/html; charset=utf-8',
+  '.md': 'text/markdown; charset=utf-8',
+  '.txt': 'text/plain; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.js': 'application/javascript; charset=utf-8',
+  '.mjs': 'application/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.xml': 'application/xml',
+  '.svg': 'image/svg+xml',
+  '.webmanifest': 'application/manifest+json',
+};
+
+/** The built Brotli copy for a URL path and the type of the file it holds, or null when the build makes none. */
+export function brotliFile(pathname) {
+  if (pathname.includes('//')) return null;
+  const file = pathname.endsWith('/') ? `${pathname}index.html` : pathname;
+  const ext = /\.[a-z0-9]+$/.exec(file.slice(file.lastIndexOf('/')))?.[0];
+  const type = ext && Object.hasOwn(BROTLI_TYPES, ext) ? BROTLI_TYPES[ext] : null;
+  return type ? { path: `${file}.br`, type } : null;
+}
+
+/** Whether an Accept-Encoding header takes Brotli (`br` listed without q=0). */
+export function acceptsBrotli(acceptEncoding) {
+  return (acceptEncoding ?? '').toLowerCase().split(',').some((part) => {
+    const [coding, ...params] = part.split(';').map((x) => x.trim());
+    const q = params.find((p) => p.startsWith('q='));
+    return coding === 'br' && (q === undefined || Number(q.slice(2)) > 0);
+  });
+}
+
 // Headers that tell the visitor's browser to send reports to a server for days
 // after a visit (Network Error Logging and the Reporting API). The pages may
 // contact only this site and the error monitor, and a CSP cannot stop these,
@@ -244,9 +294,14 @@ function withVary(response) {
   return out;
 }
 
+// Responses whose body is already Brotli (encodeBody: 'manual'). A copy made with
+// `new Response(body, response)` would lose that, and the runtime would compress
+// the compressed bytes again, so these are only ever changed in place.
+const ENCODED = new WeakSet();
+
 /** A mutable copy of a response with SECURITY_HEADERS set on it. */
 function secured(response) {
-  const out = new Response(response.body, response);
+  const out = ENCODED.has(response) ? response : new Response(response.body, response);
   for (const [name, value] of Object.entries(SECURITY_HEADERS)) out.headers.set(name, value);
   for (const name of REPORTING_HEADERS) out.headers.delete(name);
   if (XML_CONTENT_TYPE.test(out.headers.get('Content-Type') ?? '')) {
@@ -299,6 +354,30 @@ export function unlocked(body) {
  */
 async function withDisplayFontPreload(body, response) {
   const reader = body.getReader();
+  const { chunks, done, href } = await displayFont(reader);
+  const replay = new ReadableStream({
+    start(controller) {
+      for (const chunk of chunks) controller.enqueue(chunk);
+      if (done) controller.close();
+    },
+    async pull(controller) {
+      const next = await reader.read();
+      if (next.done) controller.close();
+      else controller.enqueue(next.value);
+    },
+    cancel(reason) { return reader.cancel(reason); },
+  });
+  const out = new Response(replay, response);
+  if (href) out.headers.append('Link', fontLink(href));
+  return out;
+}
+
+/** The Link header every HTML page gets: discovery links, and the home page's Markdown twin. */
+const pageLinks = (pathname) => PAGE_LINKS + (pathname === '/' ? ', </index.md>; rel="alternate"; type="text/markdown"' : '');
+const fontLink = (href) => `<${href}>; rel=preload; as=font; type="font/woff2"; crossorigin`;
+
+/** The display font preload in the early head of an HTML stream, with the chunks read to find it. */
+async function displayFont(reader) {
   const decoder = new TextDecoder();
   const chunks = [];
   let remaining = PRELOAD_SCAN_BYTES;
@@ -317,20 +396,51 @@ async function withDisplayFontPreload(body, response) {
     href = DISPLAY_FONT_PRELOAD.exec(head)?.[1];
     if (href || head.length < prefix.length) break;
   }
-  const replay = new ReadableStream({
-    start(controller) {
-      for (const chunk of chunks) controller.enqueue(chunk);
-      if (done) controller.close();
-    },
-    async pull(controller) {
-      const next = await reader.read();
-      if (next.done) controller.close();
-      else controller.enqueue(next.value);
-    },
-    cancel(reason) { return reader.cancel(reason); },
-  });
-  const out = new Response(replay, response);
-  if (href) out.headers.append('Link', `<${href}>; rel=preload; as=font; type="font/woff2"; crossorigin`);
+  return { chunks, done, href };
+}
+
+/**
+ * The build's Brotli copy of the file at `url`, ready to send (BROTLI_TYPES), or null to serve the
+ * file as before: the copy is missing (a page that does not exist, or a build from before t24283)
+ * or Pages answered anything but 200 or 304. A page's display font preload cannot be read from
+ * Brotli here (Workers decompress only gzip and deflate), so for an HTML GET the page itself is
+ * fetched alongside and only its early head read, as withDisplayFontPreload does.
+ */
+async function brotliCopy(request, url, file, policy) {
+  const html = file.type.startsWith('text/html');
+  const [res, page] = await Promise.all([
+    fetch(pagesRequest(atPages(file.path), request), {
+      redirect: 'manual',
+      ...(policy && { cf: { cacheTtlByStatus: { '200-299': policy.edge, '300-599': -1 } } }),
+    }),
+    html && request.method === 'GET' ? fetch(atPages(url.pathname)).catch(() => null) : null,
+  ]);
+  let href;
+  if (page?.ok && page.body && res.status === 200) {
+    const reader = page.body.getReader();
+    href = (await displayFont(reader)).href;
+    reader.cancel().catch(() => {});
+  } else {
+    page?.body?.cancel().catch(() => {});
+  }
+  if (res.status !== 200 && res.status !== 304) {
+    res.body?.cancel().catch(() => {});
+    return null;
+  }
+  const headers = new Headers(res.headers);
+  headers.set('Content-Type', file.type);
+  headers.set('Content-Encoding', 'br');
+  // Caches keep one copy per encoding; Pages already names Accept-Encoding, withVary adds Accept.
+  const vary = (headers.get('Vary') ?? '').split(',').map((t) => t.trim().toLowerCase());
+  if (!vary.includes('accept-encoding')) headers.set('Vary', headers.get('Vary') ? `${headers.get('Vary')}, Accept-Encoding` : 'Accept-Encoding');
+  if (!vary.includes('accept')) headers.set('Vary', `${headers.get('Vary')}, Accept`);
+  if (policy) {
+    headers.set('Cache-Control', policy.browser);
+    headers.delete('Expires');
+  }
+  if (html && res.status === 200) headers.set('Link', pageLinks(url.pathname) + (href ? `, ${fontLink(href)}` : ''));
+  const out = new Response(res.status === 304 ? null : res.body, { status: res.status, headers, encodeBody: 'manual' });
+  ENCODED.add(out);
   return out;
 }
 
@@ -373,6 +483,13 @@ async function respond(request) {
   }
 
   const policy = readOnly ? cachePolicy(url.pathname, url.search) : null;
+  const brotli = readOnly && !request.headers.has('Range') && acceptsBrotli(request.headers.get('Accept-Encoding'))
+    ? brotliFile(url.pathname)
+    : null;
+  if (brotli) {
+    const copy = await brotliCopy(request, url, brotli, policy);
+    if (copy) return copy;
+  }
   const res = await fetch(pagesRequest(atPages(url.pathname, url.search), request), {
     redirect: 'manual',
     // Only a found file is kept; a 404 or an error is asked for again next time.
@@ -402,10 +519,7 @@ async function respond(request) {
     out.headers.delete('Expires');
   }
   const html = (out.headers.get('Content-Type') ?? '').startsWith('text/html');
-  if (html && res.ok) {
-    const twin = url.pathname === '/' ? ', </index.md>; rel="alternate"; type="text/markdown"' : '';
-    out.headers.set('Link', PAGE_LINKS + twin);
-  }
+  if (html && res.ok) out.headers.set('Link', pageLinks(url.pathname));
   if (html && out.body) {
     // The page is drawn here, on automancer.uk, and nowhere else (OFFSITE_LOCK).
     const body = unlocked(out.body);

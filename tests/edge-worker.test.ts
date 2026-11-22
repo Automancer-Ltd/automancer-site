@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import worker, { OFFSITE_LOCK, atOrigin, atPages, cachePolicy, fromPages, legacyRedirect, unlocked } from '../ops/edge/worker.js';
+import worker, { OFFSITE_LOCK, acceptsBrotli, atOrigin, atPages, brotliFile, cachePolicy, fromPages, legacyRedirect, unlocked } from '../ops/edge/worker.js';
 import { DIST, allHtmlFiles, contentPages } from './support/dist';
 
 // The Pages project the Worker reads (t22925): the site has no custom domain on GitHub.
@@ -189,6 +189,32 @@ describe('edge Worker in front of GitHub Pages', () => {
     expect((fetchSpy.mock.calls[0][0] as Request).method).toBe('HEAD');
   });
 
+  it("asks for a page's Brotli copy with none of the visitor's details either (t24283)", async () => {
+    const fetchSpy = vi.fn(serve);
+    vi.stubGlobal('fetch', fetchSpy);
+    await worker.fetch(new Request('https://automancer.uk/services/', {
+      headers: { Accept: 'text/html', 'Accept-Encoding': 'gzip, br', Cookie: 'session=visitor-secret', 'CF-Connecting-IP': '203.0.113.7', 'If-None-Match': '"abc"' },
+    }));
+    const sent = (fetchSpy.mock.calls as [RequestInfo | URL, RequestInit?][]).map(([input, init]) => new Request(input, init));
+    expect(sent.map((r) => r.url)).toContain(`${PAGES}/services/index.html.br`);
+    for (const request of sent) {
+      for (const name of request.headers.keys()) expect(['if-none-match'], `${request.url} sent ${name}`).toContain(name);
+    }
+  });
+
+  it('knows which URLs have a Brotli copy and which browsers take one (t24283)', () => {
+    expect(brotliFile('/')).toEqual({ path: '/index.html.br', type: 'text/html; charset=utf-8' });
+    expect(brotliFile('/field-notes/')?.path).toBe('/field-notes/index.html.br');
+    expect(brotliFile('/api/services.json')?.type).toBe('application/json; charset=utf-8');
+    expect(brotliFile('/.well-known/agent.json')?.path).toBe('/.well-known/agent.json.br');
+    expect(brotliFile('/field-notes/rss.xml')?.type).toBe('application/xml');
+    for (const none of ['/services', '/.well-known/api-catalog', '/og/home.png', '/_astro/syne.abc.woff2', '//services/', '/a.html/b', '/x.toString']) {
+      expect(brotliFile(none), none).toBeNull();
+    }
+    for (const yes of ['gzip, deflate, br, zstd', 'br', 'gzip, BR;q=0.5']) expect(acceptsBrotli(yes), yes).toBe(true);
+    for (const no of [null, '', 'gzip, deflate', 'br;q=0', 'gzip, zstd', 'brotli']) expect(acceptsBrotli(no), String(no)).toBe(false);
+  });
+
   // GitHub can renew its *.github.io certificate; it could not renew automancer.uk's behind
   // Cloudflare's proxy (t15154). So the files come from the Pages project, and a visitor never sees
   // its address.
@@ -316,7 +342,8 @@ describe('edge Worker in front of GitHub Pages', () => {
     // A missing file is never kept: the next request asks the origin again.
     expect((await get('/_astro/missing.abcdefgh.js')).headers.get('Cache-Control')).toBe('max-age=600');
     for (const name of readdirSync(join(DIST, '_astro'))) {
-      expect(name, `dist/_astro/${name} has no content hash`).toMatch(/\.[\w-]{8}\.\w+$/);
+      // A `.br` beside a file is its Brotli copy, served under the file's own URL (t24283).
+      expect(name.replace(/\.br$/, ''), `dist/_astro/${name} has no content hash`).toMatch(/\.[\w-]{8}\.\w+$/);
     }
   });
 
