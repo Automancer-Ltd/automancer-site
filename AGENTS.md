@@ -117,6 +117,10 @@ ops/preview/                the non-production preview target
   `tests/edge-worker.test.ts`, `check_homepage_anchor`). Anything that serves a built page without
   the Worker must take it out too (`ops/perf/nav-journey.mjs`). Deploy
   the Worker before merging a change to the lock, or every page is blank.
+- The Worker sends GitHub Pages only the method, `If-None-Match`, `If-Modified-Since`, `Range` and
+  `If-Range` (`pagesRequest()` in `ops/edge/worker.js`, t23955). Never pass the visitor's `Request`
+  to `fetch()`: that forwards their IP address, cookies and Referer to GitHub
+  (`tests/edge-worker.test.ts`).
 - Pages are fetched ahead of a click only by Chromium's Speculation Rules (`BaseLayout.astro`) and,
   in browsers that cannot prerender, by the hover prefetch in `src/scripts/prefetch.ts` (t23288),
   both same-origin pages only (`tests/speculation-rules.test.ts` holds them to the same links).

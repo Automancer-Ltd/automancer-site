@@ -17,6 +17,8 @@
 //     same SECURITY_HEADERS, so people and machines get the same answers.
 //   - Fingerprinted files are cached for a year and fonts and images for a
 //     day, in browsers and at the edge (cachePolicy; t18923).
+//   - GitHub Pages is asked for the file only: none of the visitor's IP
+//     address, cookies, Referer or browser details go with it (pagesRequest).
 // Everything else passes through untouched. Deploy and undo: docs/DEPLOYMENT.md.
 //
 // The files come from the GitHub Pages project address (PAGES), not from
@@ -144,6 +146,26 @@ export function atPages(pathname, search = '') {
   out.pathname = PAGES_PATH + pathname;
   out.search = search;
   return out;
+}
+
+// The only request headers that change what GitHub Pages answers: validators
+// for a 304 and ranges for a 206. Pages serves the same file to everyone, so
+// it is sent nothing else of the visitor's (t23955). Copying the visitor's
+// request, as the Worker did until then, gave GitHub their IP address
+// (CF-Connecting-IP, X-Forwarded-For), every cookie a browser holds for
+// automancer.uk (including any an estate app scopes to the whole domain),
+// the full Referer (on a click between pages, the page and its query, such
+// as ?service=), Accept-Language and User-Agent, on every page view.
+const PAGES_REQUEST_HEADERS = ['If-None-Match', 'If-Modified-Since', 'Range', 'If-Range'];
+
+/** The request sent to the Pages project for a visitor's request: its method and PAGES_REQUEST_HEADERS only. */
+export function pagesRequest(url, request) {
+  const headers = new Headers();
+  for (const name of PAGES_REQUEST_HEADERS) {
+    const value = request.headers.get(name);
+    if (value !== null) headers.set(name, value);
+  }
+  return new Request(url, { method: request.method, headers });
 }
 
 /**
@@ -351,7 +373,7 @@ async function respond(request) {
   }
 
   const policy = readOnly ? cachePolicy(url.pathname, url.search) : null;
-  const res = await fetch(new Request(atPages(url.pathname, url.search), request), {
+  const res = await fetch(pagesRequest(atPages(url.pathname, url.search), request), {
     redirect: 'manual',
     // Only a found file is kept; a 404 or an error is asked for again next time.
     ...(policy && { cf: { cacheTtlByStatus: { '200-299': policy.edge, '300-599': -1 } } }),
