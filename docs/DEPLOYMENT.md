@@ -302,6 +302,20 @@ Worker without `unlocked()` serves every page blank, so deploy the Worker before
 adds or changes the lock (a Worker with it passes a page without the lock through unchanged).
 Undo: revert the layout change first and let Pages redeploy, then the Worker if wanted.
 
+**GitHub is asked for the file and nothing else (t23955).** Until 22 Nov 2026 the Worker built its
+request to the project address from the visitor's own request, so every page view handed GitHub the
+visitor's IP address (`CF-Connecting-IP`, `X-Forwarded-For`), every cookie the browser held for
+`automancer.uk` (including any an estate app scopes to the whole domain), the full `Referer` (on a
+click between pages, the page and its query, such as `?service=`), `Accept-Language` and `User-Agent`.
+Now `pagesRequest()` sends only the method and `If-None-Match`, `If-Modified-Since`, `Range` and
+`If-Range`, so 304s and 206s still work. GitHub sees Cloudflare's Workers address
+(`2a06:98c0:3600::103`), not the visitor's. `tests/edge-worker.test.ts` fails if any other header
+reaches the Pages stand-in. To see what an origin receives, upload `worker.js` with `PAGES_HOST`
+set to `httpbin.org` and `PAGES_PATH` set to `/anything` to the probe (`ops/edge/deploy.sh
+automancer-site-edge-probe <file>`), ask it for `/services/` with `Accept: application/json` and
+read the echoed headers. Then put main's `worker.js` back on the probe. Visitors who open the project
+address directly still reach GitHub themselves, and the guard above sends them to `automancer.uk`.
+
 Undo (only if the Worker can no longer read the project address): put back the four `A` records,
 proxied; set `www` back to the DNS-only CNAME; set the Pages `cname` to `automancer.uk`
 (`repos.updateInformationAboutPagesSite`); deploy Worker version `c10a0bcd-6d40-4284-bad4-8c01f5977303`.

@@ -144,6 +144,51 @@ describe('edge Worker in front of GitHub Pages', () => {
     expect(atPages('//evil.example/x', '?a=b').toString()).toBe(`${PAGES}//evil.example/x?a=b`);
   });
 
+  // Pages serves the same file to everyone. Until t23955 the Worker copied the visitor's request,
+  // so GitHub got their IP, cookies, Referer and browser details with every page view.
+  it("asks GitHub Pages for the file only, with none of the visitor's details (t23955)", async () => {
+    const fetchSpy = vi.fn(serve);
+    vi.stubGlobal('fetch', fetchSpy);
+    const visitor = {
+      'CF-Connecting-IP': '203.0.113.7',
+      'X-Forwarded-For': '203.0.113.7',
+      'X-Real-IP': '203.0.113.7',
+      'True-Client-IP': '203.0.113.7',
+      'CF-IPCountry': 'GB',
+      Cookie: 'session=visitor-secret',
+      Authorization: 'Bearer visitor-secret',
+      Referer: 'https://automancer.uk/contact/?service=audit',
+      'User-Agent': 'Mozilla/5.0 (visitor)',
+      'Accept-Language': 'en-GB',
+      'Sec-CH-UA-Platform': '"Android"',
+      'If-None-Match': '"abc"',
+      'If-Modified-Since': 'Sat, 21 Nov 2026 23:49:16 GMT',
+      Range: 'bytes=0-99',
+      'If-Range': '"abc"',
+    };
+    for (const [path, accept] of [['/services/', 'text/html'], ['/', 'text/markdown'], ['/nope', 'text/html'], ['/api/services.json', 'application/json']]) {
+      fetchSpy.mockClear();
+      await worker.fetch(new Request(`https://automancer.uk${path}`, { headers: { ...visitor, Accept: accept } }));
+      expect(fetchSpy, path).toHaveBeenCalled();
+      for (const [input, init] of fetchSpy.mock.calls as [RequestInfo | URL, RequestInit?][]) {
+        const sent = new Request(input, init);
+        const names = [...sent.headers.keys()];
+        expect(names, `${path} → ${sent.url}`).not.toContain('cookie');
+        for (const name of names) expect(['if-none-match', 'if-modified-since', 'range', 'if-range'], `${path} sent ${name}`).toContain(name);
+        expect(JSON.stringify([...sent.headers]), path).not.toMatch(/203\.0\.113\.7|visitor-secret|service=audit|en-GB|Android/);
+      }
+    }
+    // A revalidation and a range request still reach Pages, so a 304 and a 206 still work.
+    const page = fetchSpy.mock.calls[0][0] as Request;
+    expect(page.headers.get('If-None-Match')).toBe('"abc"');
+    expect(page.headers.get('If-Modified-Since')).toBe('Sat, 21 Nov 2026 23:49:16 GMT');
+    expect(page.headers.get('Range')).toBe('bytes=0-99');
+    expect(page.method).toBe('GET');
+    fetchSpy.mockClear();
+    await get('/services/', 'text/html', 'HEAD');
+    expect((fetchSpy.mock.calls[0][0] as Request).method).toBe('HEAD');
+  });
+
   // GitHub can renew its *.github.io certificate; it could not renew automancer.uk's behind
   // Cloudflare's proxy (t15154). So the files come from the Pages project, and a visitor never sees
   // its address.
