@@ -322,20 +322,17 @@ exact `dist/` it publishes, so a heavier production build fails the release inst
 - **Internal links carry their trailing slash.** GitHub Pages answers `/contact` with a 301 to
   `/contact/`, one round trip per click. `tests/links.test.ts` ("internal page links") fails on
   any slashless internal `href`.
-- **The contact page's security check loads after the page (t21450, 20 Nov 2026).** Turnstile's
+- **The contact page deferred its security check (t21450, 20 Nov 2026).** Turnstile's
   `api.js` used to load from `<head>`, so arriving on `/contact/` started ~250 KB of Cloudflare
   downloads and their scripts while the page itself was still loading. On a phone at 400 kbps that
   traffic held up the page's own fonts (text set at 3.0 s against 2.5 s on `/services/`, live,
   `ops/perf/cold-visit.mjs`); on Android, where Chrome keeps a cross-site frame on the page's own
   main thread, it blocked that thread for ~0.5 s. It also kept `/contact/` out of hover
-  prerendering. `contact.astro` now injects `api.js?render=explicit` and renders the widget into
+  prerendering. `contact.astro` then injected `api.js?render=explicit` and rendered the widget into
   its reserved slot on the first scroll, the first focus, tap or keystroke in the form, the check
-  coming within 400 px of the screen, or 2 s after the load event, whichever comes first. The scroll
-  trigger is deliberate: loading on the first keystroke alone moved Turnstile's work into typing
-  and slowed the slowest keystroke 40 → 272 ms on that Android profile; a phone scrolls off the main
-  thread, so work started there has finished before most visitors type. The 2 s fallback covers a
-  visitor who reads, never scrolls, and taps the first field. Submit before the check has loaded
-  asks for the check, as it did before a token arrived. Measured with `ops/perf/contact-cost.mjs`
+  coming within 400 px of the screen, or 2 s after the load event. Loading on the first keystroke
+  alone slowed the slowest keystroke 40 → 272 ms on that Android profile. Starting at scroll gave
+  the widget more time before the visitor typed. Measured with `ops/perf/contact-cost.mjs`
   (both builds served at the production address by Playwright, real Turnstile over Slow 4G, 4x CPU,
   Android site isolation off, 7 rounds, medians):
 
@@ -350,10 +347,12 @@ exact `dist/` it publishes, so a heavier production build fails the release inst
   `JOURNEY=/contact/,/services/,/contact/,/about/,/contact/,/`, 5 rounds, 200 ms first byte): 30 of 30
   clicks served from a prerendered page (was 15 of 30), `/contact/` perceived LCP 120 → 69 ms.
   `tests/speculation-rules.test.ts` now holds the reason prerendering is safe: no prerendered page
-  loads anything from another site as it renders. The widget, once loaded, is the same
-  (screenshots identical). The privacy notice already describes Turnstile as running on the
-  contact page while it defends the form; a visitor who leaves within two seconds of the page
-  loading, without scrolling, now gets none of it.
+  loads anything from another site as it renders.
+- **The security check starts when a visitor uses the form (t24160, 22 Nov 2026).** Visitors can
+  read or scroll to the phone number without loading Turnstile. Form focus, press, input or submit
+  starts the script while the person fills in the fields. A stalled script exposes the email link and
+  copy controls after 10 seconds. If the script loads later, the visitor can still send the form.
+  The visitor journey covers passive visits, a stalled script, and a late load.
 - **Page-to-page clicks are instant in Chromium browsers (t18679, 12 Nov 2026).** `BaseLayout.astro`
   publishes Speculation Rules: a page's HTML is fetched when the pointer first touches a link to it
   (`eager`: on desktop a short hover), and the page is prerendered after a 200 ms hover or a press
