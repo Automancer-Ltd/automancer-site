@@ -202,6 +202,24 @@ describe('edge Worker in front of GitHub Pages', () => {
     }
   });
 
+  it("decides Brotli on what the client sent, not on Cloudflare's rewritten Accept-Encoding (t24283)", async () => {
+    const fetchSpy = vi.fn(serve);
+    vi.stubGlobal('fetch', fetchSpy);
+    const asked = async (headers: Record<string, string>, cf?: Record<string, string>) => {
+      fetchSpy.mockClear();
+      const request = new Request('https://automancer.uk/services/', { headers: { Accept: 'text/html', ...headers } });
+      if (cf) Object.defineProperty(request, 'cf', { value: cf });
+      await worker.fetch(request);
+      return (fetchSpy.mock.calls as [RequestInfo | URL, RequestInit?][]).some(([input, init]) => new Request(input, init).url.endsWith('.br'));
+    };
+    // Cloudflare showed a gzip-only client to the Worker as taking br too.
+    expect(await asked({ 'Accept-Encoding': 'gzip, br' }, { clientAcceptEncoding: 'gzip' })).toBe(false);
+    expect(await asked({ 'Accept-Encoding': 'gzip, br' }, { clientAcceptEncoding: 'gzip, deflate, br, zstd' })).toBe(true);
+    // Outside Cloudflare (ops/edge/local.mjs) there is no cf: the header is what the client sent.
+    expect(await asked({ 'Accept-Encoding': 'gzip, br' })).toBe(true);
+    expect(await asked({ 'Accept-Encoding': 'gzip' })).toBe(false);
+  });
+
   it('knows which URLs have a Brotli copy and which browsers take one (t24283)', () => {
     expect(brotliFile('/')).toEqual({ path: '/index.html.br', type: 'text/html; charset=utf-8' });
     expect(brotliFile('/field-notes/')?.path).toBe('/field-notes/index.html.br');

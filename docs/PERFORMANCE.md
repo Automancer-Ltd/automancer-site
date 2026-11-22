@@ -34,7 +34,8 @@ exact `dist/` it publishes, so a heavier production build fails the release inst
   head for the display-font hint (t23740), as Workers cannot decompress Brotli; that is one more
   request to GitHub per page, read for at most 4 KiB, and adds no wait because the two run
   together. A Range request, a client without `br`, a doubled slash or a missing copy gets the
-  file as before. `tests/precompress.test.ts` asks for every compressed file both ways through the
+  file as before. Whether the client takes `br` is read from `request.cf.clientAcceptEncoding`, not
+  the `Accept-Encoding` Cloudflare rewrites for the Worker. `tests/precompress.test.ts` asks for every compressed file both ways through the
   Worker and requires the same words and headers.
 
 - **Taps on a phone are quick in Safari and Firefox too (t24026, 22 Nov 2026).**
