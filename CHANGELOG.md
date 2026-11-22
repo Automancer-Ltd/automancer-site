@@ -1,5 +1,10 @@
 # Release notes
 
+## v2026.11.22.2 — 22 November 2026
+
+Phone visitors can now open links that have already been fetched while they were on screen, reducing the wait after a tap in Safari and Firefox.
+
+
 ## v2026.11.22.1 — 22 November 2026
 
 The services page now works better on paper, and tablet visitors can read the About page without cramped text.
