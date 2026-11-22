@@ -689,12 +689,18 @@ test('a refused or failed send keeps the enquiry and never shows an error code',
   await expect(page.locator('#time-sink')).toHaveValue(ENQUIRY.time_sink);
 
   await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
-  // Copy reads the latest draft, including edits made after the send failed.
+  // Copy reads the latest draft, including edits after the send failed and the details were closed.
+  const optional = page.locator('#optional-details summary');
+  await optional.click();
+  await page.getByRole('radio', { name: /Workflow Sprint/ }).check();
   await page.locator('#extra').fill('Updated after the outage.');
+  await optional.click();
+  await expect(optional).toContainText('Workflow Sprint');
   await recovery.getByRole('button', { name: 'Copy enquiry' }).click();
   await expect(recovery.getByRole('status')).toContainText('Copied.');
   const draft = await page.evaluate(() => navigator.clipboard.readText());
   expect(draft).toContain(ENQUIRY.time_sink);
+  expect(draft).toContain('Workflow Sprint');
   expect(draft).toContain('Updated after the outage.');
   expect(draft).not.toContain('journey-token');
 });
