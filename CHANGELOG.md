@@ -1,5 +1,15 @@
 # Release notes
 
+## v2026.11.22.1 — 22 November 2026
+
+The services page now works better on paper, and tablet visitors can read the About page without cramped text.
+
+### Improvements
+
+- Printing or saving the services page as a PDF shows the offers and prices, with clear black text and the page details.
+- The About page’s rules stay in two readable columns on portrait tablets.
+
+
 ## v2026.11.21.6 — 21 November 2026
 
 The site adds new reading material and more context to its text guides.
