@@ -1,5 +1,15 @@
 # Release notes
 
+## v2026.11.22.3 — 22 November 2026
+
+The enquiry form is quicker to start and easier to complete.
+
+### Contact form
+
+- The essential enquiry fields appear first, so you can get started sooner.
+- The security check loads when you use the form, during a pause in typing.
+
+
 ## v2026.11.22.2 — 22 November 2026
 
 Phone visitors can now open links that have already been fetched while they were on screen, reducing the wait after a tap in Safari and Firefox.
