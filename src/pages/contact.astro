@@ -332,9 +332,11 @@ Astro.csp.insertDirective(`connect-src ${new URL(ENDPOINT_URL).origin}`);
         var input = form.querySelector('[name="cf-turnstile-response"]');
         return input ? input.value : '';
       }
+      var securityCheckCopy = 'The security check could not load.';
       function securityCheckUnavailable() {
+        clearTimeout(turnstileLoadTimer);
         turnstileState = 'failed';
-        showDeliveryError('The security check could not load.');
+        showDeliveryError(securityCheckCopy);
       }
       window.onTurnstileError = function () {
         securityCheckUnavailable();
@@ -343,11 +345,19 @@ Astro.csp.insertDirective(`connect-src ${new URL(ENDPOINT_URL).origin}`);
       };
       function resetTurnstile() { try { if (window.turnstile) window.turnstile.reset(); } catch (e) {} }
 
-      // Defer the check so its requests and script work stay off the first paint (t21450).
+      // A reader may be here for the phone number. Start the check only when
+      // someone uses the form, early enough to run while they fill it in.
       var slot = form.querySelector ? form.querySelector('.turnstile-slot') : null;
       var turnstileState = 'idle';
-      window.onTurnstileLoad = function () {
+      var turnstileLoadTimer;
+      var turnstileRenderTimer;
+      var lastInputAt = 0;
+      function renderTurnstile() {
+        clearTimeout(turnstileRenderTimer);
         turnstileState = 'ready';
+        // A late load can still render. Leave the email and copy controls
+        // available in case the visitor has already started using them.
+        if (errEl.textContent === securityCheckCopy) clearError();
         try {
           window.turnstile.render(slot, {
             sitekey: slot.getAttribute('data-sitekey'),
@@ -355,6 +365,17 @@ Astro.csp.insertDirective(`connect-src ${new URL(ENDPOINT_URL).origin}`);
             'error-callback': window.onTurnstileError
           });
         } catch (e) { securityCheckUnavailable(); }
+      }
+      function scheduleTurnstileRender() {
+        // Mounting the widget can block typing on a slower phone. Start in a
+        // pause, or immediately if the visitor submits the form first.
+        clearTimeout(turnstileRenderTimer);
+        turnstileRenderTimer = setTimeout(renderTurnstile, Math.max(0, 600 - (Date.now() - lastInputAt)));
+      }
+      window.onTurnstileLoad = function () {
+        clearTimeout(turnstileLoadTimer);
+        turnstileState = 'loaded';
+        scheduleTurnstileRender();
       };
       // The page refuses plain strings as script URLs (Trusted Types, astro.config.mjs).
       // This page's one policy can produce exactly Turnstile's URL and nothing else.
@@ -371,7 +392,7 @@ Astro.csp.insertDirective(`connect-src ${new URL(ENDPOINT_URL).origin}`);
         }
       } catch (e) {}
       function loadTurnstile() {
-        if (turnstileState !== 'idle' || !slot) return;
+        if (turnstileState !== 'idle' || !slot || document.prerendering) return;
         turnstileState = 'loading';
         var s = document.createElement('script');
         try {
@@ -379,27 +400,18 @@ Astro.csp.insertDirective(`connect-src ${new URL(ENDPOINT_URL).origin}`);
         } catch (e) { securityCheckUnavailable(); return; }
         s.async = true;
         s.onerror = securityCheckUnavailable;
+        // A stalled download does not fire onerror. Offer the draft without
+        // making the visitor wait for the browser's network timeout.
+        turnstileLoadTimer = setTimeout(securityCheckUnavailable, 10_000);
         document.head.appendChild(s);
       }
       form.addEventListener('focusin', loadTurnstile);
       form.addEventListener('pointerdown', loadTurnstile);
-      form.addEventListener('input', loadTurnstile);
-      function watchSlot() {
-        if (!slot) return;
-        window.addEventListener('scroll', loadTurnstile, { once: true, passive: true });
-        var later = function () { setTimeout(loadTurnstile, 2000); };
-        if (document.readyState === 'complete') later(); else window.addEventListener('load', later, { once: true });
-        if (typeof IntersectionObserver !== 'function') return;
-        var io = new IntersectionObserver(function (entries) {
-          for (var i = 0; i < entries.length; i++) {
-            if (entries[i].isIntersecting) { io.disconnect(); loadTurnstile(); return; }
-          }
-        }, { rootMargin: '0px 0px 400px 0px' });
-        io.observe(slot);
-      }
-      // A page prerendered on hover is not yet seen: watch from when it is.
-      if (document.prerendering) document.addEventListener('prerenderingchange', watchSlot, { once: true });
-      else watchSlot();
+      form.addEventListener('input', function () {
+        lastInputAt = Date.now();
+        loadTurnstile();
+        if (turnstileState === 'loaded') scheduleTurnstileRender();
+      });
 
       // Only use our own error copy, even when the API sends an unknown code.
       function copyFor(payload, ourDefault) {
@@ -447,6 +459,7 @@ Astro.csp.insertDirective(`connect-src ${new URL(ENDPOINT_URL).origin}`);
         if (!timeSink) return failField(form.time_sink, 'Tell us what’s eating your week — even a sentence helps.');
         if (message.length > limits.message) return failField(null, 'Your message is over the ' + limits.message + '-character limit across the message, team size and extra boxes. Please shorten any of them.');
 
+        if (turnstileState === 'loaded') renderTurnstile();
         var token = turnstileToken();
         if (!token) {
           if (turnstileState === 'failed' || !slot) return securityCheckUnavailable();

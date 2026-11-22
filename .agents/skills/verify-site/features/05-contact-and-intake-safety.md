@@ -17,8 +17,8 @@ picked and named above the first field.
   "Interested in: …" line leading the posted message, and an unknown `?service=` picking nothing.
 - `with reduced motion, the form jumps straight to its error and its confirmation`.
 - `the enquiry form starts on the first screen, and still works with text at 200%`.
-- `the security check loads when the visitor starts on the form, not with the page`, and the two
-  tests after it.
+- `reading the contact page never starts the security check, but using the form does`.
+- `a slow security script offers email without losing the draft or preventing a later send`.
 - `a refused or failed send keeps the enquiry and never shows an error code` and
   `a blocked security check offers a draft even when the clipboard is denied`.
 - `with JavaScript off` › `offers email where the contact form would have been`.
