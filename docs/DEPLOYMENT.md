@@ -222,7 +222,10 @@ Undo via Executor `sentry-guarded` (`projects.updateProject` and `projects.updat
   first (merge, let Pages publish), then the Worker, so the Worker never asks for copies that do
   not exist yet. Verify on the probe that `curl -H 'Accept-Encoding: br' .../services/` answers
   `content-encoding: br` with the same Link header and, decoded, the same body as a request
-  without it. Undo the Worker half by deploying the previous Worker version: every browser is
+  without it, and that the bytes sent are the copy's size, not Cloudflare's (on HTML that needs
+  the copy's `Cache-Control: ..., no-transform`; it keeps the zone's Automatic HTTPS Rewrites,
+  Server-Side Excludes and Replace Insecure JS off these responses, which change nothing in this
+  site's pages today: an `http://` link added to a page would be rewritten only for the plain answer). Undo the Worker half by deploying the previous Worker version: every browser is
   back on Cloudflare's own compression at once, and the unused `.br` files are harmless. On the
   `github.io` copy they are only downloads, never a page.
 - **Runtime (t21891, 20 Nov 2026):** `deploy.sh` uploads `worker.js` byte for byte as an ES module

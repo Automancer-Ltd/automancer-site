@@ -24,7 +24,9 @@ exact `dist/` it publishes, so a heavier production build fails the release inst
   The build now writes `<file>.br` at Brotli's highest level beside every HTML, Markdown, JSON,
   text, XML, SVG and script file (`src/integrations/precompress.ts`, HTML with `OFFSITE_LOCK`
   already out), and the edge Worker sends those bytes untouched to any browser that takes `br`
-  (`brotliCopy()` in `ops/edge/worker.js`, `encodeBody: 'manual'`). Measured on production before
+  (`brotliCopy()` in `ops/edge/worker.js`, `encodeBody: 'manual'`, plus `Cache-Control:
+  no-transform`: without it Cloudflare's edge decoded each HTML page for the zone's HTML features
+  and compressed it again at its own level, 18,282 B for a 15,362 B copy on the probe). Measured on production before
   the change, the 32 sitemap pages as Chrome receives them: 648,720 B with Cloudflare's zstd,
   608,496 B with its Brotli (Safari), 494,045 B at Brotli 11: a quarter fewer bytes for Chrome
   and a fifth fewer for Safari. Page-weight budgets here count uncompressed bytes, so none moved.
