@@ -584,11 +584,16 @@ test('reading the contact page never starts the security check, but using the fo
   await expect(page.locator('script[src*="/turnstile/"]')).toHaveCount(0);
   expect(asked).toEqual([]);
 
+  await page.clock.pauseAt(await page.evaluate(() => Date.now() + 5000));
   await page.locator('#name').focus();
+  await page.locator('#name').fill('Typing');
   await expect.poll(() => asked.length).toBe(1);
   expect(asked[0]).toContain('render=explicit');
-  const rendered = await page.waitForFunction(() => (window as unknown as { __rendered?: object }).__rendered).then((h) => h.jsonValue());
-  expect(rendered).toEqual({ slot: expect.stringContaining('turnstile-slot'), sitekey: expect.stringMatching(/^0x/), theme: 'dark', onError: 'function' });
+  await expect.poll(() => page.evaluate(() => typeof (window as unknown as { turnstile?: object }).turnstile)).toBe('object');
+  const rendered = () => page.evaluate(() => (window as unknown as { __rendered?: object }).__rendered);
+  expect(await rendered(), 'mounting the widget can block active typing').toBeUndefined();
+  await page.clock.runFor(600);
+  expect(await rendered()).toEqual({ slot: expect.stringContaining('turnstile-slot'), sitekey: expect.stringMatching(/^0x/), theme: 'dark', onError: 'function' });
 
   // More typing never loads it twice.
   await page.locator('#email').fill('x@example.com');

@@ -350,8 +350,10 @@ Astro.csp.insertDirective(`connect-src ${new URL(ENDPOINT_URL).origin}`);
       var slot = form.querySelector ? form.querySelector('.turnstile-slot') : null;
       var turnstileState = 'idle';
       var turnstileLoadTimer;
-      window.onTurnstileLoad = function () {
-        clearTimeout(turnstileLoadTimer);
+      var turnstileRenderTimer;
+      var lastInputAt = 0;
+      function renderTurnstile() {
+        clearTimeout(turnstileRenderTimer);
         turnstileState = 'ready';
         // A late load can still render. Leave the email and copy controls
         // available in case the visitor has already started using them.
@@ -363,6 +365,17 @@ Astro.csp.insertDirective(`connect-src ${new URL(ENDPOINT_URL).origin}`);
             'error-callback': window.onTurnstileError
           });
         } catch (e) { securityCheckUnavailable(); }
+      }
+      function scheduleTurnstileRender() {
+        // Mounting the widget can block typing on a slower phone. Start in a
+        // pause, or immediately if the visitor submits the form first.
+        clearTimeout(turnstileRenderTimer);
+        turnstileRenderTimer = setTimeout(renderTurnstile, Math.max(0, 600 - (Date.now() - lastInputAt)));
+      }
+      window.onTurnstileLoad = function () {
+        clearTimeout(turnstileLoadTimer);
+        turnstileState = 'loaded';
+        scheduleTurnstileRender();
       };
       // The page refuses plain strings as script URLs (Trusted Types, astro.config.mjs).
       // This page's one policy can produce exactly Turnstile's URL and nothing else.
@@ -394,7 +407,11 @@ Astro.csp.insertDirective(`connect-src ${new URL(ENDPOINT_URL).origin}`);
       }
       form.addEventListener('focusin', loadTurnstile);
       form.addEventListener('pointerdown', loadTurnstile);
-      form.addEventListener('input', loadTurnstile);
+      form.addEventListener('input', function () {
+        lastInputAt = Date.now();
+        loadTurnstile();
+        if (turnstileState === 'loaded') scheduleTurnstileRender();
+      });
 
       // Only use our own error copy, even when the API sends an unknown code.
       function copyFor(payload, ourDefault) {
@@ -442,6 +459,7 @@ Astro.csp.insertDirective(`connect-src ${new URL(ENDPOINT_URL).origin}`);
         if (!timeSink) return failField(form.time_sink, 'Tell us what’s eating your week — even a sentence helps.');
         if (message.length > limits.message) return failField(null, 'Your message is over the ' + limits.message + '-character limit across the message, team size and extra boxes. Please shorten any of them.');
 
+        if (turnstileState === 'loaded') renderTurnstile();
         var token = turnstileToken();
         if (!token) {
           if (turnstileState === 'failed' || !slot) return securityCheckUnavailable();

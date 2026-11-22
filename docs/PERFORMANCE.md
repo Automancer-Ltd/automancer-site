@@ -350,9 +350,14 @@ exact `dist/` it publishes, so a heavier production build fails the release inst
   loads anything from another site as it renders.
 - **The security check starts when a visitor uses the form (t24160, 22 Nov 2026).** Visitors can
   read or scroll to the phone number without loading Turnstile. Form focus, press, input or submit
-  starts the script while the person fills in the fields. A stalled script exposes the email link and
-  copy controls after 10 seconds. If the script loads later, the visitor can still send the form.
-  The visitor journey covers passive visits, a stalled script, and a late load.
+  starts the script. Once it arrives, wait for a 600 ms pause in typing before mounting the widget.
+  A submit mounts it immediately if the script is ready. In a simulated slower Android browser over
+  Slow 4G, a passive eight-second visit used 248 KB across three Turnstile requests before this
+  change and 0 B after. Starting the widget during continuous typing raised the median slowest
+  keystroke from 64 ms to 264 ms in an initial run. Waiting for the pause brought it to 40 ms over
+  four follow-up runs. The frame was ready around 4.2 s from first focus during that typing test.
+  A stalled script exposes the email link and copy controls after 10 seconds. If the script loads
+  later, the visitor can still send the form. The visitor journey covers those paths.
 - **Page-to-page clicks are instant in Chromium browsers (t18679, 12 Nov 2026).** `BaseLayout.astro`
   publishes Speculation Rules: a page's HTML is fetched when the pointer first touches a link to it
   (`eager`: on desktop a short hover), and the page is prerendered after a 200 ms hover or a press
