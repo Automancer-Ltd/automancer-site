@@ -490,7 +490,13 @@ async function respond(request) {
   }
 
   const policy = readOnly ? cachePolicy(url.pathname, url.search) : null;
-  const brotli = readOnly && !request.headers.has('Range') && acceptsBrotli(request.headers.get('Accept-Encoding'))
+  // Cloudflare rewrites the Accept-Encoding a Worker sees (a client that sent only `gzip` arrives
+  // taking br too) and keeps what the client sent in cf.clientAcceptEncoding. Reading the header
+  // alone sent Brotli to gzip-only clients, which Cloudflare then had to decode for them and,
+  // under no-transform, could not compress again: 74,290 B for the home page instead of 18,809 B
+  // (production, 22 Nov 2026, rolled back within minutes).
+  const clientEncoding = request.cf?.clientAcceptEncoding ?? request.headers.get('Accept-Encoding');
+  const brotli = readOnly && !request.headers.has('Range') && acceptsBrotli(clientEncoding)
     ? brotliFile(url.pathname)
     : null;
   if (brotli) {
