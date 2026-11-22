@@ -46,7 +46,14 @@ describe('Brotli copies the edge Worker sends', () => {
       const plain = await ask(url);
       const brotli = await ask(url, { 'Accept-Encoding': CHROME });
       expect(brotli.status, url).toBe(plain.status);
-      expect(contentHeaders(brotli), url).toEqual(contentHeaders(plain));
+      // A Brotli copy also says no-transform, so Cloudflare's edge sends it as built.
+      const sent = contentHeaders(brotli);
+      if (brotli.headers.get('Content-Encoding') === 'br') {
+        expect(sent['cache-control'], url).toBe(plain.headers.has('Cache-Control') ? `${plain.headers.get('Cache-Control')}, no-transform` : 'no-transform');
+        sent['cache-control'] = plain.headers.get('Cache-Control')!;
+        if (!plain.headers.has('Cache-Control')) delete sent['cache-control'];
+      }
+      expect(sent, url).toEqual(contentHeaders(plain));
       expect(plain.headers.get('Content-Encoding'), url).toBeNull();
       const bytes = Buffer.from(await brotli.arrayBuffer());
       const words = brotli.headers.get('Content-Encoding') === 'br' ? brotliDecompressSync(bytes) : bytes;

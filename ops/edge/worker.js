@@ -438,6 +438,13 @@ async function brotliCopy(request, url, file, policy) {
     headers.set('Cache-Control', policy.browser);
     headers.delete('Expires');
   }
+  // Without no-transform Cloudflare's edge decodes an HTML response for its zone HTML features
+  // (Automatic HTTPS Rewrites, Server-Side Excludes and Replace Insecure JS are on for
+  // automancer.uk) and compresses it again at its own level: the probe sent 18,282 B for a
+  // 15,362 B copy. Those features change nothing in this site's pages (the live /releases/
+  // was byte-identical to the built file without its lock, 22 Nov 2026), so skipping them
+  // changes no words. Only these Brotli responses carry it; every other one is compressed as before.
+  headers.set('Cache-Control', headers.has('Cache-Control') ? `${headers.get('Cache-Control')}, no-transform` : 'no-transform');
   if (html && res.status === 200) headers.set('Link', pageLinks(url.pathname) + (href ? `, ${fontLink(href)}` : ''));
   const out = new Response(res.status === 304 ? null : res.body, { status: res.status, headers, encodeBody: 'manual' });
   ENCODED.add(out);
