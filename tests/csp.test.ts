@@ -5,11 +5,12 @@
  * policy every built page ships and fails when:
  *
  *   - a page has no policy, or its policy does not start from nothing;
- *   - a page may send data (connect-src) anywhere except this site, the
- *     error-report origin of the DSN this very build bundles and, on
- *     /contact/ only, the enquiry API;
- *   - the bundled DSN's origin is missing from a page's connect-src, which
- *     would make the browser silently refuse every error report;
+ *   - a page may send data (connect-src) anywhere except this site and, on
+ *     /contact/ only, the enquiry API. Error reports go to this site too: the
+ *     SDK posts them to the edge Worker's ERROR_TUNNEL (t24432), so the
+ *     bundled DSN's own origin, Sentry's, must never be in connect-src;
+ *   - the bundled SDK does not post to ERROR_TUNNEL, so the browser would
+ *     refuse every error report;
  *   - any page but /contact/ may frame or script Turnstile;
  *   - a page lets plain strings into HTML or script sinks (Trusted Types), or
  *     may create a Trusted Types policy (only /contact/'s Turnstile loader);
@@ -24,6 +25,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { ENDPOINT_URL } from '../src/config/site';
+import { ERROR_TUNNEL } from '../ops/edge/worker.js';
 import { DIST, allHtmlFiles } from './support/dist';
 
 const TURNSTILE = 'https://challenges.cloudflare.com';
@@ -61,6 +63,15 @@ describe('page Content Security Policy', () => {
     expect(reportOrigin).not.toBeNull();
   });
 
+  it('the bundled SDK posts its reports to the edge Worker on this site', () => {
+    const bootstrap = readdirSync(join(DIST, '_astro'))
+      .filter((n) => n.endsWith('.js'))
+      .map((n) => readFileSync(join(DIST, '_astro', n), 'utf8'))
+      .filter((text) => /["'`]https:\/\/[A-Za-z0-9]+@[^"'`/\s]+\/\d+["'`]/.test(text));
+    expect(bootstrap.length).toBeGreaterThan(0);
+    for (const text of bootstrap) expect(text).toMatch(new RegExp(`tunnel:["'\`]${ERROR_TUNNEL}["'\`]`));
+  });
+
   it.each(pages.map((p) => [p.route, p] as const))('%s starts from nothing and sends only where it must', (route, page) => {
     const policy = policyOf(page.html);
     expect(policy, `${route} ships no CSP meta tag`).not.toBeNull();
@@ -87,8 +98,9 @@ describe('page Content Security Policy', () => {
       expect(policy.get('trusted-types')).toEqual(isContact ? ['turnstile'] : ["'none'"]);
 
       const connect = new Set(policy.get('connect-src'));
-      const expected = new Set(["'self'", reportOrigin, ...(isContact ? [ENQUIRY_API] : [])]);
+      const expected = new Set(["'self'", ...(isContact ? [ENQUIRY_API] : [])]);
       expect(connect).toEqual(expected);
+      expect(connect.has(reportOrigin ?? ""), `${route} lets the browser post to Sentry itself`).toBe(false);
 
       expect(policy.get('frame-src') ?? null).toEqual(isContact ? [TURNSTILE] : null);
       expect(policy.get('script-src')?.includes(TURNSTILE)).toBe(isContact);

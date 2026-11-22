@@ -9,11 +9,14 @@ interface Report {
 
 // Inspect the actual SDK envelope, with delivery intercepted even in production.
 // A config assertion cannot catch a new SDK attaching personal data elsewhere.
+// The SDK posts to this site's ERROR_TUNNEL (the edge Worker passes it on, t24432);
+// a post to Sentry's own address would be refused by the page's CSP and fail below.
 test('error reports keep source locations without raw browser data', async ({ page }) => {
   const reports: Report[] = [];
   const envelopes: string[] = [];
   const kinds: string[] = [];
-  await page.route(/https:\/\/(?:[^/]*sentry\.io|example\.invalid)\//, async (route) => {
+  await page.route('**/_errors', async (route) => {
+    expect(new URL(route.request().url()).origin, 'reports go to the page’s own origin').toBe(new URL(page.url()).origin);
     const body = route.request().postData() ?? '';
     envelopes.push(body);
     const [, ...items] = body.split('\n');

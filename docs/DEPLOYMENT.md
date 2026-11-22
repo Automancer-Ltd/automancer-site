@@ -130,13 +130,32 @@ remain allowed. Only `/contact/` adds the Turnstile script origin.
 
 Since t21404 the same policy starts from `default-src 'none'` and lists everything else a page may
 use (`security.csp.directives` in `astro.config.mjs`): images, fonts, the manifest, form targets
-and base URLs from this site only, and `connect-src` limited to this site plus the origin of the
-Sentry DSN the build bundles (read from `PUBLIC_AUT_SENTRY_WEB_DSN` at build time, so a build with
-no DSN allows only `'self'`). `contact.astro` adds `frame-src https://challenges.cloudflare.com`
+and base URLs from this site only, and `connect-src` limited to this site. Until t24432 it also
+allowed the origin of the Sentry DSN the build bundles; error reports now go to this site (below).
+`contact.astro` adds `frame-src https://challenges.cloudflare.com`
 and the enquiry API's origin for that page alone. The browser therefore refuses any request to
 another host, even from code the policy lets run. `tests/csp.test.ts` fails if a page's
-`connect-src` and the bundled DSN disagree (error reports would be silently refused), and the
+`connect-src` lets the browser post to the bundled DSN's origin, or the bundled SDK does not post
+to the Worker's `/_errors`, and the
 journey's "cannot send data to any other origin" probe proves the refusal in a real browser.
+
+**Error reports go through the edge Worker (t24432, 22 Nov 2026).** `src/scripts/sentry.ts` sets
+Sentry's `tunnel: '/_errors'`, so a page posts its error report to automancer.uk and the Worker
+(`errorReport()`, `ERROR_TUNNEL` in `ops/edge/worker.js`) passes it on to
+`https://o4511673494732800.ingest.de.sentry.io/api/4511769898647632/envelope/`. Before, the
+visitor's browser posted to Sentry itself, so Sentry received their IP address, language and
+Referer with each report, and each page's CSP named a third party. The Worker sends only the
+envelope, `Content-Type`, `Origin: https://automancer.uk` (so the project's `allowedDomains`
+still matches) and the browser's `User-Agent` (the privacy page says a report names the browser);
+Sentry sees Cloudflare's address. It is not an open relay: it refuses a post from another
+site's page (403), a body over 64 KiB (413), and any envelope whose `dsn` is not this project or
+that holds anything but `event` items (400), without passing anything on. Sentry's status and
+its `Retry-After` and `X-Sentry-Rate-Limits` go back, so the SDK still backs off. Reports from
+browsers whose blockers stop Sentry's own address now arrive too. Order: deploy the Worker,
+then merge; a page that posts to `/_errors` before the Worker holds it loses its report (Pages
+answers 405). Undo: revert the merge (pages post to Sentry again) and only then deploy the
+previous Worker version. `check_error_tunnel` in `ops/verify-production.sh` asks the live Worker
+the two questions it must refuse, so it never sends Sentry an event.
 A new third-party request needs its origin added here first, deliberately. Turnstile was checked
 on production's real origin with this policy swapped in: the widget and its frame load with no
 refusal on the page, exactly as before (Turnstile's own frame logs its own CSP lines, unrelated). Wrap trusted `is:inline`

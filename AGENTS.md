@@ -93,11 +93,14 @@ ops/preview/                the non-production preview target
 ## Contracts the tests hold
 
 - No first-party browser storage (`tests/no-browser-storage.test.ts`).
-- Pages may contact only this site and the bundled Sentry DSN's origin; `/contact/` adds the
-  enquiry API and Turnstile's frame (`tests/csp.test.ts` across all 37 HTML files including redirect
-  stubs, `security.csp` in `astro.config.mjs`, SVG/XML edge CSP in `ops/edge/worker.js`, and live
-  verification in `ops/verify-production.sh`). A new third-party request needs its origin added
-  there on purpose. No response may carry `NEL`, `Report-To` or `Reporting-Endpoints`: they make the
+- Pages may contact only this site; `/contact/` adds the enquiry API and Turnstile's frame
+  (`tests/csp.test.ts` across all 37 HTML files including redirect stubs, `security.csp` in
+  `astro.config.mjs`, SVG/XML edge CSP in `ops/edge/worker.js`, and live verification in
+  `ops/verify-production.sh`). A new third-party request needs its origin added there on purpose.
+  Error reports go to this site too: the Sentry SDK posts to `/_errors` (`tunnel`), and the edge
+  Worker passes them on to the one Sentry project without the visitor's IP address (`ERROR_TUNNEL`,
+  `errorReport()`, t24432). Deploy the Worker before merging a change to that path, or every
+  report is lost; `check_error_tunnel` in `ops/verify-production.sh` fails without it. No response may carry `NEL`, `Report-To` or `Reporting-Endpoints`: they make the
   browser report to a server for days, outside the CSP (Cloudflare zone setting `nel` stays off;
   the Worker strips them and `ops/verify-production.sh` fails on one).
 - The edge Worker reads the site from its Pages project address (`automancer-ltd.github.io/automancer-site`),
