@@ -22,6 +22,8 @@
 //   - A browser that takes Brotli gets the copy the build compressed at the
 //     highest level (BROTLI_TYPES, src/integrations/precompress.ts), not
 //     Cloudflare's quicker on-the-fly compression: about a quarter fewer bytes.
+//   - A page's error report is posted here (ERROR_TUNNEL) and passed on to the
+//     one Sentry project, without the visitor's IP address (errorReport).
 // Everything else passes through untouched. Deploy and undo: docs/DEPLOYMENT.md.
 //
 // The files come from the GitHub Pages project address (PAGES), not from
@@ -188,6 +190,117 @@ export function atOrigin(pathname, search = '') {
   out.pathname = pathname;
   out.search = search;
   return out;
+}
+
+// Error reports (t24432). src/scripts/sentry.ts posts a page's error report to
+// this path on automancer.uk (Sentry's `tunnel` option), and the Worker passes
+// it on to the one Sentry project the site reports to. Until then the visitor's
+// browser posted it to Sentry itself, so Sentry received their IP address,
+// User-Agent, language and Referer with every report, and each page's CSP had
+// to let it talk to a third party. Now a page talks only to automancer.uk, and
+// Sentry sees Cloudflare's address. The browser's User-Agent goes on, because
+// the privacy page says a report names the browser it happened in. Reports that
+// ad blockers used to stop at Sentry's address now arrive too.
+//
+// The Worker is not an open relay: it forwards only from a page of this site
+// (Origin), only small envelopes of error events, and only to SENTRY_INGEST's
+// project SENTRY_PROJECT, which ops/verify-production.sh also expects
+// (EXPECTED_SENTRY_PROJECT_ID; tests/edge-worker.test.ts holds them equal).
+// Anything else is answered here and never leaves.
+export const ERROR_TUNNEL = '/_errors';
+export const SENTRY_INGEST = 'https://o4511673494732800.ingest.de.sentry.io';
+export const SENTRY_PROJECT = '4511769898647632';
+// The SDK's reports carry only error type, page and in-app frames (beforeSend in
+// src/scripts/sentry.ts): about 1-3 KB. 64 KiB leaves room for a deep stack.
+const ERROR_REPORT_MAX_BYTES = 65536;
+// What Sentry's answer may tell the SDK: back off (429 with these) or carry on.
+const SENTRY_ANSWER_HEADERS = ['Content-Type', 'Retry-After', 'X-Sentry-Rate-Limits'];
+
+/**
+ * The item types of a Sentry envelope whose header names this site's project, or
+ * null when it is not one (unparseable, another DSN). Items are a header line and
+ * a payload, either one line or the header's `length` bytes (the envelope format).
+ */
+export function envelopeItems(bytes) {
+  const decoder = new TextDecoder();
+  const lineEnd = (from) => {
+    const at = bytes.indexOf(10, from);
+    return at === -1 ? bytes.length : at;
+  };
+  const json = (from, to) => {
+    try {
+      const value = JSON.parse(decoder.decode(bytes.subarray(from, to)));
+      return value && typeof value === 'object' && !Array.isArray(value) ? value : null;
+    } catch {
+      return null;
+    }
+  };
+  let end = lineEnd(0);
+  const header = json(0, end);
+  if (typeof header?.dsn !== 'string') return null;
+  let dsn;
+  try {
+    dsn = new URL(header.dsn);
+  } catch {
+    return null;
+  }
+  if (dsn.origin !== SENTRY_INGEST || dsn.pathname !== `/${SENTRY_PROJECT}` || !dsn.username) return null;
+  const types = [];
+  let at = end + 1;
+  while (at < bytes.length) {
+    end = lineEnd(at);
+    if (end === at) { at += 1; continue; } // a blank line (a trailing newline)
+    const item = json(at, end);
+    if (typeof item?.type !== 'string') return null;
+    types.push(item.type);
+    if (item.length === undefined) {
+      at = lineEnd(end + 1) + 1;
+    } else {
+      if (!Number.isSafeInteger(item.length) || item.length < 0) return null;
+      at = end + 1 + item.length + 1;
+    }
+  }
+  return types;
+}
+
+/** Pass a page's error report on to Sentry, or answer why it was refused (ERROR_TUNNEL). */
+async function errorReport(request) {
+  if (request.method !== 'POST') {
+    const res = problem(405, 'Method Not Allowed', 'Error reports are posted here by this site’s pages.', ERROR_TUNNEL);
+    res.headers.set('Allow', 'POST');
+    return res;
+  }
+  // A browser names the page's origin on every POST; another site's page names its own.
+  if (request.headers.get('Origin') !== ORIGIN) {
+    return problem(403, 'Forbidden', 'Only pages on automancer.uk post error reports here.', ERROR_TUNNEL);
+  }
+  const declared = Number(request.headers.get('Content-Length') ?? 0);
+  if (declared > ERROR_REPORT_MAX_BYTES) {
+    return problem(413, 'Content Too Large', `An error report is at most ${ERROR_REPORT_MAX_BYTES} bytes.`, ERROR_TUNNEL);
+  }
+  const body = new Uint8Array(await request.arrayBuffer());
+  if (body.length > ERROR_REPORT_MAX_BYTES) {
+    return problem(413, 'Content Too Large', `An error report is at most ${ERROR_REPORT_MAX_BYTES} bytes.`, ERROR_TUNNEL);
+  }
+  const items = envelopeItems(body);
+  if (!items || items.length === 0 || items.some((type) => type !== 'event')) {
+    return problem(400, 'Bad Request', 'Only error events for this site’s Sentry project are passed on.', ERROR_TUNNEL);
+  }
+  const headers = new Headers({ 'Content-Type': 'application/x-sentry-envelope', Origin: ORIGIN });
+  const agent = request.headers.get('User-Agent');
+  if (agent) headers.set('User-Agent', agent);
+  let sentry;
+  try {
+    sentry = await fetch(`${SENTRY_INGEST}/api/${SENTRY_PROJECT}/envelope/`, { method: 'POST', headers, body });
+  } catch {
+    return problem(502, 'Upstream error', 'The error monitor could not be reached. The report was not kept.', ERROR_TUNNEL);
+  }
+  const answer = new Headers({ 'Cache-Control': 'no-store' });
+  for (const name of SENTRY_ANSWER_HEADERS) {
+    const value = sentry.headers.get(name);
+    if (value !== null) answer.set(name, value);
+  }
+  return new Response(sentry.body, { status: sentry.status, headers: answer });
 }
 
 /** The same `pathname` and `search` on the Pages project the files are fetched from. */
@@ -464,6 +577,7 @@ async function respond(request) {
     url.protocol = 'https:';
     return Response.redirect(url.toString(), 301);
   }
+  if (url.pathname === ERROR_TUNNEL) return errorReport(request);
   const moved = legacyRedirect(url.pathname);
   if (moved) return Response.redirect(atOrigin(moved, url.search).toString(), 301);
   const accept = request.headers.get('Accept') ?? '';

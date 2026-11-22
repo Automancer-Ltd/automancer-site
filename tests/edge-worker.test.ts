@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import worker, { OFFSITE_LOCK, acceptsBrotli, atOrigin, atPages, brotliFile, cachePolicy, fromPages, legacyRedirect, unlocked } from '../ops/edge/worker.js';
+import worker, { ERROR_TUNNEL, OFFSITE_LOCK, SENTRY_INGEST, SENTRY_PROJECT, acceptsBrotli, envelopeItems, atOrigin, atPages, brotliFile, cachePolicy, fromPages, legacyRedirect, unlocked } from '../ops/edge/worker.js';
 import { DIST, allHtmlFiles, contentPages } from './support/dist';
 
 // The Pages project the Worker reads (t22925): the site has no custom domain on GitHub.
@@ -425,5 +425,105 @@ describe('edge Worker in front of GitHub Pages', () => {
     expect(await read(Array.from(bytes, (b) => Uint8Array.of(b))), 'one byte at a time').toBe(want);
     const body = `<html><head></head><body>${OFFSITE_LOCK}</body></html>`;
     expect(await read([new TextEncoder().encode(body)]), 'a lock after </head> is page text').toBe(body);
+  });
+});
+
+// Error reports (t24432): the page posts to ERROR_TUNNEL and the Worker passes them on to Sentry,
+// so the visitor's browser never talks to Sentry and Sentry never gets their IP address.
+describe('error report tunnel', () => {
+  const DSN = `https://0123456789abcdef0123456789abcdef@${new URL(SENTRY_INGEST).host}/${SENTRY_PROJECT}`;
+  const envelope = (dsn: string, ...items: [Record<string, unknown>, string][]) =>
+    [JSON.stringify({ event_id: 'f'.repeat(32), sent_at: '2026-11-22T09:00:00.000Z', dsn }),
+      ...items.flatMap(([header, payload]) => [JSON.stringify(header), payload])].join('\n');
+  const event = (): [Record<string, unknown>, string] => [{ type: 'event' }, JSON.stringify({ exception: { values: [{ type: 'Error', value: 'Browser script error' }] } })];
+  const visitor = {
+    Origin: 'https://automancer.uk',
+    'CF-Connecting-IP': '203.0.113.7',
+    'X-Forwarded-For': '203.0.113.7',
+    'True-Client-IP': '203.0.113.7',
+    'CF-IPCountry': 'GB',
+    Cookie: 'session=visitor-secret',
+    Referer: 'https://automancer.uk/contact/?service=audit',
+    'Accept-Language': 'en-GB',
+    'Sec-CH-UA-Platform': '"Android"',
+    'User-Agent': 'Mozilla/5.0 (visitor)',
+    'Content-Type': 'text/plain;charset=UTF-8',
+  };
+  const post = (body: BodyInit, headers: Record<string, string> = visitor, method = 'POST') =>
+    worker.fetch(new Request(`https://automancer.uk${ERROR_TUNNEL}`, { method, headers, body: method === 'POST' ? body : undefined })) as Promise<Response>;
+  const sentry = () => vi.fn(() => Promise.resolve(new Response('{"id":"ffff"}', {
+    status: 200, headers: { 'Content-Type': 'application/json', 'X-Sentry-Rate-Limits': '60::organization', 'X-Internal': 'x' },
+  })));
+
+  it('names the project ops/verify-production.sh expects', () => {
+    const verifier = readFileSync(new URL('../ops/verify-production.sh', import.meta.url), 'utf8');
+    expect(verifier).toContain(`readonly EXPECTED_SENTRY_PROJECT_ID='${SENTRY_PROJECT}'`);
+    expect(verifier).toContain(new URL(SENTRY_INGEST).host);
+  });
+
+  it("passes a page's error report on to the one Sentry project, with none of the visitor's details but the browser", async () => {
+    const fetchSpy = sentry();
+    vi.stubGlobal('fetch', fetchSpy);
+    const body = envelope(DSN, event());
+    const res = await post(body);
+    expect(res.status).toBe(200);
+    expect(await res.text()).toBe('{"id":"ffff"}');
+    expect(res.headers.get('X-Sentry-Rate-Limits'), 'the SDK still hears to back off').toBe('60::organization');
+    expect(res.headers.get('X-Internal')).toBeNull();
+    expect(res.headers.get('Cache-Control')).toBe('no-store');
+    expect(res.headers.get('X-Content-Type-Options'), 'secured like every answer').toBe('nosniff');
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const [input, init] = (fetchSpy.mock.calls as unknown as [string, RequestInit][])[0];
+    const sent = new Request(input, init);
+    expect(sent.url).toBe(`${SENTRY_INGEST}/api/${SENTRY_PROJECT}/envelope/`);
+    expect(sent.method).toBe('POST');
+    expect(await sent.text()).toBe(body);
+    expect(Object.fromEntries(sent.headers)).toEqual({
+      'content-type': 'application/x-sentry-envelope',
+      origin: 'https://automancer.uk',
+      'user-agent': 'Mozilla/5.0 (visitor)',
+    });
+  });
+
+  it('passes nothing on that is not an error report from this site for this project', async () => {
+    const fetchSpy = sentry();
+    vi.stubGlobal('fetch', fetchSpy);
+    const other = `https://0123456789abcdef0123456789abcdef@o999.ingest.sentry.io/${SENTRY_PROJECT}`;
+    const refused: [string, Promise<Response>, number][] = [
+      ['GET', post('', visitor, 'GET'), 405],
+      ['another site', post(envelope(DSN, event()), { ...visitor, Origin: 'https://evil.example' }), 403],
+      ['no Origin', post(envelope(DSN, event()), { 'Content-Type': 'text/plain' }), 403],
+      ['another Sentry org', post(envelope(other, event())), 400],
+      ['another project', post(envelope(DSN.replace(SENTRY_PROJECT, '1'), event())), 400],
+      ['the tests\' DSN', post(envelope('https://public@example.invalid/1', event())), 400],
+      ['no DSN', post(JSON.stringify({ event_id: 'f' }) + '\n' + JSON.stringify({ type: 'event' }) + '\n{}'), 400],
+      ['no items', post(envelope(DSN)), 400],
+      ['a session', post(envelope(DSN, event(), [{ type: 'session' }, '{}'])), 400],
+      ['an attachment', post(envelope(DSN, [{ type: 'attachment', length: 3 }, 'a\nb'])), 400],
+      ['not JSON', post('hello\nworld'), 400],
+      ['too large', post(envelope(DSN, [{ type: 'event' }, JSON.stringify({ pad: 'x'.repeat(70000) })])), 413],
+    ];
+    for (const [label, response, status] of refused) {
+      const res = await response;
+      expect(res.status, label).toBe(status);
+      expect(res.headers.get('Content-Type'), label).toBe('application/problem+json');
+    }
+    expect(fetchSpy, 'nothing left the Worker').not.toHaveBeenCalled();
+  });
+
+  it('reads the envelope format, length-delimited items included', () => {
+    const bytes = (text: string) => new TextEncoder().encode(text);
+    expect(envelopeItems(bytes(envelope(DSN, event(), event()) + '\n'))).toEqual(['event', 'event']);
+    expect(envelopeItems(bytes(envelope(DSN, [{ type: 'event', length: 5 }, 'a\nb\nc'], event())))).toEqual(['event', 'event']);
+    expect(envelopeItems(bytes(envelope(DSN, [{ type: 'event', length: -1 }, '{}'])))).toBeNull();
+    expect(envelopeItems(bytes(envelope(`${DSN}/extra`, event())))).toBeNull();
+    expect(envelopeItems(bytes(envelope(DSN.replace('0123456789abcdef0123456789abcdef@', ''), event())))).toBeNull();
+  });
+
+  it('answers a 502 problem when Sentry cannot be reached', async () => {
+    vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new Error('down'))));
+    const res = await post(envelope(DSN, event()));
+    expect(res.status).toBe(502);
+    expect(res.headers.get('Content-Type')).toBe('application/problem+json');
   });
 });

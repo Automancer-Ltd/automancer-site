@@ -869,8 +869,9 @@ PY
 # check_page_csp — every served HTML page (/, /contact/, and a 404) carries the
 # build's <meta http-equiv="content-security-policy"> starting from
 # default-src 'none', enforcing Trusted Types, scoping Turnstile and the intake
-# API to /contact/ alone, and matching connect-src to the exact Sentry DSN
-# origin served in the page's JavaScript bundle.
+# API to /contact/ alone, and letting the page send only to its own site: error
+# reports go to the edge Worker's /_errors (t24432), so the Sentry DSN origin
+# served in the page's JavaScript bundle must never be in connect-src.
 check_page_csp() {
   local home_file contact_file notfound_file combined out err code verdict
   fetch_body "${BASE_URL}/" || return 1
@@ -915,7 +916,7 @@ if len(origins) > 1:
     sys.exit(f"bundle carries more than one DSN origin: {', '.join(sorted(origins))}")
 report_origin = next(iter(origins), None)
 if not preview and not report_origin:
-    sys.exit("served JS bundle carries no Sentry DSN origin to match against connect-src")
+    sys.exit("served JS bundle carries no Sentry DSN origin to keep out of connect-src")
 
 TURNSTILE = "https://challenges.cloudflare.com"
 ENQUIRY = "https://api.automancer.uk"
@@ -950,7 +951,9 @@ for route, path in (("/", sys.argv[3]), ("/contact/", sys.argv[4]), ("/404", sys
     for name, want in checks:
         if pol.get(name) != want:
             sys.exit(f"{route} {name} is {pol.get(name)}, expected {want}")
-    want_connect = {"'self'"} | ({report_origin} if report_origin else set()) | ({ENQUIRY} if is_contact else set())
+    if report_origin and report_origin in pol.get("connect-src", []):
+        sys.exit(f"{route} connect-src lets the browser post to Sentry ({report_origin}) itself; reports go to /_errors")
+    want_connect = {"'self'"} | ({ENQUIRY} if is_contact else set())
     if set(pol.get("connect-src", [])) != want_connect:
         sys.exit(f"{route} connect-src is {sorted(pol.get('connect-src', []))}, expected {sorted(want_connect)}")
     if pol.get("frame-src") != ([TURNSTILE] if is_contact else None):
@@ -962,7 +965,7 @@ for route, path in (("/", sys.argv[3]), ("/contact/", sys.argv[4]), ("/404", sys
             if BAD.search(src):
                 sys.exit(f"{route} {name} allows forbidden source {src}")
 
-print(f"/, /contact/ and 404 enforce default-src 'none', Trusted Types and connect-src matching {report_origin or 'preview (no DSN)'}")
+print("/, /contact/ and 404 enforce default-src 'none', Trusted Types and a connect-src of this site alone (/contact/ adds the enquiry API)")
 PY
   ); then
     printf 'served page CSP check failed: %s\n' "$(printf '%s' "$verdict" | tr '\n' ' ')"
@@ -971,6 +974,35 @@ PY
   fi
   rm -f "$home_file" "$contact_file" "$notfound_file" "$combined"
   printf '%s\n' "$verdict"
+}
+
+# check_error_tunnel — the pages post error reports to the edge Worker at
+# ERROR_TUNNEL_PATH, which passes them on to Sentry (t24432). Without it every
+# report is lost and nothing says so, so this asks the Worker two questions it
+# must refuse without passing anything on: a post from another site (403), and
+# one from this site for another Sentry project (400). Nothing reaches Sentry.
+readonly ERROR_TUNNEL_PATH='/_errors'
+check_error_tunnel() {
+  local probe origin dsn want out err body code type
+  for probe in "https://evil.example|${EXPECTED_SENTRY_PROJECT_ID}|403" "https://automancer.uk|1|400"; do
+    IFS='|' read -r origin dsn want <<<"$probe"
+    body=$(need_tmp) out=$(need_tmp) err=$(need_tmp)
+    printf '{"dsn":"https://0123456789abcdef0123456789abcdef@o4511673494732800.ingest.de.sentry.io/%s"}\n{"type":"event"}\n{}\n' "$dsn" >"$body"
+    if ! curl -sS --max-time "$HTTP_TIMEOUT_SECS" -X POST -H "Origin: ${origin}" -H 'Content-Type: text/plain;charset=UTF-8' \
+      --data-binary "@${body}" -o /dev/null -w '%{http_code} %{content_type}' "${BASE_URL}${ERROR_TUNNEL_PATH}" >"$out" 2>"$err"; then
+      printf 'POST %s did not complete: %s\n' "$ERROR_TUNNEL_PATH" "$(tr -d '\n' <"$err")"
+      rm -f "$body" "$out" "$err"
+      return 1
+    fi
+    read -r code type <"$out"
+    rm -f "$body" "$out" "$err"
+    if [[ $code != "$want" || $type != application/problem+json* ]]; then
+      printf 'POST %s from %s for project %s answered HTTP %s (%s), expected %s problem+json: the Worker does not hold the error tunnel the pages post to\n' \
+        "$ERROR_TUNNEL_PATH" "$origin" "$dsn" "$code" "${type:-no type}" "$want"
+      return 1
+    fi
+  done
+  printf 'POST %s refuses another site (403) and another project (400), as the tunnel must\n' "$ERROR_TUNNEL_PATH"
 }
 
 check_security_txt() {
@@ -1571,6 +1603,19 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.wfile.write(body)
         if "declared_length" in entry:
             self.close_connection = True
+    def do_POST(self):
+        sc = load()
+        self.rfile.read(int(self.headers.get("Content-Length", 0)))
+        routes = sc.get("routes", {})
+        key = f"POST {self.path} {self.headers.get('Origin', '')}"
+        entry = routes.get(key, routes.get(f"POST {self.path}", sc.get("default", {"status": 404, "body": ""})))
+        body = entry.get("body", "").encode("utf-8")
+        self.send_response(int(entry.get("status", 200)))
+        headers = dict(entry.get("headers", {}))
+        self.send_header("Content-Type", headers.pop("Content-Type", "text/plain; charset=utf-8"))
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
     def log_message(self, *args):
         pass
 http.server.HTTPServer(("127.0.0.1", int(sys.argv[1])), Handler).serve_forever()
@@ -1897,9 +1942,9 @@ self_test() {
   self_test_expect pass "active SVG and XML responses enforce default-src 'none' and Trusted Types" check_edge_active_surfaces
   self_test_expect pass "legacy stub paths redirect 301 at the edge instead of serving static HTML" check_edge_active_surfaces
 
-  # Served page <meta> CSP + Trusted Types + connect-src DSN-origin match.
-  local base_csp="default-src 'none'; connect-src 'self' https://o4511673494732800.ingest.de.sentry.io; img-src 'self' data:; font-src 'self'; manifest-src 'self'; form-action 'self'; base-uri 'self'; require-trusted-types-for 'script'; trusted-types 'none'; script-src 'self'; script-src-attr 'none'"
-  local contact_csp="default-src 'none'; connect-src 'self' https://o4511673494732800.ingest.de.sentry.io https://api.automancer.uk; img-src 'self' data:; font-src 'self'; manifest-src 'self'; form-action 'self'; base-uri 'self'; require-trusted-types-for 'script'; trusted-types turnstile; frame-src https://challenges.cloudflare.com; script-src 'self' https://challenges.cloudflare.com; script-src-attr 'none'"
+  # Served page <meta> CSP + Trusted Types + connect-src of this site alone.
+  local base_csp="default-src 'none'; connect-src 'self'; img-src 'self' data:; font-src 'self'; manifest-src 'self'; form-action 'self'; base-uri 'self'; require-trusted-types-for 'script'; trusted-types 'none'; script-src 'self'; script-src-attr 'none'"
+  local contact_csp="default-src 'none'; connect-src 'self' https://api.automancer.uk; img-src 'self' data:; font-src 'self'; manifest-src 'self'; form-action 'self'; base-uri 'self'; require-trusted-types-for 'script'; trusted-types turnstile; frame-src https://challenges.cloudflare.com; script-src 'self' https://challenges.cloudflare.com; script-src-attr 'none'"
   local dsn_js='const dsn="https://0123456789abcdef0123456789abcdef@o4511673494732800.ingest.de.sentry.io/4511769898647632"'
   python3 - "$SELFTEST_SCENARIO" "$base_csp" "$contact_csp" "$dsn_js" <<'PY'
 import json, sys
@@ -1914,7 +1959,7 @@ open(out, "w").write(json.dumps({
 }))
 PY
   self_test_expect fail "served pages carry <meta http-equiv=content-security-policy>" check_page_csp
-  python3 - "$SELFTEST_SCENARIO" "${base_csp/o4511673494732800.ingest.de.sentry.io/o999.ingest.sentry.io}" "$contact_csp" "$dsn_js" <<'PY'
+  python3 - "$SELFTEST_SCENARIO" "${base_csp/connect-src/connect-src https://o4511673494732800.ingest.de.sentry.io}" "$contact_csp" "$dsn_js" <<'PY'
 import json, sys
 out, bad_csp, contact_csp, dsn_js = sys.argv[1:5]
 open(out, "w").write(json.dumps({
@@ -1926,7 +1971,7 @@ open(out, "w").write(json.dumps({
   "default": {"status": 404, "body": f'<html><head><meta http-equiv="content-security-policy" content="{bad_csp}"></head></html>'},
 }))
 PY
-  self_test_expect fail "served page connect-src matches the bundled Sentry DSN origin" check_page_csp
+  self_test_expect fail "served page connect-src keeps the bundled Sentry DSN origin out" check_page_csp
   python3 - "$SELFTEST_SCENARIO" "$base_csp" "$contact_csp" "$dsn_js" <<'PY'
 import json, sys
 out, base_csp, contact_csp, dsn_js = sys.argv[1:5]
@@ -1940,7 +1985,17 @@ open(out, "w").write(json.dumps({
 }))
 PY
   self_test_expect pass "served pages carry <meta http-equiv=content-security-policy>" check_page_csp
-  self_test_expect pass "served page connect-src matches the bundled Sentry DSN origin" check_page_csp
+  self_test_expect pass "served page connect-src keeps the bundled Sentry DSN origin out" check_page_csp
+
+  # The edge Worker's error tunnel refuses another site and another project.
+  local problem='"headers":{"Content-Type":"application/problem+json"}'
+  self_test_scenario '{"routes":{},"default":{"status":405,"body":"","headers":{"Content-Type":"text/html"}}}'
+  self_test_expect fail "the edge Worker holds the error tunnel" check_error_tunnel
+  self_test_scenario '{"routes":{"POST /_errors":{"status":200,"body":"{}","headers":{"Content-Type":"application/json"}}},"default":{"status":404,"body":""}}'
+  self_test_expect fail "the error tunnel passes nothing on from another site or for another project" check_error_tunnel
+  self_test_scenario '{"routes":{"POST /_errors https://evil.example":{"status":403,"body":"{}",'"$problem"'},"POST /_errors https://automancer.uk":{"status":400,"body":"{}",'"$problem"'}},"default":{"status":404,"body":""}}'
+  self_test_expect pass "the edge Worker holds the error tunnel" check_error_tunnel
+  self_test_expect pass "the error tunnel passes nothing on from another site or for another project" check_error_tunnel
 
   DOH_URL="${BASE_URL}/dns-query"
   for mutation in mx_absent mx_real spf_softfail spf_twice dmarc_absent dmarc_none dmarc_sp_none servfail; do
@@ -2259,7 +2314,8 @@ main() {
     if ! poll_check "www.automancer.uk answers one 301 to the apex from the Worker" check_www_redirect; then :; fi
     if ! poll_check "${REDIRECT_DOMAINS[*]} upgrade to HTTPS on their own name, then 301 to automancer.uk with HSTS" check_redirect_domains; then :; fi
   fi
-  if ! poll_check "served HTML pages enforce default-src 'none', Trusted Types and DSN-matched connect-src" check_page_csp; then :; fi
+  if ! poll_check "served HTML pages enforce default-src 'none', Trusted Types and a connect-src of this site alone" check_page_csp; then :; fi
+  if ! poll_check "the edge Worker takes error reports at ${ERROR_TUNNEL_PATH} and refuses any not for this site's project" check_error_tunnel; then :; fi
   if ! poll_check "homepage contains structural anchor \"${HOMEPAGE_ANCHOR}\"" check_homepage_anchor; then :; fi
   if [[ -n $EXPECTED_REVISION ]]; then
     if ! poll_check "homepage serves expected build revision ${EXPECTED_REVISION}" check_revision; then :; fi

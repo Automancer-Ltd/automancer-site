@@ -51,6 +51,11 @@ if (import.meta.env.PROD && dsn) {
           environment: 'production',
           // The commit deploy.yml built, so an issue names the deploy that shipped it.
           release,
+          // Post reports to this site, never to Sentry's address: the edge Worker
+          // passes them on without the visitor's IP address (ERROR_TUNNEL in
+          // ops/edge/worker.js, t24432), so the page's CSP lets it talk to
+          // automancer.uk alone.
+          tunnel: '/_errors',
           // Only install error integrations. BrowserSession can send its own
           // envelopes outside beforeSend, which only runs for errors.
           defaultIntegrations: false,

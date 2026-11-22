@@ -30,8 +30,8 @@ for (let i = 0; i < rounds; i++) {
   const page = await context.newPage();
   let reported;
   const delivered = new Promise((resolve) => { reported = resolve; });
-  // Production's ingest host or the tests' dummy destination (tests/support/build-env.ts).
-  await page.route(/https:\/\/(?:[^/]*sentry\.io|example\.invalid)\//, async (route) => {
+  // The site's own error tunnel (ERROR_TUNNEL in ops/edge/worker.js, t24432).
+  await page.route('**/_errors', async (route) => {
     reported(Date.now());
     await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
   });

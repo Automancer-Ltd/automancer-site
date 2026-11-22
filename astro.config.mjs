@@ -7,16 +7,6 @@ import { earlyCsp } from './src/integrations/early-csp';
 import { precompress } from './src/integrations/precompress';
 
 /**
- * Where browser error reports go: the origin of the Sentry DSN this build
- * bakes into src/scripts/sentry.ts, or nothing when the build has no DSN
- * (development and preview builds). Every page may send to it and to its
- * own origin, and nowhere else; tests/csp.test.ts fails if a built page's
- * policy and the bundled DSN disagree.
- */
-const SENTRY_DSN = process.env.PUBLIC_AUT_SENTRY_WEB_DSN;
-const reportOrigin = SENTRY_DSN ? new URL(SENTRY_DSN).origin : null;
-
-/**
  * Sitemap <lastmod>, read from the built /api/pages.json so the two cannot
  * disagree. Every page there carries a real date: when its words last changed
  * on the live site (src/integrations/page-dates.ts dates the file first). The
@@ -124,7 +114,7 @@ export default defineConfig({
   //
   // Everything else a page may load or send to is listed too, starting from
   // nothing (default-src 'none'), so the browser itself enforces "no
-  // tracking": a page can talk only to this site and the error-report origin.
+  // tracking": a page can talk only to this site.
   // contact.astro adds the enquiry API and the Turnstile frame for that page
   // alone. The edge Worker's header adds frame-ancestors, which a <meta>
   // policy cannot carry. Method and checks: docs/DEPLOYMENT.md.
@@ -139,7 +129,9 @@ export default defineConfig({
     csp: {
       directives: [
         "default-src 'none'",
-        `connect-src 'self'${reportOrigin ? ` ${reportOrigin}` : ''}`,
+        // Error reports go to this site too (src/scripts/sentry.ts posts them
+        // to the edge Worker's ERROR_TUNNEL, t24432), never to Sentry itself.
+        "connect-src 'self'",
         "img-src 'self' data:",
         "font-src 'self'",
         "manifest-src 'self'",
