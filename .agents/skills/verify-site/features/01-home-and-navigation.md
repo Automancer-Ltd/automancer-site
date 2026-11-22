@@ -18,9 +18,10 @@ gets a real 404 with a way back.
 - `a missing page shows recovery links on arrival and leads back to the site`.
 - `every page keeps its words on screen at 320px and with text at 200%` (every sitemap page and the 404).
 - Vitest on `dist/`: `tests/speculation-rules.test.ts` (Chromium's hover prerender, and the
-  Firefox/Safari hover prefetch in `src/scripts/prefetch.ts`, fetch only this site's pages, the
-  same links). Click speed in Firefox and WebKit: `node ops/perf/click-wait.mjs dist <label>
-  --engine=firefox --persistent` (or a URL for production); see `docs/PERFORMANCE.md`.
+  Firefox/Safari hover and touch-screen prefetch in `src/scripts/prefetch.ts`, fetch only this
+  site's pages, the same links). Click speed in Firefox and WebKit: `node ops/perf/click-wait.mjs
+  dist <label> --engine=firefox --persistent` (or a URL for production); a phone's taps with
+  `--phone` (and `--rules-off` for WebKit as Safari 27 ships it); see `docs/PERFORMANCE.md`.
 - Vitest on `dist/`: `tests/pages.test.ts` (one `h1`, title, description, canonical, JSON-LD) and
   `tests/a11y.test.ts` (landmarks, skip link, named navs) on every page and the 404.
 

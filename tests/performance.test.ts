@@ -32,8 +32,10 @@ import { DIST, measureAllPages } from './support/perf';
  * Re-measured 2026-11-21 (t23850): 161,243 B. Every page now carries the print styles
  * (src/styles/print.css, 3,841 B inline, 1,424 B gzipped), the page's address for the printed
  * footer, and 523 B more main.js (opening the FAQ answers for a print).
+ * Re-measured 2026-11-22 (t24026): 161,980 B. The page-load module grew 737 B: phones in Firefox
+ * and Safari fetch the links they keep on screen (src/scripts/prefetch.ts).
  */
-const LAYOUT_MEASURED = 161243;
+const LAYOUT_MEASURED = 161980;
 
 /**
  * Layout pages that genuinely need more than the default, each with its own
@@ -42,9 +44,10 @@ const LAYOUT_MEASURED = 161243;
 const LAYOUT_EXCEPTIONS: Record<string, { measured: number; reason: string }> = {
   // Measured 2026-11-21 (t22871): 148,994 B + 4,887 B of HTML, CSS and script; + 3,518 B and
   // 3,115 B of fallback font faces every page carries (t23013, t23067). Re-measured 2026-11-21
-  // (t23850): 166,982 B with the print styles and main.js every page now carries.
+  // (t23850): 166,982 B with the print styles and main.js every page now carries. Re-measured
+  // 2026-11-22 (t24026): 167,719 B with the phone prefetch every page carries.
   '/contact/': {
-    measured: 166982,
+    measured: 167719,
     reason: 'the "What are you interested in?" choice: five option cards, their styles, and the script that picks one from ?service=',
   },
 };
@@ -58,8 +61,8 @@ const GROWS_WITH_CONTENT: Record<string, string> = {
   '/releases/': 'the whole of CHANGELOG.md, about 1 KB of HTML per release',
 };
 
-/** JS measured 2026-11-21. Identical on every layout page. */
-const MEASURED_JS = 11412; // main.js (6,326 B; opens the FAQ for a print, t23850) + the one page-load module (5,086 B): the Sentry bootstrap (src/scripts/sentry.ts) and the Firefox/Safari hover prefetch (src/scripts/prefetch.ts, ~1,160 B, t23288)
+/** JS measured 2026-11-22. Identical on every layout page. */
+const MEASURED_JS = 12149; // main.js (6,326 B; opens the FAQ for a print, t23850) + the one page-load module (5,823 B): the Sentry bootstrap (src/scripts/sentry.ts) and the Firefox/Safari prefetch (src/scripts/prefetch.ts: hover ~1,160 B, t23288; touch screens +737 B, t24026)
 /**
  * The Sentry SDK chunk, fetched only when a visitor's page first throws. It
  * is the error path's whole cost, so it is pinned too: importing the SDK as a
@@ -114,11 +117,11 @@ describe('page-weight budgets', () => {
   });
 
   it('keeps JavaScript within budget on every layout page', () => {
-    const budget = MEASURED_JS + headroom(MEASURED_JS); // 12436 B from 11412 B @ 2026-11-21
+    const budget = MEASURED_JS + headroom(MEASURED_JS); // 13173 B from 12149 B @ 2026-11-22
     for (const p of layoutPages) {
       expect(
         p.jsBytes,
-        `${p.route}: js ${p.jsBytes} B > budget ${budget} B (measured ${MEASURED_JS} B on 2026-11-21). ` +
+        `${p.route}: js ${p.jsBytes} B > budget ${budget} B (measured ${MEASURED_JS} B on 2026-11-22). ` +
           'A script grew or a new one was added.',
       ).toBeLessThanOrEqual(budget);
     }

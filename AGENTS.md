@@ -122,10 +122,12 @@ ops/preview/                the non-production preview target
   to `fetch()`: that forwards their IP address, cookies and Referer to GitHub
   (`tests/edge-worker.test.ts`).
 - Pages are fetched ahead of a click only by Chromium's Speculation Rules (`BaseLayout.astro`) and,
-  in browsers that cannot prerender, by the hover prefetch in `src/scripts/prefetch.ts` (t23288),
-  both same-origin pages only (`tests/speculation-rules.test.ts` holds them to the same links).
-  Keep the prefetch's `Accept` equal to a navigation's: the Worker's `Vary: Accept` otherwise
-  stops the click from reusing it.
+  in browsers that cannot prerender, by `src/scripts/prefetch.ts`: on a mouse hover (t23288), and
+  on a touch screen for a link kept on screen half a second, footer left out, at most five pages a
+  page view (t24026); all same-origin pages only (`tests/speculation-rules.test.ts` holds them to
+  the same links). Keep the prefetch's `Accept` equal to the request the click makes, a
+  navigation's, or `*/*` in a WebKit that acts on the rules (its press-time prefetch): the
+  Worker's `Vary: Accept` otherwise stops the click from reusing it.
 - `/privacy/` and `/terms/` are `legalNoMirror` and hash-pinned (`tests/legal-integrity.test.ts`);
   their wording changes only on Waseem's instruction.
 - The contact form never shows a raw API error code (`tests/contact-errors.test.ts`).

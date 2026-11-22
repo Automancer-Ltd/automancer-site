@@ -18,6 +18,44 @@ exact `dist/` it publishes, so a heavier production build fails the release inst
 
 ## Decisions behind the numbers
 
+- **Taps on a phone are quick in Safari and Firefox too (t24026, 22 Nov 2026).**
+  The hover prefetch below (t23288) needs a mouse, so on an iPhone, an iPad or Firefox for
+  Android every tap still waited a whole round trip for the next page. On a touch screen
+  (`(hover: none)`), `src/scripts/prefetch.ts` now fetches a link once it has stayed on screen for
+  500 ms: the visitor has stopped scrolling to read it, or has opened the menu. The same links as
+  the Speculation Rules, the site footer left out, at most five pages a page view, nothing on
+  Save-Data; Chromium is untouched (on Android it reads the links on screen itself). Measured with
+  `ops/perf/click-wait.mjs --phone` (`dist/` served locally with production's headers and 200 ms
+  before each page's first byte; a 390 px touch screen reading each page 2 s, then tapping the
+  header's Contact or a menu link after reading the menu 0.8 s; 2 passes x 5 fresh browsers with a
+  profile on disk x 6 taps, before and after interleaved; the tap back to `/`, already cached
+  from the first visit, left out):
+
+  | Tap to first paint, median (p75) | before | after | from the cache |
+  | --- | ---: | ---: | ---: |
+  | Firefox 159, phone | 278 (309) ms | 111 (149) ms | 10 → 60 of 60 |
+  | Safari 27 (Playwright's WebKit, `--rules-off`), phone | 287 (328) ms | 108 (130) ms | 10 → 60 of 60 |
+
+  Cost: 737 B more page-load script on every page (`MEASURED_JS` re-pinned), and the pages it
+  fetches. A reader who scrolls through a whole page, pausing 2.5 s a screen, fetched the five
+  allowed on every page but `/contact/` (one): usually the header's home and Contact links and
+  the first three links read in the page, about 20 KB each compressed, so up to about 100 KB a
+  page view; a page already fetched in the last ten minutes costs nothing again. Three of
+  `/services/`'s five go to `/contact/?service=…`, one address per offer for the same page.
+
+  Measuring it also explained why t23288 saw no gain for Safari live. Playwright's WebKit has
+  Speculation Rules prefetch on (WebKit's own builds; Safari 27 ships it off, `status: preview`
+  in WebKit's `UnifiedWebPreferences.yaml` on the 7625 branches), and over HTTPS it answers a
+  press or a tap on a link with its own prefetch, `Accept: */*`, which the click then uses. That
+  prefetch reuses the HTTP cache, but under `Vary: Accept` only a copy fetched with `*/*`: live,
+  a copy fetched with the navigation's Accept was downloaded again (23 KB) and one fetched with
+  `*/*` was not (0 B). The script now asks with `*/*` wherever
+  `HTMLScriptElement.supports('speculationrules')` is true, which in a browser that cannot
+  prerender is exactly a WebKit that acts on the rules; Safari 27 and Firefox keep the
+  navigation's Accept. Real Safari 27 was not driven (m6's Safari refuses WebDriver until
+  Remote Automation is allowed); `--rules-off` stands in for it on the local bench, where WebKit
+  never acts on the rules.
+
 - **Every page prints whole (t23850, 21 Nov 2026).**
   Printing or saving `/services/` as a PDF gave eight A4 pages, five of them blank: the offers and
   prices are scroll reveals that start hidden, and light-on-black text vanished once the browser
@@ -85,7 +123,8 @@ exact `dist/` it publishes, so a heavier production build fails the release inst
   these rules, so that is not the test; and a tap is shorter than the page's round trip, while
   neither engine hands a fetch still under way to the click, so fetching on a press or tap only
   downloaded the page twice. Taps and presses therefore fetch nothing, and the tap figures below
-  are unchanged. Measured with `ops/perf/click-wait.mjs` (`dist/` served locally with production's
+  are unchanged (t24026, above, gives touch screens their own trigger). Measured with
+  `ops/perf/click-wait.mjs` (`dist/` served locally with production's
   cache headers and 200 ms before each page's first byte; 5 fresh browsers with a profile on disk,
   `--persistent`, 5 nav clicks each; time from pressing the button to the next page's first paint):
 
