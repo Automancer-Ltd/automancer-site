@@ -34,7 +34,7 @@ async function sitemapPaths(page: Page): Promise<string[]> {
 /** Text runs in <main> painted outside the screen or outside an ancestor that clips them. */
 function clippedText(): string[] {
   // Cells drawn edge to edge: the next one covers whatever crosses the border.
-  const PANELS = '.stat, .rung, .offer, .case-card, .principle, .promise';
+  const PANELS = '.stat, .rung, .offer, .case-card, .principle, .promise, .service-option';
   const viewport = document.documentElement.clientWidth;
   const failures: string[] = [];
   const walker = document.createTreeWalker(document.querySelector('main')!, NodeFilter.SHOW_TEXT);
@@ -116,6 +116,10 @@ test('every page keeps its words on screen at 320px and with text at 200%', asyn
     for (const path of paths) {
       await page.goto(path);
       await page.evaluate((size) => document.documentElement.style.setProperty('font-size', size), text);
+      // Include the service names and prices that are behind the form's disclosure.
+      if (path === '/contact/') {
+        await page.locator('#optional-details').evaluate((details) => details.setAttribute('open', ''));
+      }
       await page.evaluate(() => document.fonts.ready);
       for (const failure of await page.evaluate(clippedText)) clipped.push(`${path} at ${width}px, text ${text}: ${failure}`);
       for (const failure of await page.evaluate(brokenWords)) clipped.push(`${path} at ${width}px, text ${text}: ${failure}`);

@@ -81,16 +81,7 @@ export interface EnquiryField {
  */
 export const ENQUIRY_FIELDS: readonly EnquiryField[] = [
   { id: 'name', label: 'Your name', required: true, maxLength: FIELD_LIMITS.name, kind: 'text' },
-  { id: 'company', label: 'Business name', required: false, maxLength: FIELD_LIMITS.company, kind: 'text' },
   { id: 'email', label: 'Email', required: true, maxLength: FIELD_LIMITS.email, kind: 'email' },
-  {
-    id: 'service',
-    label: 'What are you interested in?',
-    required: false,
-    maxLength: Math.max(...SERVICE_OPTIONS.map((o) => o.value.length)),
-    kind: 'choice',
-    options: SERVICE_OPTIONS,
-  },
   {
     id: 'time_sink',
     label: "What's eating your week?",
@@ -99,6 +90,15 @@ export const ENQUIRY_FIELDS: readonly EnquiryField[] = [
     kind: 'long-text',
     example: "The boring, repetitive, expensive stuff. What takes up too much of your team's time?",
   },
+  {
+    id: 'service',
+    label: 'What are you interested in?',
+    required: false,
+    maxLength: Math.max(...SERVICE_OPTIONS.map((o) => o.value.length)),
+    kind: 'choice',
+    options: SERVICE_OPTIONS,
+  },
+  { id: 'company', label: 'Business name', required: false, maxLength: FIELD_LIMITS.company, kind: 'text' },
   {
     id: 'team_size',
     label: 'Roughly how big is your team?',

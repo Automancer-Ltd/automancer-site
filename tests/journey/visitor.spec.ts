@@ -402,6 +402,20 @@ test('visitor finds the prices and reaches us through the contact form', async (
   await expect(page.locator('#name')).toBeFocused();
   expect(posted, 'invalid form must not be sent').toHaveLength(0);
 
+  // A keyboard user reaches the message without tabbing through optional fields.
+  await page.keyboard.press('Tab');
+  await expect(page.locator('#email')).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(page.locator('#time-sink')).toBeFocused();
+  await page.keyboard.press('Tab');
+  const optional = form.getByText('Add optional details', { exact: true });
+  await expect(optional).toBeFocused();
+  await expect(page.locator('#company')).toBeHidden();
+  await page.keyboard.press('Space');
+  await expect(page.locator('#company')).toBeVisible();
+  await page.keyboard.press('Space');
+  await expect(page.locator('#company')).toBeHidden();
+
   // A valid enquiry reaches the endpoint intact and the visitor is told it landed.
   await page.locator('#name').fill(ENQUIRY.name);
   await page.locator('#email').fill(ENQUIRY.email);
@@ -439,25 +453,33 @@ test("an offer's button carries that service into the enquiry, and the visitor c
   const carried = page.locator('#service-carried');
   await expect(carried).toBeVisible();
   await expect(carried).toContainText(sprint.name);
-  await expect(page.getByRole('radio', { name: new RegExp(sprint.name) })).toBeChecked();
+  await expect(page.locator(`input[name="service"][value="${sprint.id}"]`)).toBeChecked();
   await expect(page.locator('#name')).toBeInViewport({ ratio: 1 });
+  await expect(page.locator('#company')).toBeHidden();
 
-  // "Change" goes to the choice; picking another updates the note and the address.
+  // "Change" opens the details and takes focus to the current choice.
   await carried.getByRole('link', { name: 'Change' }).click();
   await expect(page.getByRole('radio', { name: new RegExp(sprint.name) })).toBeFocused();
+  await expect(page.getByRole('radio', { name: new RegExp(sprint.name) })).toBeInViewport();
   await page.getByRole('radio', { name: new RegExp(audit.name) }).check();
   await expect(carried).toContainText(audit.name);
   await expect(page).toHaveURL(new RegExp(`\\?service=${audit.id}$`));
   await expectNoSidewaysScroll(page);
 
-  // The choice reaches Waseem at the top of the message.
+  // Closing the optional details leaves the choice and typed details in the enquiry.
+  await page.locator('#company').fill('Example business');
+  await page.getByText('Add optional details', { exact: true }).click();
+  await expect(page.locator('#company')).toBeHidden();
   await page.locator('#name').fill(ENQUIRY.name);
   await page.locator('#email').fill(ENQUIRY.email);
   await page.locator('#time-sink').fill(ENQUIRY.time_sink);
   await page.locator('#contact-form').getByRole('button', { name: 'Send it to Waseem' }).click();
   await expect(page.locator('#form-confirm')).toBeVisible();
   expect(posted).toHaveLength(1);
-  expect(posted[0]).toMatchObject({ message: `Interested in: ${audit.name}\n\n${ENQUIRY.time_sink}` });
+  expect(posted[0]).toMatchObject({
+    company: 'Example business',
+    message: `Interested in: ${audit.name}\n\n${ENQUIRY.time_sink}`,
+  });
 
   // An address naming no published service picks nothing and shows no note.
   await page.goto('/contact/?service=free-website');

@@ -86,38 +86,43 @@ Astro.csp.insertDirective(`connect-src ${new URL(ENDPOINT_URL).origin}`);
               <input type="text" id="name" name="name" required autocomplete="name" maxlength={f('name').maxLength} />
             </div>
             <div class="field">
-              <label for="company">{f('company').label} <span class="opt">(optional)</span></label>
-              <input type="text" id="company" name="company" autocomplete="organization" maxlength={f('company').maxLength} />
-            </div>
-            <div class="field">
               <label for="email">{f('email').label}</label>
               <input type="email" id="email" name="email" required autocomplete="email" maxlength={f('email').maxLength} />
             </div>
-            <fieldset id="service-pick" class="service-pick" tabindex="-1">
-              <legend>{f('service').label} <span class="opt">(optional)</span></legend>
-              <div class="service-pick__options">
-                {serviceOptions.map((o) => (
-                  <label class="service-option">
-                    <input type="radio" name="service" value={o.value} />
-                    <span class="service-option__name">{o.label}</span>
-                    {o.price && <span class="service-option__price">{o.price}</span>}
-                  </label>
-                ))}
-              </div>
-            </fieldset>
             <div class="field">
               <label for="time-sink">{f('time_sink').label}</label>
               <textarea id="time-sink" name="time_sink" required maxlength={f('time_sink').maxLength}
                 placeholder={f('time_sink').example}></textarea>
             </div>
-            <div class="field">
-              <label for="team-size">{f('team_size').label} <span class="opt">(optional)</span></label>
-              <input type="text" id="team-size" name="team_size" autocomplete="off" maxlength={f('team_size').maxLength} placeholder={f('team_size').example} />
-            </div>
-            <div class="field">
-              <label for="extra">{f('extra').label} <span class="opt">(optional)</span></label>
-              <textarea id="extra" name="extra" maxlength={f('extra').maxLength}></textarea>
-            </div>
+            <details id="optional-details" class="form-details">
+              <summary>Add optional details <span id="optional-service" class="form-details__service"></span></summary>
+              <div class="form-details__fields">
+                <fieldset id="service-pick" class="service-pick" tabindex="-1">
+                  <legend>{f('service').label} <span class="opt">(optional)</span></legend>
+                  <div class="service-pick__options">
+                    {serviceOptions.map((o) => (
+                      <label class="service-option">
+                        <input type="radio" name="service" value={o.value} />
+                        <span class="service-option__name">{o.label}</span>
+                        {o.price && <span class="service-option__price">{o.price}</span>}
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+                <div class="field">
+                  <label for="company">{f('company').label} <span class="opt">(optional)</span></label>
+                  <input type="text" id="company" name="company" autocomplete="organization" maxlength={f('company').maxLength} />
+                </div>
+                <div class="field">
+                  <label for="team-size">{f('team_size').label} <span class="opt">(optional)</span></label>
+                  <input type="text" id="team-size" name="team_size" autocomplete="off" maxlength={f('team_size').maxLength} placeholder={f('team_size').example} />
+                </div>
+                <div class="field">
+                  <label for="extra">{f('extra').label} <span class="opt">(optional)</span></label>
+                  <textarea id="extra" name="extra" maxlength={f('extra').maxLength}></textarea>
+                </div>
+              </div>
+            </details>
 
             <!-- Honeypot: must submit empty. Off-screen + aria-hidden + no autofill/tab. -->
             <div aria-hidden="true" style="position:absolute; left:-9999px; top:auto; width:1px; height:1px; overflow:hidden;">
@@ -240,6 +245,8 @@ Astro.csp.insertDirective(`connect-src ${new URL(ENDPOINT_URL).origin}`);
       // pick it, name it above the form, and keep the address in step with a
       // change, so a reload or a shared link keeps the choice. Nothing is stored.
       var carried = document.getElementById('service-carried');
+      var optionalDetails = document.getElementById('optional-details');
+      var optionalService = document.getElementById('optional-service');
       var servicePick = document.getElementById('service-pick');
       var serviceRadios = form.querySelectorAll ? Array.prototype.slice.call(form.querySelectorAll('input[name="service"]')) : [];
       function chosenService() {
@@ -260,14 +267,16 @@ Astro.csp.insertDirective(`connect-src ${new URL(ENDPOINT_URL).origin}`);
         showCarried();
       }
       if (servicePick) servicePick.addEventListener('change', function () {
-        if (carried && !carried.hidden) showCarried();
         var chosen = chosenService();
+        if (carried && !carried.hidden) showCarried();
+        else optionalService.textContent = chosen?.label || '';
         var url = new URL(location.href);
         if (chosen) url.searchParams.set(serviceParam, chosen.value); else url.searchParams.delete(serviceParam);
         history.replaceState(history.state, '', url.pathname + url.search + url.hash);
       });
       if (carried && servicePick) carried.querySelector('a').addEventListener('click', function (event) {
         event.preventDefault();
+        optionalDetails.open = true;
         var target = serviceRadios.find(function (r) { return r.checked; }) || serviceRadios[0];
         servicePick.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
         target.focus({ preventScroll: true });
@@ -316,6 +325,7 @@ Astro.csp.insertDirective(`connect-src ${new URL(ENDPOINT_URL).origin}`);
       function failField(field, msg) {
         showError(msg);
         if (!field) return;
+        if (optionalDetails?.contains(field)) optionalDetails.open = true;
         if (field.setAttribute) {
           field.setAttribute('aria-invalid', 'true');
           field.setAttribute('aria-describedby', 'form-error');
@@ -455,8 +465,8 @@ Astro.csp.insertDirective(`connect-src ${new URL(ENDPOINT_URL).origin}`);
         if (name.length > limits.name) return failField(form.name, 'Name is a bit long — keep it under ' + limits.name + ' characters.');
         if (!emailVal || form.email.validity.typeMismatch) return failField(form.email, 'Please add a valid email so Waseem can reply.');
         if (emailVal.length > limits.email) return failField(form.email, 'That email looks too long to be right.');
-        if (company.length > limits.company) return failField(form.company, 'Business name is a bit long — under ' + limits.company + ' characters, please.');
         if (!timeSink) return failField(form.time_sink, 'Tell us what’s eating your week — even a sentence helps.');
+        if (company.length > limits.company) return failField(form.company, 'Business name is a bit long — under ' + limits.company + ' characters, please.');
         if (message.length > limits.message) return failField(null, 'Your message is over the ' + limits.message + '-character limit across the message, team size and extra boxes. Please shorten any of them.');
 
         if (turnstileState === 'loaded') renderTurnstile();
@@ -593,9 +603,13 @@ Astro.csp.insertDirective(`connect-src ${new URL(ENDPOINT_URL).origin}`);
 .field--hero label { font-size: 0.8rem; color: var(--ink); }
 .turnstile-slot { min-height: 65px; }
 
-/* What are you interested in? Cards, not pills: each carries a name and its
-   published from-price. Two across from about 152px each, one across when the
-   column (or enlarged text) leaves less; "Not sure yet" takes a whole row. */
+.form-details { border-block: 1px solid var(--border-strong); }
+.form-details summary { padding-block: 0.7rem; color: var(--ink); cursor: pointer; }
+.form-details summary:active { background: var(--g-950); }
+.form-details__fields { display: grid; gap: var(--sp-6); padding-block: var(--sp-3) var(--sp-6); }
+.form-details__service { color: var(--muted); margin-inline-start: 0.4em; }
+.form-details[open] .form-details__service, .form-details__service:empty { display: none; }
+
 .service-pick { border: 0; margin: 0; padding: 0; min-width: 0; scroll-margin-top: 6rem; }
 .service-pick > legend { padding: 0; margin-bottom: var(--sp-3); font-family: var(--font-mono); font-size: 0.72rem;
   font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
@@ -618,6 +632,12 @@ Astro.csp.insertDirective(`connect-src ${new URL(ENDPOINT_URL).origin}`);
 .service-option:has(input:checked) .service-option__price { color: var(--g-600); }
 .service-option:has(input:checked)::after { border-color: var(--black); box-shadow: inset 0 0 0 3px var(--white), inset 0 0 0 8px var(--black); }
 .service-option:has(input:focus-visible) { outline: 2px solid var(--white); outline-offset: 3px; }
+@media (max-width: 480px) {
+  .service-pick__options { grid-template-columns: minmax(0, 1fr); }
+  .service-option { flex-flow: row wrap; justify-content: space-between; align-items: center;
+    gap: 0.25rem 0.75rem; min-height: 2.75rem; padding: 0.6rem 0.8rem 0.6rem 2.25rem; }
+  .service-option::after { inset-inline: 0.8rem auto; inset-block-start: 50%; translate: 0 -50%; }
+}
 
 .service-carried:not([hidden]) { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.35em 0.6em;
   padding: 0.6rem 0.9rem; border: 1px solid var(--border-strong); border-left: 3px solid var(--white);
