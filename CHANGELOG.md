@@ -1,5 +1,20 @@
 # Release notes
 
+## v2026.11.22.4 — 22 November 2026
+
+This release makes the site more considerate of visitors’ privacy and improves how its pages are delivered.
+
+### Improvements
+
+- Error reports pass through the Automancer website, so the reporting service does not receive visitors’ IP addresses, languages or page referrers.
+- Browsers that support Brotli receive pre-compressed copies of the site’s text files.
+
+### Fixes
+
+- Visitors using browsers or tools that request gzip only receive a smaller home page instead of an oversized Brotli version.
+- Brotli copies of HTML pages are delivered without being compressed again at the edge.
+
+
 ## v2026.11.22.3 — 22 November 2026
 
 The enquiry form is quicker to start and easier to complete.
