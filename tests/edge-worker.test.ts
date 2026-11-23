@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import worker, { ERROR_TUNNEL, OFFSITE_LOCK, SENTRY_INGEST, SENTRY_PROJECT, acceptsBrotli, envelopeItems, atOrigin, atPages, brotliFile, cachePolicy, fromPages, legacyRedirect, unlocked } from '../ops/edge/worker.js';
+import worker, { ERROR_TUNNEL, OFFSITE_LOCK, SENTRY_INGEST, SENTRY_PROJECT, acceptsBrotli, envelopeItems, signedEnvelope, atOrigin, atPages, brotliFile, cachePolicy, fromPages, legacyRedirect, unlocked } from '../ops/edge/worker.js';
 import { DIST, allHtmlFiles, contentPages } from './support/dist';
 
 // The Pages project the Worker reads (t22925): the site has no custom domain on GitHub.
@@ -449,8 +449,12 @@ describe('error report tunnel', () => {
     'User-Agent': 'Mozilla/5.0 (visitor)',
     'Content-Type': 'text/plain;charset=UTF-8',
   };
-  const post = (body: BodyInit, headers: Record<string, string> = visitor, method = 'POST') =>
-    worker.fetch(new Request(`https://automancer.uk${ERROR_TUNNEL}`, { method, headers, body: method === 'POST' ? body : undefined })) as Promise<Response>;
+  // The Worker's own client key (the SENTRY_KEY secret, t24883); the page's DSN key is not it.
+  const KEY = 'feedfacefeedfacefeedfacefeedface';
+  const SIGNED = DSN.replace('0123456789abcdef0123456789abcdef', KEY);
+  const env = { SENTRY_KEY: KEY };
+  const post = (body: BodyInit, headers: Record<string, string> = visitor, method = 'POST', bindings: object = env) =>
+    worker.fetch(new Request(`https://automancer.uk${ERROR_TUNNEL}`, { method, headers, body: method === 'POST' ? body : undefined }), bindings) as Promise<Response>;
   const sentry = () => vi.fn(() => Promise.resolve(new Response('{"id":"ffff"}', {
     status: 200, headers: { 'Content-Type': 'application/json', 'X-Sentry-Rate-Limits': '60::organization', 'X-Internal': 'x' },
   })));
@@ -477,7 +481,7 @@ describe('error report tunnel', () => {
     const sent = new Request(input, init);
     expect(sent.url).toBe(`${SENTRY_INGEST}/api/${SENTRY_PROJECT}/envelope/`);
     expect(sent.method).toBe('POST');
-    expect(await sent.text()).toBe(body);
+    expect(await sent.text(), "signed with the Worker's key, the page's key gone, the rest byte for byte").toBe(envelope(SIGNED, event()));
     expect(Object.fromEntries(sent.headers)).toEqual({
       'content-type': 'application/x-sentry-envelope',
       origin: 'https://automancer.uk',
@@ -509,6 +513,52 @@ describe('error report tunnel', () => {
       expect(res.headers.get('Content-Type'), label).toBe('application/problem+json');
     }
     expect(fetchSpy, 'nothing left the Worker').not.toHaveBeenCalled();
+  });
+
+  it("signs every report with the Worker's key, whatever key the page's DSN carries", async () => {
+    const fetchSpy = sentry();
+    vi.stubGlobal('fetch', fetchSpy);
+    const placeholder = DSN.replace('0123456789abcdef0123456789abcdef', 'tunnel');
+    const report: [Record<string, unknown>, string] = [{ type: 'client_report' }, '{"discarded_events":[]}'];
+    for (const dsn of [DSN, placeholder, DSN.replace('@', ':secret@')]) {
+      expect((await post(envelope(dsn, event()))).status, dsn).toBe(200);
+    }
+    expect((await post(envelope(placeholder, report))).status, 'a client report, as the verifier posts').toBe(200);
+    const sent = await Promise.all((fetchSpy.mock.calls as unknown as [string, RequestInit][]).map(([input, init]) => new Request(input, init).text()));
+    expect(sent).toEqual([envelope(SIGNED, event()), envelope(SIGNED, event()), envelope(SIGNED, event()), envelope(SIGNED, report)]);
+    const bytes = new TextEncoder().encode(envelope(DSN, [{ type: 'event', length: 5 }, 'a\nb\nc']));
+    expect(new TextDecoder().decode(signedEnvelope(bytes, KEY)), 'length-delimited payloads untouched').toBe(envelope(SIGNED, [{ type: 'event', length: 5 }, 'a\nb\nc']));
+  });
+
+  it("never passes a report on with the page's key when the Worker holds none", async () => {
+    const fetchSpy = sentry();
+    vi.stubGlobal('fetch', fetchSpy);
+    for (const bindings of [{}, { SENTRY_KEY: '' }]) {
+      const res = await post(envelope(DSN, event()), visitor, 'POST', bindings);
+      expect(res.status).toBe(503);
+      expect(res.headers.get('Content-Type')).toBe('application/problem+json');
+    }
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('takes a limited number of reports from one visitor and tells the SDK to wait', async () => {
+    const fetchSpy = sentry();
+    vi.stubGlobal('fetch', fetchSpy);
+    const seen: string[] = [];
+    let left = 2;
+    const ERROR_REPORTS = { limit: vi.fn(async ({ key }: { key: string }) => { seen.push(key); return { success: left-- > 0 }; }) };
+    const statuses = [];
+    for (let i = 0; i < 3; i += 1) statuses.push((await post(envelope(DSN, event()), visitor, 'POST', { ...env, ERROR_REPORTS })));
+    expect(statuses.map((r) => r.status)).toEqual([200, 200, 429]);
+    const limited = statuses[2];
+    expect(limited.headers.get('Content-Type')).toBe('application/problem+json');
+    expect(limited.headers.get('Retry-After')).toBe('60');
+    expect(limited.headers.get('X-Sentry-Rate-Limits')).toBe('60::organization');
+    expect(seen, 'counted per visitor address').toEqual(['203.0.113.7', '203.0.113.7', '203.0.113.7']);
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    const forged = await post(envelope(DSN, event()), { ...visitor, Origin: 'https://evil.example' }, 'POST', { ...env, ERROR_REPORTS });
+    expect(forged.status, 'another site is refused before it is counted').toBe(403);
+    expect(ERROR_REPORTS.limit).toHaveBeenCalledTimes(3);
   });
 
   it('reads the envelope format, length-delimited items included', () => {

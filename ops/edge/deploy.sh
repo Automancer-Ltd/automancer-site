@@ -44,6 +44,13 @@ print(json.dumps({"accountId": account, "input": {
     "modules": [{"name": "worker.js", "content_type": "application/javascript+module",
                  "content_base64": base64.b64encode(code).decode()}],
     "annotations": {"workers/message": message},
+    # The error tunnel bindings (t24883): the secret SENTRY_KEY is set once per script
+    # (workerPutScriptSecret) and carried from version to version, never read here.
+    "bindings": [
+      {"type": "inherit", "name": "SENTRY_KEY"},
+      {"type": "ratelimit", "name": "ERROR_REPORTS", "namespace_id": "24883",
+       "simple": {"limit": 10, "period": 60}},
+    ],
     # Executor checks this body against the response schema, which requires these read-only
     # fields; Cloudflare sets them itself and ignores what is sent.
     "id": "", "number": 0, "urls": [], "created_on": "",
@@ -59,7 +66,8 @@ if not (isinstance(r, dict) and r.get("success") and v):
 print("uploaded and deployed version", v.get("id"), "compatibility_date", v.get("compatibility_date"))
 '
 
-# Read back what Cloudflare now runs: the date must be the one sent.
+# Read back what Cloudflare now runs: the date must be the one sent, and the error tunnel
+# bindings must be there (without SENTRY_KEY the Worker keeps no error report).
 python3 -I -c '
 import json, sys
 print(json.dumps({"accountId": sys.argv[1], "input": {"path": {"account_id": sys.argv[2], "script_name": sys.argv[3]}}}))
@@ -71,5 +79,8 @@ r = json.load(sys.stdin); s = r.get("result", {}) if isinstance(r, dict) else {}
 want = sys.argv[1]
 if s.get("compatibility_date") != want:
     print("read back compatibility_date", repr(s.get("compatibility_date")), "expected", want); sys.exit(1)
-print("read back: compatibility_date", want, "flags", s.get("compatibility_flags"))
+bound = {b.get("name"): b.get("type") for b in s.get("bindings") or []}
+if bound.get("SENTRY_KEY") != "secret_text" or bound.get("ERROR_REPORTS") != "ratelimit":
+    print("read back bindings", bound, "expected SENTRY_KEY secret_text and ERROR_REPORTS ratelimit (docs/DEPLOYMENT.md, error reports)"); sys.exit(1)
+print("read back: compatibility_date", want, "flags", s.get("compatibility_flags"), "bindings", sorted(bound))
 ' "$COMPATIBILITY_DATE"

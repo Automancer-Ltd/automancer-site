@@ -156,6 +156,43 @@ then merge; a page that posts to `/_errors` before the Worker holds it loses its
 answers 405). Undo: revert the merge (pages post to Sentry again) and only then deploy the
 previous Worker version. `check_error_tunnel` in `ops/verify-production.sh` asks the live Worker
 the two questions it must refuse, so it never sends Sentry an event.
+
+**Only the Worker holds a key Sentry takes (t24883, 23 Nov 2026).** Until then the DSN every page
+bundles held the project's live client key (`6dc470c0…`, the project's "Default" key). Anyone could
+read it from a page and post into the error monitor directly, from anywhere and with no Origin
+(Sentry answered an empty client report with 200), or through `/_errors` with a forged `Origin`
+header and no limit, burying real errors and spending the plan's quota. Now:
+
+- The Worker signs every report with its own key: the Worker secret `SENTRY_KEY` (Sentry key
+  "automancer.uk edge Worker (SENTRY_KEY, t24883)"), set with `workerPutScriptSecret` on
+  `automancer-site-edge` and on the probe. It is never in this repository, a log or a build.
+  `signedEnvelope()` swaps the key in the envelope's `dsn` and leaves every other byte alone. A
+  Worker without `SENTRY_KEY` answers 503 and never forwards with a page's key.
+- The page's DSN holds no key: the repository variable `PUBLIC_AUT_SENTRY_WEB_DSN` is
+  `https://tunnel@o4511673494732800.ingest.de.sentry.io/4511769898647632`, which still names the
+  project for the SDK, the verifier and estate-watch. The old key is deactivated in Sentry
+  (`isActive: false`), so the copies in old pages and caches are refused (403); Sentry refuses
+  `tunnel` with 401.
+- `/_errors` takes about ten reports a minute from one address (the `ratelimit` binding
+  `ERROR_REPORTS`, namespace 24883). Cloudflare counts per location and loosely: a burst of 53
+  posts in a minute from one address had 26 taken on the probe. Past the limit the Worker answers
+  429 with `Retry-After: 60` and `X-Sentry-Rate-Limits: 60::organization`, so the SDK pauses. The
+  address is only counted at the edge and never sent on. The tunnel also takes `client_report`
+  items now, which hold only counts of dropped reports and are what the verifier posts.
+- `ops/edge/deploy.sh` uploads both bindings with every version (`SENTRY_KEY` as `inherit`, so it
+  needs the secret to exist on the script first) and fails if the read-back lacks either.
+- `ops/verify-production.sh` proves both halves on production after every deploy:
+  `check_error_tunnel_signs` posts an empty client report through `/_errors` and needs Sentry's
+  200, and `check_page_key_refused` posts one straight to Sentry with the served bundle's key and
+  needs 401 or 403. Neither prints a key.
+
+Rotate the Worker's key: create a key on the project (`sentry-guarded`
+`projects.createProjectKey`, the `de.sentry.io` account), put it with `workerPutScriptSecret`
+inside the same Executor program so the value never leaves it, check `check_error_tunnel_signs`,
+then deactivate the old one (`projects.updateProjectKey` `isActive: false`). Undo: reactivate
+`6dc470c0…`, set the repository variable back to its DSN (the value is in that key's `dsn`), and
+deploy the previous Worker version (`deploy.sh` at the previous commit, which uploads no
+bindings).
 A new third-party request needs its origin added here first, deliberately. Turnstile was checked
 on production's real origin with this policy swapped in: the widget and its frame load with no
 refusal on the page, exactly as before (Turnstile's own frame logs its own CSP lines, unrelated). Wrap trusted `is:inline`
@@ -213,7 +250,7 @@ On the Sentry project `automancer-site` (`4511769898647632`), `allowedDomains` i
 so Relay filters out cross-origin browser events from any other origin (`outcome: filtered`,
 `reason: cors`),
 `scrapeJavaScript` is `false` with `verifySSL` `true`, and replay and performance loader options
-on the public client key (`6dc470c03e475e24a3f9ab1aef1f86cb`) are disabled (`t22166`; per-key
+on the former public client key (`6dc470c03e475e24a3f9ab1aef1f86cb`, deactivated since t24883) are disabled (`t22166`; per-key
 `rateLimit` is ignored on Sentry's Team plan, where Spike Protection governs bursts). Private
 vulnerability reporting is enabled on `Automancer-Ltd/automancer-site`.
 Undo via Executor `sentry-guarded` (`projects.updateProject` and `projects.updateProjectKey`) and

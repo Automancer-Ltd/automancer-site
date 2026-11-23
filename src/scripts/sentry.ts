@@ -10,7 +10,8 @@
  * that never fail never download it. Errors raised while it loads are queued
  * and sent once it is up; from then on Sentry's own global handlers take over.
  * The DSN stays in this small page-load module, where
- * ops/verify-production.sh looks for it.
+ * ops/verify-production.sh looks for it. It names the project but holds no
+ * key Sentry takes: the edge Worker signs each report with its own (t24883).
  */
 const dsn = import.meta.env.PUBLIC_AUT_SENTRY_WEB_DSN;
 const release = import.meta.env.PUBLIC_SENTRY_RELEASE;

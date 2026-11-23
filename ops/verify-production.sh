@@ -123,6 +123,9 @@ readonly TLS_MIN_DAYS=21
 # rule that does not actually page anyone.
 readonly EXPECTED_SENTRY_PROJECT_ID='4511769898647632'
 readonly EXPECTED_SENTRY_PROJECT_SLUG='automancer-site'
+# Where that project takes reports (ops/edge/worker.js SENTRY_INGEST); --self-test
+# points it at its fixture.
+SENTRY_INGEST_URL='https://o4511673494732800.ingest.de.sentry.io'
 
 # MEASURED: Pages deploys tonight completed in 36-47s end to end. This is a
 # BACKSTOP against a hung request, not the check itself — the check is the
@@ -1003,6 +1006,78 @@ check_error_tunnel() {
     fi
   done
   printf 'POST %s refuses another site (403) and another project (400), as the tunnel must\n' "$ERROR_TUNNEL_PATH"
+}
+
+# A Sentry envelope with one empty client report: it names this site's project
+# and records nothing (no event, no issue), so posting it proves only whether
+# the key in its DSN is one Sentry takes. Never prints the key.
+sentry_probe_envelope() {
+  printf '{"dsn":"https://%s@%s/%s"}\n{"type":"client_report"}\n{"timestamp":%s,"discarded_events":[]}\n' \
+    "$2" "${SENTRY_INGEST_URL#https://}" "$EXPECTED_SENTRY_PROJECT_ID" "$(date +%s)" >"$1"
+}
+
+# check_error_tunnel_signs — production only (t24883). The Worker signs every
+# report with its own key, the Worker secret SENTRY_KEY, because the key a page
+# carries is refused by Sentry. So a lost or revoked SENTRY_KEY loses every
+# report in silence; this posts an empty client report through the tunnel, as a
+# page would, and needs Sentry's 200 for it.
+check_error_tunnel_signs() {
+  local body out err code type
+  body=$(need_tmp) out=$(need_tmp) err=$(need_tmp)
+  sentry_probe_envelope "$body" verify
+  if ! curl -sS --max-time "$HTTP_TIMEOUT_SECS" -X POST -H "Origin: https://automancer.uk" -H 'Content-Type: text/plain;charset=UTF-8' \
+    --data-binary "@${body}" -o /dev/null -w '%{http_code} %{content_type}' "${BASE_URL}${ERROR_TUNNEL_PATH}?verify=signed" >"$out" 2>"$err"; then
+    printf 'POST %s did not complete: %s\n' "$ERROR_TUNNEL_PATH" "$(tr -d '\n' <"$err")"
+    rm -f "$body" "$out" "$err"
+    return 1
+  fi
+  read -r code type <"$out"
+  rm -f "$body" "$out" "$err"
+  case $code in
+    200) printf 'POST %s with a report from this site -> 200 from Sentry: the Worker signs reports with a key Sentry takes\n' "$ERROR_TUNNEL_PATH" ;;
+    503) printf 'POST %s answered 503: the Worker holds no SENTRY_KEY, so every error report is dropped (docs/DEPLOYMENT.md, error reports)\n' "$ERROR_TUNNEL_PATH"; return 1 ;;
+    401 | 403) printf 'POST %s answered HTTP %s from Sentry: Sentry refuses the Worker'\''s SENTRY_KEY, so every error report is lost (revoked or wrong key; docs/DEPLOYMENT.md, error reports)\n' "$ERROR_TUNNEL_PATH" "$code"; return 1 ;;
+    *) printf 'POST %s answered HTTP %s (%s), expected 200 from Sentry\n' "$ERROR_TUNNEL_PATH" "$code" "${type:-no type}"; return 1 ;;
+  esac
+}
+
+# check_page_key_refused — production only (t24883). The DSN in the served
+# bundle must not hold a key Sentry takes: anyone can read it, and until t24883
+# anyone could post into the error monitor with it, from anywhere. Posts an empty
+# client report straight to Sentry with the bundle's key and needs a refusal.
+check_page_key_refused() {
+  local combined key body out err code
+  combined=$(need_tmp)
+  if ! collect_homepage_bundles "$combined"; then rm -f "$combined"; return 1; fi
+  key=$(python3 - "$combined" <<'PY'
+import re, sys
+from pathlib import Path
+text = Path(sys.argv[1]).read_text(encoding="utf-8", errors="replace")
+keys = {m for m in re.findall(r"https://([A-Za-z0-9]+)(?::[A-Za-z0-9]*)?@[A-Za-z0-9.-]*ingest(?:\.de)?\.sentry\.io/\d+", text)}
+sys.stdout.write(next(iter(keys)) if len(keys) == 1 else "")
+PY
+  )
+  rm -f "$combined"
+  if [[ -z $key ]]; then
+    printf 'the served bundle carries no single Sentry DSN to test (see the error-monitoring check)\n'
+    return 1
+  fi
+  body=$(need_tmp) out=$(need_tmp) err=$(need_tmp)
+  sentry_probe_envelope "$body" "$key"
+  key=''
+  if ! curl -sS --max-time "$HTTP_TIMEOUT_SECS" -X POST -H 'Content-Type: application/x-sentry-envelope' \
+    --data-binary "@${body}" -o /dev/null -w '%{http_code}' "${SENTRY_INGEST_URL}/api/${EXPECTED_SENTRY_PROJECT_ID}/envelope/" >"$out" 2>"$err"; then
+    printf 'POST to Sentry did not complete: %s\n' "$(tr -d '\n' <"$err")"
+    rm -f "$body" "$out" "$err"
+    return 1
+  fi
+  code=$(cat "$out")
+  rm -f "$body" "$out" "$err"
+  case $code in
+    401 | 403) printf 'Sentry refuses the key in the served bundle (HTTP %s): only the edge Worker can post into project %s\n' "$code" "$EXPECTED_SENTRY_PROJECT_ID" ;;
+    2*) printf 'Sentry TAKES the key in the served bundle (HTTP %s): anyone can read it from the page and post into project %s directly. Set PUBLIC_AUT_SENTRY_WEB_DSN back to the key-less DSN and deactivate that key (docs/DEPLOYMENT.md, error reports)\n' "$code" "$EXPECTED_SENTRY_PROJECT_ID"; return 1 ;;
+    *) printf 'Sentry answered HTTP %s to the bundle'\''s key, expected 401 or 403\n' "$code"; return 1 ;;
+  esac
 }
 
 check_security_txt() {
@@ -1997,6 +2072,33 @@ PY
   self_test_expect pass "the edge Worker holds the error tunnel" check_error_tunnel
   self_test_expect pass "the error tunnel passes nothing on from another site or for another project" check_error_tunnel
 
+  # The Worker signs reports with a key Sentry takes (t24883).
+  local signed_route='POST /_errors?verify=signed https://automancer.uk'
+  for code in 503 403; do
+    self_test_scenario '{"routes":{"'"$signed_route"'":{"status":'"$code"',"body":"{}"}},"default":{"status":404,"body":""}}'
+    self_test_expect fail "the edge Worker signs error reports with a key Sentry takes" check_error_tunnel_signs
+  done
+  self_test_scenario '{"routes":{"'"$signed_route"'":{"status":200,"body":"{}","headers":{"Content-Type":"application/json"}}},"default":{"status":404,"body":""}}'
+  self_test_expect pass "the edge Worker signs error reports with a key Sentry takes" check_error_tunnel_signs
+
+  # Sentry refuses the key the page carries (t24883).
+  SENTRY_INGEST_URL=$BASE_URL
+  local ingest_route="POST /api/${EXPECTED_SENTRY_PROJECT_ID}/envelope/" page_js
+  page_js='const dsn="https://0123456789abcdef0123456789abcdef@o4511673494732800.ingest.de.sentry.io/4511769898647632"'
+  for code in 200 403; do
+    python3 - "$SELFTEST_SCENARIO" "$page_js" "$ingest_route" "$code" <<'PY'
+import json, sys
+out, js, route, code = sys.argv[1:5]
+open(out, "w").write(json.dumps({"routes": {
+    "/": {"status": 200, "body": '<html><body><script src="/_astro/app.js"></script></body></html>'},
+    "/_astro/app.js": {"status": 200, "body": js},
+    route: {"status": int(code), "body": "{}"},
+}, "default": {"status": 404, "body": ""}}))
+PY
+    self_test_expect "$([[ $code == 403 ]] && echo pass || echo fail)" "Sentry refuses the key in the served bundle" check_page_key_refused
+  done
+  SENTRY_INGEST_URL='https://o4511673494732800.ingest.de.sentry.io'
+
   DOH_URL="${BASE_URL}/dns-query"
   for mutation in mx_absent mx_real spf_softfail spf_twice dmarc_absent dmarc_none dmarc_sp_none servfail; do
     case $mutation in
@@ -2316,6 +2418,10 @@ main() {
   fi
   if ! poll_check "served HTML pages enforce default-src 'none', Trusted Types and a connect-src of this site alone" check_page_csp; then :; fi
   if ! poll_check "the edge Worker takes error reports at ${ERROR_TUNNEL_PATH} and refuses any not for this site's project" check_error_tunnel; then :; fi
+  if (( ! PREVIEW_MODE )); then
+    if ! poll_check "the edge Worker signs error reports with a key Sentry takes (SENTRY_KEY)" check_error_tunnel_signs; then :; fi
+    if ! poll_check "Sentry refuses the key in the served bundle: only the edge Worker posts into the project" check_page_key_refused; then :; fi
+  fi
   if ! poll_check "homepage contains structural anchor \"${HOMEPAGE_ANCHOR}\"" check_homepage_anchor; then :; fi
   if [[ -n $EXPECTED_REVISION ]]; then
     if ! poll_check "homepage serves expected build revision ${EXPECTED_REVISION}" check_revision; then :; fi

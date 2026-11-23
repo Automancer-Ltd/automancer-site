@@ -100,7 +100,11 @@ ops/preview/                the non-production preview target
   Error reports go to this site too: the Sentry SDK posts to `/_errors` (`tunnel`), and the edge
   Worker passes them on to the one Sentry project without the visitor's IP address (`ERROR_TUNNEL`,
   `errorReport()`, t24432). Deploy the Worker before merging a change to that path, or every
-  report is lost; `check_error_tunnel` in `ops/verify-production.sh` fails without it. No response may carry `NEL`, `Report-To` or `Reporting-Endpoints`: they make the
+  report is lost; `check_error_tunnel` in `ops/verify-production.sh` fails without it. Only the
+  Worker holds a key Sentry takes, the Worker secret `SENTRY_KEY`, and it signs each report with it;
+  the DSN in the bundle holds none, and `/_errors` is rate-limited per visitor (`ERROR_REPORTS`,
+  t24883). `ops/edge/deploy.sh` carries both bindings, and `check_error_tunnel_signs` and
+  `check_page_key_refused` fail if either half breaks. Never put a Sentry key in the repository. No response may carry `NEL`, `Report-To` or `Reporting-Endpoints`: they make the
   browser report to a server for days, outside the CSP (Cloudflare zone setting `nel` stays off;
   the Worker strips them and `ops/verify-production.sh` fails on one).
 - The edge Worker reads the site from its Pages project address (`automancer-ltd.github.io/automancer-site`),
