@@ -8,7 +8,7 @@
  * the two answers must carry the same words and the same headers.
  */
 import { describe, expect, it } from 'vitest';
-import { readdirSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { extname, join } from 'node:path';
 import { brotliDecompressSync } from 'node:zlib';
 import { BROTLI_TYPES, legacyRedirect } from '../ops/edge/worker.js';
@@ -23,6 +23,9 @@ const built = readdirSync(DIST, { recursive: true, withFileTypes: true })
   .filter((entry) => entry.isFile())
   .map((entry) => join(entry.parentPath, entry.name).slice(DIST.length).split(/[\\/]/).join('/'));
 const compressible = built.filter((file) => Object.hasOwn(BROTLI_TYPES, extname(file)));
+const pageIndex = JSON.parse(readFileSync(join(DIST, 'api/pages.json'), 'utf8')) as {
+  pages: Array<{ url: string; markdownUrl: string | null }>;
+};
 
 const site = siteFromDist(DIST);
 const ask = (path: string, headers: Record<string, string> = {}, method = 'GET') =>
@@ -99,5 +102,37 @@ describe('Brotli copies the edge Worker sends', () => {
     const head = await ask('/about/', { 'Accept-Encoding': CHROME }, 'HEAD');
     expect(head.status).toBe(200);
     expect(head.headers.get('Content-Encoding')).toBe('br');
+  });
+
+  it('serves the same Markdown bytes and validators at every page URL and its twin URL', async () => {
+    for (const page of pageIndex.pages) {
+      if (!page.markdownUrl) continue;
+      const path = new URL(page.url).pathname;
+      const twin = new URL(page.markdownUrl).pathname;
+      for (const encoding of ['identity', CHROME]) {
+        const headers = { Accept: 'text/markdown', 'Accept-Encoding': encoding };
+        const direct = await ask(twin, headers);
+        const negotiated = await ask(path, headers);
+        expect(negotiated.status, path).toBe(200);
+        expect(negotiated.headers.get('Content-Encoding'), path).toBe(encoding === CHROME ? 'br' : null);
+        expect(negotiated.headers.get('Content-Type'), path).toBe('text/markdown; charset=utf-8');
+        expect(negotiated.headers.get('Content-Location'), path).toBe(twin);
+        expect(negotiated.headers.get('ETag'), path).toBe(direct.headers.get('ETag'));
+        expect(Buffer.from(await negotiated.arrayBuffer()), path).toEqual(Buffer.from(await direct.arrayBuffer()));
+
+        const etag = direct.headers.get('ETag')!;
+        const unchanged = await ask(path, { ...headers, 'If-None-Match': etag });
+        expect(unchanged.status, path).toBe(304);
+        for (const name of ['ETag', 'Vary', 'Content-Location', 'Cache-Control', 'Content-Encoding']) {
+          expect(unchanged.headers.get(name), `${path}: ${name}`).toBe(negotiated.headers.get(name));
+        }
+        expect(unchanged.body, path).toBeNull();
+
+        const changed = await ask(path, { ...headers, 'If-None-Match': '"old-version"' }, 'HEAD');
+        expect(changed.status, path).toBe(200);
+        expect(changed.headers.get('ETag'), path).toBe(etag);
+        expect(changed.body, path).toBeNull();
+      }
+    }
   });
 });
