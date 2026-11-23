@@ -18,6 +18,20 @@ exact `dist/` it publishes, so a heavier production build fails the release inst
 
 ## Decisions behind the numbers
 
+- **The service offers share one prefetched Contact page (t24957, 23 Nov 2026).**
+  Each offer used to spend a separate prefetch slot on the same HTML under a different
+  `?service=` address. Links from other pages now carry the choice in `#service=`, leaving
+  one HTTP cache entry for all offers and the header's Contact link. On arrival the form
+  selects the offer and restores its shareable query address. Existing query links still work.
+  The Audit link in Contact's own footer keeps the query so it can open a fresh form after
+  a submission. The contract test holds all offers to one document URL, and the browser
+  journey checks that selecting, changing and sending the service still works.
+
+  On a 390 px Firefox touch profile, reading each of the four offers before tapping the
+  last one went from five Contact document downloads to one. Compressed Contact HTML fell
+  from 93,910 B to 18,897 B, and the final tap used the prefetched response. Both builds
+  ran through the local Worker with 200 ms of added HTML response time.
+
 - **Browsers get the build's own Brotli, not Cloudflare's quick compression (t24283, 22 Nov 2026).**
   Cloudflare compressed each file GitHub Pages sent at a fast, loose level, and chose zstd for
   Chrome and Firefox: the home page went out at 20,839 B, more than GitHub's own gzip (18,809 B).
@@ -60,8 +74,9 @@ exact `dist/` it publishes, so a heavier production build fails the release inst
   fetches. A reader who scrolls through a whole page, pausing 2.5 s a screen, fetched the five
   allowed on every page but `/contact/` (one): usually the header's home and Contact links and
   the first three links read in the page, about 20 KB each compressed, so up to about 100 KB a
-  page view; a page already fetched in the last ten minutes costs nothing again. Three of
-  `/services/`'s five go to `/contact/?service=…`, one address per offer for the same page.
+  page view; a page already fetched in the last ten minutes costs nothing again. At the time,
+  three of `/services/`'s five went to `/contact/?service=…`, one address per offer for the
+  same page.
 
   Measuring it also explained why t23288 saw no gain for Safari live. Playwright's WebKit has
   Speculation Rules prefetch on (WebKit's own builds; Safari 27 ships it off, `status: preview`

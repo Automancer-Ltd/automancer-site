@@ -222,7 +222,7 @@ async function driveFormState(
       return { status: response.status ?? 200, json: async () => response.body };
     },
     { getItem: () => null },
-    { search: '' },
+    new URL('https://automancer.uk/contact/'),
     URLSearchParams,
   );
 

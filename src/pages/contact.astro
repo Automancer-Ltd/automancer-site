@@ -79,7 +79,7 @@ Astro.csp.insertDirective(`connect-src ${new URL(ENDPOINT_URL).origin}`);
 
           <p id="form-unavailable">Please email <a href={emailLink}>{business.email}</a> to get in touch.</p>
           <form id="contact-form" class="form" method="POST" novalidate data-endpoint={ENDPOINT_URL} hidden>
-            <!-- Arriving from an offer's button (/contact/?service=<id>) names the offer here,
+            <!-- Arriving from an offer's button names the offer here,
                  so the visitor sees their choice came with them; "Change" jumps to it. -->
             <p id="service-carried" class="service-carried" data-page-words="skip" hidden>
               <span class="service-carried__label">Asking about</span>
@@ -236,9 +236,9 @@ Astro.csp.insertDirective(`connect-src ${new URL(ENDPOINT_URL).origin}`);
         recovery.hidden = false;
       }
 
-      // What are you interested in? An offer's button arrives with ?service=<id>:
-      // pick it, name it above the form, and keep the address in step with a
-      // change, so a reload or a shared link keeps the choice. Nothing is stored.
+      // Offer fragments let every offer share the same HTTP cache entry. After
+      // arrival use the published query address, so reloads and shares keep the
+      // choice even if the visitor has followed another anchor in the form.
       var carried = document.getElementById('service-carried');
       var optionalDetails = document.getElementById('optional-details');
       var optionalService = document.getElementById('optional-service');
@@ -255,12 +255,24 @@ Astro.csp.insertDirective(`connect-src ${new URL(ENDPOINT_URL).origin}`);
         carried.querySelector('[data-service-name]').textContent = chosen.label;
         carried.hidden = false;
       }
-      var wanted = new URLSearchParams(location.search).get(serviceParam);
-      var arrived = serviceRadios.find(function (r) { return r.value === wanted; });
-      if (arrived) {
+      function selectArrivingService() {
+        var url = new URL(location.href);
+        var offer = url.hash.startsWith('#' + serviceParam + '=') ? new URLSearchParams(url.hash.slice(1)).get(serviceParam) : null;
+        var wanted = url.searchParams.get(serviceParam) ?? offer;
+        var arrived = serviceRadios.find(function (r) { return r.value === wanted; });
+        if (!arrived) return;
         arrived.checked = true;
         showCarried();
+        if (offer !== null) {
+          url.hash = '';
+          url.searchParams.set(serviceParam, arrived.value);
+          history.replaceState(history.state, '', url.pathname + url.search);
+        }
       }
+      // Chrome may activate a prerender with a different fragment than it
+      // started with. Read the address the visitor actually opened.
+      if (document.prerendering) document.addEventListener('prerenderingchange', selectArrivingService, { once: true });
+      else selectArrivingService();
       if (servicePick) servicePick.addEventListener('change', function () {
         var chosen = chosenService();
         if (carried && !carried.hidden) showCarried();

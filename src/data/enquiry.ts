@@ -46,17 +46,18 @@ export const SERVICE_OPTIONS: readonly EnquiryOption[] = [
   { value: NOT_SURE, label: 'Not sure yet' },
 ];
 
-/** The query parameter that picks a service on arrival: /contact/?service=<id>. */
+/** The parameter that picks a service on arrival, in a fragment or a query. */
 export const SERVICE_PARAM = 'service';
 
 /**
  * The contact address a button for one offer links to. The form arrives with
- * that offer picked, and the visitor can change or clear it. An unknown id is
- * a build error, not a link that silently picks nothing.
+ * that offer picked, and the visitor can change or clear it. Offer links from
+ * other pages use a fragment so they all reuse the same prefetched document.
+ * Use a query for links within Contact that should open a fresh form.
  */
-export function contactHref(serviceId: string): string {
+export function contactHref(serviceId: string, { query = false } = {}): string {
   if (!SERVICE_OPTIONS.some((o) => o.value === serviceId)) throw new Error(`No enquiry option "${serviceId}"`);
-  return `/contact/?${SERVICE_PARAM}=${encodeURIComponent(serviceId)}`;
+  return `/contact/${query ? '?' : '#'}${SERVICE_PARAM}=${encodeURIComponent(serviceId)}`;
 }
 
 export interface EnquiryField {
@@ -193,7 +194,7 @@ export function enquiryContract() {
       values: SERVICE_OPTIONS.map((o) => o.value),
       example: `${abs('/contact/')}?${SERVICE_PARAM}=${services[0]!.id}`,
       detail:
-        'Opening /contact/ with ?service=<value> arrives with that option picked; the visitor can change it. Each service button on the site links this way. An unknown value picks nothing.',
+        'Opening /contact/ with ?service=<value> arrives with that option picked; the visitor can change it. Offer links from other pages use #service=<value> and open the same form. An unknown value picks nothing.',
     },
     combinedMessage: COMBINED_MESSAGE,
     email: {
