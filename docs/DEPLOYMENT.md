@@ -298,6 +298,13 @@ Undo via Executor `sentry-guarded` (`projects.updateProject` and `projects.updat
   `Content-Location: /services.md`. Repeat the first request with that `If-None-Match` and expect
   a bodyless `304` with `Content-Location`. The same revalidation works without Brotli. Roll back
   by deploying the preceding Worker version.
+- **HTML byte ranges (t25022):** a range on HTML returns the whole page with `Accept-Ranges: none`.
+  Removing the Pages lock changes byte offsets, so a partial copy from Pages can truncate the
+  document or cause a Worker error. The local Pages stand-in supports single ranges and the
+  journey checks the complete HTML, security headers and a working 64-byte PNG download.
+  Deploy the Worker before merging so the new live journey can pass. To roll back both,
+  revert the merge through a pull request, let Pages publish, then deploy the preceding Worker
+  version. Direct file downloads keep their origin range support.
 - **Runtime (t21891, 20 Nov 2026):** `deploy.sh` uploads `worker.js` byte for byte as an ES module
   through Cloudflare's JSON Workers API (`api.versions.createWorkerVersion`, `deploy=true`) with
   `COMPATIBILITY_DATE`, then reads the date back. Before t21891 it rewrote the module into a
@@ -390,7 +397,7 @@ visitor's IP address (`CF-Connecting-IP`, `X-Forwarded-For`), every cookie the b
 `automancer.uk` (including any an estate app scopes to the whole domain), the full `Referer` (on a
 click between pages, the page and its query, such as `?service=`), `Accept-Language` and `User-Agent`.
 Now `pagesRequest()` sends only the method and `If-None-Match`, `If-Modified-Since`, `Range` and
-`If-Range`, so 304s and 206s still work. GitHub sees Cloudflare's Workers address
+`If-Range`, so 304s still work, as do 206s for direct file downloads. GitHub sees Cloudflare's Workers address
 (`2a06:98c0:3600::103`), not the visitor's. `tests/edge-worker.test.ts` fails if any other header
 reaches the Pages stand-in. To see what an origin receives, upload `worker.js` with `PAGES_HOST`
 set to `httpbin.org` and `PAGES_PATH` set to `/anything` to the probe (`ops/edge/deploy.sh

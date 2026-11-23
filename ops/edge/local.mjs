@@ -8,7 +8,8 @@
 // a stand-in for GitHub Pages that reads dist/ and answers as Pages does (checked against the
 // Pages copy on 21 Nov 2026: a directory without its slash 301s to it with the query kept, a
 // missing file is 404.html with no Cache-Control, every file carries max-age=600, Vary:
-// Accept-Encoding, an ETag and Access-Control-Allow-Origin: *).
+// Accept-Encoding, an ETag and Access-Control-Allow-Origin: *). Pages also serves single
+// byte ranges, letting the local journey exercise the Worker's response to partial files.
 //
 // So whatever reads the local site (the visitor journey, `pnpm run compare`, the ops/perf probes)
 // gets the response headers, redirects and twins a visitor gets, and a test that needs the Worker
@@ -58,6 +59,20 @@ const TYPES = {
   '.webmanifest': 'application/manifest+json',
 };
 
+/** A single byte range, as Pages serves it. Multiple or malformed ranges get the full file. */
+function byteRange(request, headers, size) {
+  const validator = request.headers.get('If-Range');
+  if (validator !== null && validator !== headers.ETag && validator !== headers['Last-Modified']) return null;
+  const range = /^bytes=(\d*)-(\d*)$/i.exec(request.headers.get('Range') ?? '');
+  if (!range) return null;
+  const [, first, last] = range;
+  if (!first && !last) return null;
+  if (first && last && Number(first) > Number(last)) return null;
+  const start = first ? Number(first) : Math.max(0, size - Number(last));
+  const end = first && last ? Math.min(Number(last) + 1, size) : size;
+  return { start, end };
+}
+
 /** A stand-in for GitHub Pages serving `dist`: answers Requests to the Pages project address. */
 export function pagesFromDist(dist) {
   const root = path.resolve(dist);
@@ -91,13 +106,23 @@ export function pagesFromDist(dist) {
     const etag = `"${Math.floor(found.mtimeMs / 1000).toString(16)}-${found.size.toString(16)}"`;
     const headers = {
       ...always,
+      'Accept-Ranges': 'bytes',
       'Cache-Control': 'max-age=600',
       'Content-Type': TYPES[path.extname(file)] ?? 'application/octet-stream',
       ETag: etag,
       'Last-Modified': found.mtime.toUTCString(),
     };
     if (request.headers.get('If-None-Match') === etag) return new Response(null, { status: 304, headers });
-    return new Response(head ? null : await readFile(file), { status: 200, headers });
+    if (head) return new Response(null, { status: 200, headers });
+    const range = request.method === 'GET' && byteRange(request, headers, found.size);
+    if (!range) return new Response(await readFile(file), { status: 200, headers });
+    const { start, end } = range;
+    if (start >= end) {
+      headers['Content-Range'] = `bytes */${found.size}`;
+      return new Response(null, { status: 416, headers });
+    }
+    headers['Content-Range'] = `bytes ${start}-${end - 1}/${found.size}`;
+    return new Response((await readFile(file)).subarray(start, end), { status: 206, headers });
   };
 }
 

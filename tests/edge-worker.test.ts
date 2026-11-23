@@ -178,12 +178,12 @@ describe('edge Worker in front of GitHub Pages', () => {
         expect(JSON.stringify([...sent.headers]), path).not.toMatch(/203\.0\.113\.7|visitor-secret|service=audit|en-GB|Android/);
       }
     }
-    // A revalidation and a range request still reach Pages, so a 304 and a 206 still work.
-    const page = fetchSpy.mock.calls[0][0] as Request;
-    expect(page.headers.get('If-None-Match')).toBe('"abc"');
-    expect(page.headers.get('If-Modified-Since')).toBe('Sat, 21 Nov 2026 23:49:16 GMT');
-    expect(page.headers.get('Range')).toBe('bytes=0-99');
-    expect(page.method).toBe('GET');
+    // A file served byte-for-byte can still revalidate or resume a download.
+    const file = fetchSpy.mock.calls[0][0] as Request;
+    expect(file.headers.get('If-None-Match')).toBe('"abc"');
+    expect(file.headers.get('If-Modified-Since')).toBe('Sat, 21 Nov 2026 23:49:16 GMT');
+    expect(file.headers.get('Range')).toBe('bytes=0-99');
+    expect(file.method).toBe('GET');
     fetchSpy.mockClear();
     await get('/services/', 'text/html', 'HEAD');
     expect((fetchSpy.mock.calls[0][0] as Request).method).toBe('HEAD');
