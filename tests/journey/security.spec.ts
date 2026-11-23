@@ -193,6 +193,29 @@ test('active SVG and XML endpoints refuse injected scripts and outbound requests
 // NEL, Report-To or Reporting-Endpoints, which would have the browser post reports to
 // a server for days after the visit, outside the page's CSP. The headers come from the
 // edge Worker, which serves the local run as it serves production.
+test('byte-range requests get complete HTML and partial downloads for unchanged files', async ({ request, isMobile }) => {
+  test.skip(!isMobile, 'HTTP range handling is independent of viewport');
+  const identity = { 'Accept-Encoding': 'identity' };
+  const headers = { ...identity, Range: 'bytes=0-63' };
+
+  for (const path of ['/privacy/', '/index%2ehtml']) {
+    const full = await request.get(path, { headers: identity });
+    expect(full.status(), path).toBe(200);
+    const ranged = await request.get(path, { headers });
+    expect(ranged.status(), path).toBe(200);
+    expect(ranged.headers()['content-range'], path).toBeUndefined();
+    expect(ranged.headers()['x-content-type-options'], path).toBe('nosniff');
+    expect((await ranged.body()).equals(await full.body()), path).toBe(true);
+  }
+
+  const image = await request.get('/og/pages/home.png', { headers });
+  expect(image.status()).toBe(206);
+  expect(image.headers()['content-range']).toMatch(/^bytes 0-63\/\d+$/);
+  const bytes = await image.body();
+  expect(bytes.length).toBe(64);
+  expect(bytes.subarray(0, 8).toString('hex')).toBe('89504e470d0a1a0a');
+});
+
 test('a site that opens a page in a window cannot take it over, and no page asks the browser to report anywhere', async ({ page, context, baseURL }) => {
   await context.route('https://opener.example/**', (route) =>
     route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>another site</title>' }),

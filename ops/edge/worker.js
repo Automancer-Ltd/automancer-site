@@ -13,6 +13,7 @@
 //   - A legacy *.html URL gets one real 301 to its page.
 //   - Every HTML page has the lock the build puts in it for the GitHub Pages
 //     copy taken out (OFFSITE_LOCK), so it is drawn only here.
+//   - HTML is served as a whole page because that transform changes byte offsets.
 //   - The display font's HTML preload is also sent in the response headers.
 //   - Every response, HTML, Markdown, JSON, error or redirect, carries the
 //     same SECURITY_HEADERS, so people and machines get the same answers.
@@ -372,7 +373,7 @@ export function atPages(pathname, search = '') {
 }
 
 // The only request headers that change what GitHub Pages answers: validators
-// for a 304 and ranges for a 206. Pages serves the same file to everyone, so
+// for a 304 and ranges for a 206 on files served byte-for-byte. Pages serves the same file to everyone, so
 // it is sent nothing else of the visitor's (t23955). Copying the visitor's
 // request, as the Worker did until then, gave GitHub their IP address
 // (CF-Connecting-IP, X-Forwarded-For), every cookie a browser holds for
@@ -390,6 +391,27 @@ export function pagesRequest(url, request, names = PAGES_REQUEST_HEADERS) {
     if (value !== null) headers.set(name, value);
   }
   return new Request(url, { method: request.method, headers });
+}
+
+const isHtml = (response) => (response.headers.get('Content-Type') ?? '').startsWith('text/html');
+
+async function fetchPageFile(url, request, policy) {
+  const file = atPages(url.pathname, url.search);
+  const options = {
+    redirect: 'manual',
+    // Only a found file is kept; a 404 or an error is asked for again next time.
+    ...(policy && { cf: { cacheTtlByStatus: { '200-299': policy.edge, '300-599': -1 } } }),
+  };
+  // Byte offsets into the Pages copy are wrong after the HTML lock is removed.
+  const pagePath = url.pathname.endsWith('/') || url.pathname.endsWith('.html');
+  const headers = pagePath ? CACHE_VALIDATORS : PAGES_REQUEST_HEADERS;
+  const response = await fetch(pagesRequest(file, request, headers), options);
+  // Pages also resolves spellings such as /index%2ehtml.
+  if (!pagePath && (response.status === 206 || response.status === 416) && isHtml(response)) {
+    response.body?.cancel().catch(() => {});
+    return fetch(pagesRequest(file, request, CACHE_VALIDATORS), options);
+  }
+  return response;
 }
 
 /**
@@ -604,6 +626,7 @@ async function brotliCopy(request, pathname, file, policy) {
   const headers = new Headers(res.headers);
   headers.set('Content-Type', file.type);
   headers.set('Content-Encoding', 'br');
+  if (html) headers.set('Accept-Ranges', 'none');
   // Caches keep one copy per encoding; Pages already names Accept-Encoding, withVary adds Accept.
   const vary = (headers.get('Vary') ?? '').split(',').map((t) => t.trim().toLowerCase());
   if (!vary.includes('accept-encoding')) headers.set('Vary', headers.get('Vary') ? `${headers.get('Vary')}, Accept-Encoding` : 'Accept-Encoding');
@@ -665,6 +688,7 @@ async function respond(request, env) {
     const copy = file ? await brotliCopy(request, twin, file, null) : null;
     if (copy) {
       copy.headers.set('Content-Location', twin);
+      copy.headers.set('Accept-Ranges', 'none');
       return copy;
     }
     // Negotiation serves the whole twin. Revalidate against the twin itself, without asking
@@ -674,6 +698,7 @@ async function respond(request, env) {
       const out = withVary(res);
       out.headers.set('Content-Type', MARKDOWN);
       out.headers.set('Content-Location', twin);
+      out.headers.set('Accept-Ranges', 'none');
       return out;
     }
     res.body?.cancel().catch(() => {});
@@ -685,11 +710,7 @@ async function respond(request, env) {
     const copy = await brotliCopy(request, url.pathname, brotli, policy);
     if (copy) return copy;
   }
-  const res = await fetch(pagesRequest(atPages(url.pathname, url.search), request), {
-    redirect: 'manual',
-    // Only a found file is kept; a 404 or an error is asked for again next time.
-    ...(policy && { cf: { cacheTtlByStatus: { '200-299': policy.edge, '300-599': -1 } } }),
-  });
+  const res = await fetchPageFile(url, request, policy);
 
   if (res.status >= 300 && res.status < 400 && res.headers.has('Location')) {
     const back = fromPages(res.headers.get('Location'));
@@ -713,16 +734,16 @@ async function respond(request, env) {
     out.headers.set('Cache-Control', policy.browser);
     out.headers.delete('Expires');
   }
-  const html = (out.headers.get('Content-Type') ?? '').startsWith('text/html');
-  if (html && res.ok) out.headers.set('Link', pageLinks(url.pathname));
-  if (html && out.body) {
+  if (isHtml(out)) {
+    out.headers.set('Accept-Ranges', 'none');
+    out.headers.delete('Content-Length');
+    if (res.ok) out.headers.set('Link', pageLinks(url.pathname));
+    if (!out.body) return out;
     // The page is drawn here, on automancer.uk, and nowhere else (OFFSITE_LOCK).
     const body = unlocked(out.body);
-    const open = res.ok && request.method === 'GET'
+    return res.ok && request.method === 'GET'
       ? await withDisplayFontPreload(body, out)
       : new Response(body, out);
-    open.headers.delete('Content-Length');
-    return open;
   }
   if (url.pathname === '/.well-known/api-catalog') {
     out.headers.set('Content-Type', 'application/linkset+json; profile="https://www.rfc-editor.org/info/rfc9727"');

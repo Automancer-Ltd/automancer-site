@@ -127,7 +127,8 @@ ops/preview/                the non-production preview target
 - The Worker sends GitHub Pages only the method, `If-None-Match`, `If-Modified-Since`, `Range` and
   `If-Range` (`pagesRequest()` in `ops/edge/worker.js`, t23955). Never pass the visitor's `Request`
   to `fetch()`: that forwards their IP address, cookies and Referer to GitHub
-  (`tests/edge-worker.test.ts`).
+  (`tests/edge-worker.test.ts`). Honor ranges only for files served byte-for-byte.
+  HTML loses `OFFSITE_LOCK` and must be served whole (t25022).
 - A browser that takes Brotli gets the build's own `<file>.br` (`src/integrations/precompress.ts`,
   written last, HTML with `OFFSITE_LOCK` already out), sent untouched by the Worker
   (`brotliCopy()`, t24283). An integration that changes `dist/` must run before `precompress()`,
