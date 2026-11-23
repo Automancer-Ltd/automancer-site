@@ -120,13 +120,17 @@ describe('/api/enquiry.json — the enquiry contract matches the /contact/ form'
     const values = contract.fields.find((f) => f.id === 'service')!.options!.map((o) => o.value);
     expect(contract.prefill.values).toEqual(values);
     const prefilled = (doc: ReturnType<typeof parse>) =>
-      doc.querySelectorAll('a[href^="/contact/?"]').map((a) => new URL(a.getAttribute('href')!, SITE_URL));
+      doc.querySelectorAll('a[href^="/contact/#"]').map((a) => new URL(a.getAttribute('href')!, SITE_URL));
     const services = parse(readDistFile('services/index.html') ?? '');
     const links = prefilled(services);
     // Four offers, the closing Audit button, "Ask us which offer fits" and the footer's Audit link.
     expect(links.length).toBe(7);
-    for (const url of links) expect(values).toContain(url.searchParams.get(contract.prefill.parameter));
-    expect(new Set(links.map((u) => u.searchParams.get(contract.prefill.parameter))).size).toBe(5);
+    const offerValue = (url: URL) => new URLSearchParams(url.hash.slice(1)).get(contract.prefill.parameter);
+    for (const url of links) {
+      expect(url.pathname + url.search).toBe('/contact/');
+      expect(values).toContain(offerValue(url));
+    }
+    expect(new Set(links.map(offerValue)).size).toBe(5);
     expect(values).toContain(new URL(contract.prefill.example).searchParams.get(contract.prefill.parameter));
   });
 

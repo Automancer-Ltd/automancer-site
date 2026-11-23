@@ -252,7 +252,7 @@ test('homepage prices are one scroll away and link to the matching offer', async
     const detail = page.getByRole('region', { name: service.name, exact: true });
     await expect(detail.getByRole('heading', { name: service.name })).toBeInViewport();
     await expect(detail.getByRole('link', { name: /Book an Audit|Start a Sprint|Scope a Build|Become a Partner/ }))
-      .toHaveAttribute('href', `/contact/?service=${service.id}`);
+      .toHaveAttribute('href', `/contact/#service=${service.id}`);
     await page.goto('/');
   }
 });
@@ -483,8 +483,18 @@ test("an offer's button carries that service into the enquiry, and the visitor c
     message: `Interested in: ${audit.name}\n\n${ENQUIRY.time_sink}`,
   });
 
+  // The Contact footer opens a fresh form even after a successful submission.
+  await page.getByRole('navigation', { name: 'Get in touch' }).getByRole('link', { name: /Book an Audit/ }).click();
+  await expect(page.locator('#contact-form')).toBeVisible();
+  await expect(carried).toContainText(audit.name);
+  await expect(page.locator('#name')).toHaveValue('');
+
+  // Bookmarks with the published query parameter still prefill the choice.
+  await page.goto(`/contact/?service=${sprint.id}`);
+  await expect(carried).toContainText(sprint.name);
+
   // An address naming no published service picks nothing and shows no note.
-  await page.goto('/contact/?service=free-website');
+  await page.goto('/contact/#service=free-website');
   await expect(page.locator('#contact-form')).toBeVisible();
   await expect(carried).toBeHidden();
   await expect(page.locator('input[name="service"]:checked')).toHaveCount(0);

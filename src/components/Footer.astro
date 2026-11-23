@@ -44,7 +44,7 @@ const year = new Date().getFullYear();
       <div class="footer__col">
         <h3>Start here</h3>
         <nav aria-label="Get in touch">
-          <a href={contactHref('automation-opportunity-audit')}>Book an Audit — from {auditFrom}</a>
+          <a href={contactHref('automation-opportunity-audit', { query: Astro.url.pathname === '/contact/' })}>Book an Audit — from {auditFrom}</a>
           <a href="/contact/">Tell us what's eating your week</a>
           <a href={`mailto:${business.email}`}>{business.email}</a>
         </nav>
