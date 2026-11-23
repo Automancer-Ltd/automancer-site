@@ -174,7 +174,7 @@ ${principles.map(([n, d], i) => `${i + 1}. **${n}** — ${d}`).join('\n')}
 function contactBody(): string {
   return `# Tell us what's eating your week.
 
-No calendar gauntlet. No chatbot. No twelve-step sales sequence.
+Waseem reads your enquiry himself.
 
 ## How to reach a human
 

@@ -1,8 +1,9 @@
 # 05 Contact and the enquiry form
 
-**The journey.** A visitor fills in the form on `/contact/`, gets told plainly what is missing,
-sends it, and sees the confirmation. If the security check or the intake service fails, they keep
-what they wrote and get a working email route.
+**The journey.** A visitor can email Waseem, leave a voicemail, or start the form from the first
+screen on a phone or laptop. In the form they get told plainly what is missing, send it, and see
+the confirmation. If the security check or the intake service fails, they keep what they wrote
+and get a working email route.
 
 **Reach it.** `/contact/` (header, footer and every call to action). An offer's button, and
 every "Book an Audit" button, opens `/contact/?service=<id>`: the form arrives with that service
@@ -18,7 +19,8 @@ picked and named above the first field.
   the choice, the address following the pick, and the closed details still reaching the endpoint.
   An unknown `?service=` picks nothing.
 - `with reduced motion, the form jumps straight to its error and its confirmation`.
-- `the enquiry form starts on the first screen, and still works with text at 200%`.
+- `the direct contact links and first form field fit on the first screen`: correct email and
+  phone destinations, keyboard order into the form, and usable navigation at 200% text.
 - `reading the contact page never starts the security check, but using the form does`.
 - `a slow security script offers email without losing the draft or preventing a later send`.
 - `a refused or failed send keeps the enquiry and never shows an error code` and
