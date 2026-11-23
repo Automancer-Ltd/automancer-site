@@ -321,20 +321,22 @@ test("a case study's figures never break inside a word, even with text at 200%",
   }
 });
 
-test('the enquiry form starts on the first screen, and still works with text at 200%', async ({ page }, info) => {
+test('the direct contact links and first form field fit on the first screen', async ({ page }, info) => {
   await stubIntake(page, { status: 200, body: { ok: true } });
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/contact/');
-  // The page exists to take an enquiry: the first field is visible on arrival,
-  // not two screens down behind the promise (1558px at 390×844 before t19493).
-  await expect(page.locator('#name')).toBeInViewport({ ratio: 1 });
-  // And it is the first stop in the content, ahead of the promise and phone route.
-  const order = await page.evaluate(() => {
-    const name = document.getElementById('name')!;
-    const tel = document.querySelector('main a[href^="tel:"]')!;
-    return name.compareDocumentPosition(tel) & Node.DOCUMENT_POSITION_FOLLOWING ? 'form first' : 'form after';
-  });
-  expect(order).toBe('form first');
+  const main = page.getByRole('main');
+  const email = main.getByRole('link', { name: /^Email Waseem/ });
+  const voicemail = main.getByRole('link', { name: /^Leave a voicemail/ });
+  const name = main.getByRole('textbox', { name: 'Your name' });
+  await expect(email).toHaveAttribute('href', `mailto:${business.email}`);
+  await expect(voicemail).toHaveAttribute('href', `tel:${business.phoneTel}`);
+  for (const control of [email, voicemail, name]) await expect(control).toBeInViewport({ ratio: 1 });
+  await email.focus();
+  await page.keyboard.press('Tab');
+  await expect(voicemail).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(name).toBeFocused();
 
   // A visitor who enlarges text to 200% (WCAG 1.4.4) can still open the menu
   // and use the form without scrolling sideways. The menu button used to sit
@@ -601,7 +603,7 @@ test('reading the contact page never starts the security check, but using the fo
   await page.goto('/contact/');
   await page.clock.fastForward(3000);
   await expect(page.locator('script[src*="/turnstile/"]')).toHaveCount(0);
-  await page.locator('.contact-grid__aside a[href^="tel:"]').scrollIntoViewIfNeeded();
+  await page.getByRole('link', { name: /^Leave a voicemail/ }).focus();
   await page.clock.fastForward(12_000);
   await expect(page.locator('script[src*="/turnstile/"]')).toHaveCount(0);
   expect(asked).toEqual([]);
@@ -733,7 +735,7 @@ test.describe('with JavaScript off', () => {
   test('offers email where the contact form would have been', async ({ page }) => {
     await page.goto('/contact/');
     await expect(page.locator('#contact-form')).toBeHidden();
-    const email = page.locator('main').getByRole('link', { name: business.email });
+    const email = page.locator('#form-unavailable').getByRole('link', { name: business.email });
     await expect(email).toBeVisible();
     await expect(email).toHaveAttribute('href', `mailto:${business.email}`);
   });
