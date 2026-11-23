@@ -1,5 +1,15 @@
 # Release notes
 
+## v2026.11.23.1 — 23 November 2026
+
+This release makes it easier to get in touch and receive text versions of site pages.
+
+### Improvements
+
+- Email and voicemail options now appear on the first Contact screen, so visitors can choose how to get in touch straight away.
+- When you request a page’s Markdown version, the site rechecks it and sends it in compressed form.
+
+
 ## v2026.11.22.4 — 22 November 2026
 
 This release makes the site more considerate of visitors’ privacy and improves how its pages are delivered.
