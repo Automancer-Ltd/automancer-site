@@ -3,7 +3,8 @@
 // GitHub Pages serves fixed files, so it cannot answer per request. This
 // Worker adds only what needs that, and only from files the build already
 // publishes:
-//   - Accept: text/markdown on a page with a Markdown twin gets the twin.
+//   - Accept: text/markdown on a page with a Markdown twin gets the twin,
+//     with the same Brotli copy and cache validators as the direct .md URL.
 //   - A 404 asked for as Markdown gets a Markdown body pointing at the indexes.
 //   - Errors under /api/ are RFC 9457 application/problem+json.
 //   - /.well-known/api-catalog gets its RFC 9727 media type.
@@ -319,12 +320,13 @@ export function atPages(pathname, search = '') {
 // automancer.uk (including any an estate app scopes to the whole domain),
 // the full Referer (on a click between pages, the page and its query, such
 // as ?service=), Accept-Language and User-Agent, on every page view.
-const PAGES_REQUEST_HEADERS = ['If-None-Match', 'If-Modified-Since', 'Range', 'If-Range'];
+const CACHE_VALIDATORS = ['If-None-Match', 'If-Modified-Since'];
+const PAGES_REQUEST_HEADERS = [...CACHE_VALIDATORS, 'Range', 'If-Range'];
 
 /** The request sent to the Pages project for a visitor's request: its method and PAGES_REQUEST_HEADERS only. */
-export function pagesRequest(url, request) {
+export function pagesRequest(url, request, names = PAGES_REQUEST_HEADERS) {
   const headers = new Headers();
-  for (const name of PAGES_REQUEST_HEADERS) {
+  for (const name of names) {
     const value = request.headers.get(name);
     if (value !== null) headers.set(name, value);
   }
@@ -513,20 +515,20 @@ async function displayFont(reader) {
 }
 
 /**
- * The build's Brotli copy of the file at `url`, ready to send (BROTLI_TYPES), or null to serve the
+ * The build's Brotli copy of the file at `pathname`, ready to send (BROTLI_TYPES), or null to serve the
  * file as before: the copy is missing (a page that does not exist, or a build from before t24283)
  * or Pages answered anything but 200 or 304. A page's display font preload cannot be read from
  * Brotli here (Workers decompress only gzip and deflate), so for an HTML GET the page itself is
  * fetched alongside and only its early head read, as withDisplayFontPreload does.
  */
-async function brotliCopy(request, url, file, policy) {
+async function brotliCopy(request, pathname, file, policy) {
   const html = file.type.startsWith('text/html');
   const [res, page] = await Promise.all([
     fetch(pagesRequest(atPages(file.path), request), {
       redirect: 'manual',
       ...(policy && { cf: { cacheTtlByStatus: { '200-299': policy.edge, '300-599': -1 } } }),
     }),
-    html && request.method === 'GET' ? fetch(atPages(url.pathname)).catch(() => null) : null,
+    html && request.method === 'GET' ? fetch(atPages(pathname)).catch(() => null) : null,
   ]);
   let href;
   if (page?.ok && page.body && res.status === 200) {
@@ -558,7 +560,7 @@ async function brotliCopy(request, url, file, policy) {
   // was byte-identical to the built file without its lock, 22 Nov 2026), so skipping them
   // changes no words. Only these Brotli responses carry it; every other one is compressed as before.
   headers.set('Cache-Control', headers.has('Cache-Control') ? `${headers.get('Cache-Control')}, no-transform` : 'no-transform');
-  if (html && res.status === 200) headers.set('Link', pageLinks(url.pathname) + (href ? `, ${fontLink(href)}` : ''));
+  if (html && res.status === 200) headers.set('Link', pageLinks(pathname) + (href ? `, ${fontLink(href)}` : ''));
   const out = new Response(res.status === 304 ? null : res.body, { status: res.status, headers, encodeBody: 'manual' });
   ENCODED.add(out);
   return out;
@@ -590,31 +592,38 @@ async function respond(request) {
     return res;
   }
 
-  if (readOnly && prefers(accept, 'text/markdown', 'text/html')) {
-    const twin = twinPath(url.pathname);
-    if (twin) {
-      const res = await fetch(atPages(twin), { method: request.method });
-      if (res.ok) {
-        const out = withVary(res);
-        out.headers.set('Content-Type', MARKDOWN);
-        out.headers.set('Content-Location', twin);
-        return out;
-      }
-    }
-  }
-
-  const policy = readOnly ? cachePolicy(url.pathname, url.search) : null;
   // Cloudflare rewrites the Accept-Encoding a Worker sees (a client that sent only `gzip` arrives
   // taking br too) and keeps what the client sent in cf.clientAcceptEncoding. Reading the header
   // alone sent Brotli to gzip-only clients, which Cloudflare then had to decode for them and,
   // under no-transform, could not compress again: 74,290 B for the home page instead of 18,809 B
   // (production, 22 Nov 2026, rolled back within minutes).
   const clientEncoding = request.cf?.clientAcceptEncoding ?? request.headers.get('Accept-Encoding');
-  const brotli = readOnly && !request.headers.has('Range') && acceptsBrotli(clientEncoding)
-    ? brotliFile(url.pathname)
-    : null;
+  const useBrotli = readOnly && !request.headers.has('Range') && acceptsBrotli(clientEncoding);
+
+  const twin = readOnly && prefers(accept, 'text/markdown', 'text/html') ? twinPath(url.pathname) : null;
+  if (twin) {
+    const file = useBrotli ? brotliFile(twin) : null;
+    const copy = file ? await brotliCopy(request, twin, file, null) : null;
+    if (copy) {
+      copy.headers.set('Content-Location', twin);
+      return copy;
+    }
+    // Negotiation serves the whole twin. Revalidate against the twin itself, without asking
+    // Pages for a byte range in its choice of content coding.
+    const res = await fetch(pagesRequest(atPages(twin), request, CACHE_VALIDATORS));
+    if (res.ok || res.status === 304) {
+      const out = withVary(res);
+      out.headers.set('Content-Type', MARKDOWN);
+      out.headers.set('Content-Location', twin);
+      return out;
+    }
+    res.body?.cancel().catch(() => {});
+  }
+
+  const policy = readOnly ? cachePolicy(url.pathname, url.search) : null;
+  const brotli = useBrotli ? brotliFile(url.pathname) : null;
   if (brotli) {
-    const copy = await brotliCopy(request, url, brotli, policy);
+    const copy = await brotliCopy(request, url.pathname, brotli, policy);
     if (copy) return copy;
   }
   const res = await fetch(pagesRequest(atPages(url.pathname, url.search), request), {

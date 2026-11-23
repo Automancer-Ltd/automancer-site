@@ -254,6 +254,13 @@ Undo via Executor `sentry-guarded` (`projects.updateProject` and `projects.updat
   Worker half by deploying the previous Worker version: every browser is back on Cloudflare's
   own compression at once, and the unused `.br` files are harmless. On the `github.io` copy they
   are only downloads, never a page.
+- **Negotiated Markdown (t24736):** the Worker chooses the twin's `.md.br` for clients that
+  accept Brotli and falls back to `.md` when the copy is missing. Both paths forward cache
+  validators to the chosen file. Verify a GET to `/services/` with `Accept: text/markdown` and
+  `Accept-Encoding: br` returns the same ETag and bytes as `/services.md`, with
+  `Content-Location: /services.md`. Repeat the first request with that `If-None-Match` and expect
+  a bodyless `304` with `Content-Location`. The same revalidation works without Brotli. Roll back
+  by deploying the preceding Worker version.
 - **Runtime (t21891, 20 Nov 2026):** `deploy.sh` uploads `worker.js` byte for byte as an ES module
   through Cloudflare's JSON Workers API (`api.versions.createWorkerVersion`, `deploy=true`) with
   `COMPATIBILITY_DATE`, then reads the date back. Before t21891 it rewrote the module into a
