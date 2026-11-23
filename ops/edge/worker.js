@@ -24,7 +24,8 @@
 //     highest level (BROTLI_TYPES, src/integrations/precompress.ts), not
 //     Cloudflare's quicker on-the-fly compression: about a quarter fewer bytes.
 //   - A page's error report is posted here (ERROR_TUNNEL) and passed on to the
-//     one Sentry project, without the visitor's IP address (errorReport).
+//     one Sentry project, without the visitor's IP address, signed with a key
+//     only this Worker holds (errorReport).
 // Everything else passes through untouched. Deploy and undo: docs/DEPLOYMENT.md.
 //
 // The files come from the GitHub Pages project address (PAGES), not from
@@ -208,6 +209,18 @@ export function atOrigin(pathname, search = '') {
 // project SENTRY_PROJECT, which ops/verify-production.sh also expects
 // (EXPECTED_SENTRY_PROJECT_ID; tests/edge-worker.test.ts holds them equal).
 // Anything else is answered here and never leaves.
+//
+// The key Sentry accepts lives only here (t24883). The DSN in a page's bundle
+// names the project but holds no working key: until then it held the project's
+// live client key, so anyone could read it from any page and post into the
+// error monitor directly, from anywhere, as often as they liked (Sentry answered
+// 200), burying real errors and spending the plan's quota. The Worker now signs
+// each report with its own key, the Worker secret SENTRY_KEY (never in this
+// repository), and Sentry refuses the page's key (403). A report without
+// SENTRY_KEY is answered 503 here, never sent with the page's key. Each visitor
+// may post ERROR_REPORTS' limit a minute (a ratelimit binding, counted per
+// address at the edge and never sent on); past it the SDK is told to wait.
+// ops/edge/deploy.sh carries both bindings to every version it uploads.
 export const ERROR_TUNNEL = '/_errors';
 export const SENTRY_INGEST = 'https://o4511673494732800.ingest.de.sentry.io';
 export const SENTRY_PROJECT = '4511769898647632';
@@ -216,6 +229,47 @@ export const SENTRY_PROJECT = '4511769898647632';
 const ERROR_REPORT_MAX_BYTES = 65536;
 // What Sentry's answer may tell the SDK: back off (429 with these) or carry on.
 const SENTRY_ANSWER_HEADERS = ['Content-Type', 'Retry-After', 'X-Sentry-Rate-Limits'];
+
+// What a page may report: error events, and the SDK's counts of what it dropped
+// (also what ops/verify-production.sh posts to prove the Worker's key works).
+const ERROR_REPORT_ITEMS = new Set(['event', 'client_report']);
+const RATE_LIMITED_FOR_SECS = 60;
+
+/**
+ * The envelope's header (its first line), parsed, when it names this site's project, or null.
+ * The DSN's key is not read: whatever a page sends, the Worker signs with SENTRY_KEY.
+ */
+function envelopeHeader(bytes) {
+  const end = bytes.indexOf(10);
+  let header;
+  try {
+    header = JSON.parse(new TextDecoder().decode(bytes.subarray(0, end === -1 ? bytes.length : end)));
+  } catch {
+    return null;
+  }
+  if (typeof header?.dsn !== 'string') return null;
+  let dsn;
+  try {
+    dsn = new URL(header.dsn);
+  } catch {
+    return null;
+  }
+  if (dsn.origin !== SENTRY_INGEST || dsn.pathname !== `/${SENTRY_PROJECT}` || !dsn.username) return null;
+  return { header, end: end === -1 ? bytes.length : end };
+}
+
+/** The same envelope with its DSN carrying `key`, the Worker's own client key. */
+export function signedEnvelope(bytes, key) {
+  const { header, end } = envelopeHeader(bytes);
+  const dsn = new URL(header.dsn);
+  dsn.username = key;
+  dsn.password = '';
+  const line = new TextEncoder().encode(JSON.stringify({ ...header, dsn: dsn.toString() }));
+  const out = new Uint8Array(line.length + bytes.length - end);
+  out.set(line);
+  out.set(bytes.subarray(end), line.length);
+  return out;
+}
 
 /**
  * The item types of a Sentry envelope whose header names this site's project, or
@@ -236,16 +290,8 @@ export function envelopeItems(bytes) {
       return null;
     }
   };
+  if (!envelopeHeader(bytes)) return null;
   let end = lineEnd(0);
-  const header = json(0, end);
-  if (typeof header?.dsn !== 'string') return null;
-  let dsn;
-  try {
-    dsn = new URL(header.dsn);
-  } catch {
-    return null;
-  }
-  if (dsn.origin !== SENTRY_INGEST || dsn.pathname !== `/${SENTRY_PROJECT}` || !dsn.username) return null;
   const types = [];
   let at = end + 1;
   while (at < bytes.length) {
@@ -264,8 +310,8 @@ export function envelopeItems(bytes) {
   return types;
 }
 
-/** Pass a page's error report on to Sentry, or answer why it was refused (ERROR_TUNNEL). */
-async function errorReport(request) {
+/** Pass a page's error report on to Sentry, signed with the Worker's key, or answer why it was refused (ERROR_TUNNEL). */
+async function errorReport(request, env) {
   if (request.method !== 'POST') {
     const res = problem(405, 'Method Not Allowed', 'Error reports are posted here by this site’s pages.', ERROR_TUNNEL);
     res.headers.set('Allow', 'POST');
@@ -274,6 +320,16 @@ async function errorReport(request) {
   // A browser names the page's origin on every POST; another site's page names its own.
   if (request.headers.get('Origin') !== ORIGIN) {
     return problem(403, 'Forbidden', 'Only pages on automancer.uk post error reports here.', ERROR_TUNNEL);
+  }
+  if (env?.ERROR_REPORTS) {
+    const { success } = await env.ERROR_REPORTS.limit({ key: request.headers.get('CF-Connecting-IP') ?? '' });
+    if (!success) {
+      const res = problem(429, 'Too Many Requests', 'Too many error reports from one visitor. The report was not kept.', ERROR_TUNNEL);
+      res.headers.set('Retry-After', String(RATE_LIMITED_FOR_SECS));
+      // The Sentry SDK stops sending every kind of report for this long.
+      res.headers.set('X-Sentry-Rate-Limits', `${RATE_LIMITED_FOR_SECS}::organization`);
+      return res;
+    }
   }
   const declared = Number(request.headers.get('Content-Length') ?? 0);
   if (declared > ERROR_REPORT_MAX_BYTES) {
@@ -284,15 +340,18 @@ async function errorReport(request) {
     return problem(413, 'Content Too Large', `An error report is at most ${ERROR_REPORT_MAX_BYTES} bytes.`, ERROR_TUNNEL);
   }
   const items = envelopeItems(body);
-  if (!items || items.length === 0 || items.some((type) => type !== 'event')) {
+  if (!items || items.length === 0 || items.some((type) => !ERROR_REPORT_ITEMS.has(type))) {
     return problem(400, 'Bad Request', 'Only error events for this site’s Sentry project are passed on.', ERROR_TUNNEL);
+  }
+  if (!env?.SENTRY_KEY) {
+    return problem(503, 'Service Unavailable', 'Error reporting is not set up on this edge. The report was not kept.', ERROR_TUNNEL);
   }
   const headers = new Headers({ 'Content-Type': 'application/x-sentry-envelope', Origin: ORIGIN });
   const agent = request.headers.get('User-Agent');
   if (agent) headers.set('User-Agent', agent);
   let sentry;
   try {
-    sentry = await fetch(`${SENTRY_INGEST}/api/${SENTRY_PROJECT}/envelope/`, { method: 'POST', headers, body });
+    sentry = await fetch(`${SENTRY_INGEST}/api/${SENTRY_PROJECT}/envelope/`, { method: 'POST', headers, body: signedEnvelope(body, env.SENTRY_KEY) });
   } catch {
     return problem(502, 'Upstream error', 'The error monitor could not be reached. The report was not kept.', ERROR_TUNNEL);
   }
@@ -567,19 +626,19 @@ async function brotliCopy(request, pathname, file, policy) {
 }
 
 export default {
-  async fetch(request) {
-    return secured(await respond(request));
+  async fetch(request, env) {
+    return secured(await respond(request, env));
   },
 };
 
-async function respond(request) {
+async function respond(request, env) {
   const url = new URL(request.url);
   if (ALIASES.has(url.hostname)) return Response.redirect(atOrigin(url.pathname, url.search).toString(), 301);
   if (url.protocol === 'http:') {
     url.protocol = 'https:';
     return Response.redirect(url.toString(), 301);
   }
-  if (url.pathname === ERROR_TUNNEL) return errorReport(request);
+  if (url.pathname === ERROR_TUNNEL) return errorReport(request, env);
   const moved = legacyRedirect(url.pathname);
   if (moved) return Response.redirect(atOrigin(moved, url.search).toString(), 301);
   const accept = request.headers.get('Accept') ?? '';
