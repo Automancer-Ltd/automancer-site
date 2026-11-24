@@ -1,5 +1,20 @@
 # Release notes
 
+## v2026.11.24.5 — 24 November 2026
+
+The home page makes its proof and service information easier to scan on phones.
+
+### Fixes
+
+- Contact forms now show a clear message when an enquiry is too long or cannot be sent.
+- Browser error reports have sensitive details removed before they are sent.
+
+### More reliable releases
+
+- Published service information now includes the pages listed in the sitemap.
+- Each release is checked against the service details and page addresses already published, helping keep links and integrations that rely on them working.
+
+
 ## v2026.11.24.4 — 24 November 2026
 
 Pages now arrive faster, and the developer reference is easier to use on a phone.
