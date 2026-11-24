@@ -600,9 +600,16 @@ describe('pages kept at the edge', () => {
 describe('error report tunnel', () => {
   const DSN = `https://0123456789abcdef0123456789abcdef@${new URL(SENTRY_INGEST).host}/${SENTRY_PROJECT}`;
   const envelope = (dsn: string, ...items: [Record<string, unknown>, string][]) =>
-    [JSON.stringify({ event_id: 'f'.repeat(32), sent_at: '2026-11-22T09:00:00.000Z', dsn }),
+    [JSON.stringify({ event_id: 'f'.repeat(32), dsn }),
       ...items.flatMap(([header, payload]) => [JSON.stringify(header), payload])].join('\n');
-  const event = (): [Record<string, unknown>, string] => [{ type: 'event' }, JSON.stringify({ exception: { values: [{ type: 'Error', value: 'Browser script error' }] } })];
+  const pageUrl = 'https://automancer.uk/contact/';
+  const frame = { filename: 'https://automancer.uk/assets/js/main.js', lineno: 12, colno: 34, in_app: true };
+  const cleanEvent = {
+    event_id: 'f'.repeat(32), timestamp: 1795338000, platform: 'javascript', environment: 'production',
+    release: 'b'.repeat(40), request: { url: pageUrl },
+    exception: { values: [{ type: 'TypeError', value: 'Browser script error', stacktrace: { frames: [frame] } }] },
+  };
+  const event = (): [Record<string, unknown>, string] => [{ type: 'event' }, JSON.stringify(cleanEvent)];
   const visitor = {
     Origin: 'https://automancer.uk',
     'CF-Connecting-IP': '203.0.113.7',
@@ -635,7 +642,25 @@ describe('error report tunnel', () => {
   it("passes a page's error report on to the one Sentry project, with none of the visitor's details but the browser", async () => {
     const fetchSpy = sentry();
     vi.stubGlobal('fetch', fetchSpy);
-    const body = envelope(DSN, event());
+    const body = [
+      JSON.stringify({ dsn: DSN, event_id: cleanEvent.event_id, sent_at: 'FACTORY_TEST_DATA', sdk: { name: 'FACTORY_TEST_DATA', version: 'FACTORY_TEST_DATA' } }),
+      JSON.stringify({ type: 'event' }),
+      JSON.stringify({
+        ...cleanEvent,
+        user: { email: 'FACTORY_TEST_DATA@example.invalid' },
+        breadcrumbs: [{ message: 'FACTORY_TEST_DATA' }],
+        request: { url: pageUrl + '?detail=FACTORY_TEST_DATA#FACTORY_TEST_DATA', data: 'FACTORY_TEST_DATA' },
+        exception: { values: [{
+          ...cleanEvent.exception.values[0], value: 'FACTORY_TEST_DATA',
+          stacktrace: { frames: [
+            { ...frame, filename: frame.filename + '?v=FACTORY_TEST_DATA', function: 'FACTORY_TEST_DATA' },
+            { filename: 'https://example.invalid/FACTORY_TEST_DATA.js', lineno: 5 },
+            { filename: pageUrl, lineno: 'FACTORY_TEST_DATA' },
+            null,
+          ] },
+        }] },
+      }),
+    ].join('\n');
     const res = await post(body);
     expect(res.status).toBe(200);
     expect(await res.text()).toBe('{"id":"ffff"}');
@@ -649,7 +674,10 @@ describe('error report tunnel', () => {
     expect(sent.url).toBe(`${SENTRY_INGEST}/api/${SENTRY_PROJECT}/envelope/`);
     expect(sent.method).toBe('POST');
     expect(sent.redirect).toBe('manual');
-    expect(await sent.text(), "signed with the Worker's key, the page's key gone, the rest byte for byte").toBe(envelope(SIGNED, event()));
+    const [header, item, payload] = (await sent.text()).split('\n');
+    expect(JSON.parse(header)).toEqual({ event_id: cleanEvent.event_id, dsn: SIGNED });
+    expect(JSON.parse(item)).toEqual({ type: 'event', length: new TextEncoder().encode(payload).length });
+    expect(JSON.parse(payload)).toEqual(cleanEvent);
     expect(Object.fromEntries(sent.headers)).toEqual({
       'content-type': 'application/x-sentry-envelope',
       origin: 'https://automancer.uk',
@@ -677,6 +705,7 @@ describe('error report tunnel', () => {
       ['no event payload', post(envelope(DSN, [{ type: 'event' }, ''])), 400],
       ['malformed event payload', post(envelope(DSN, [{ type: 'event' }, '{'])), 400],
       ['event with no exception', post(envelope(DSN, [{ type: 'event' }, '{}'])), 400],
+      ['event with no useful frames', post(envelope(DSN, [{ type: 'event' }, '{"exception":{"values":[null,{"type":"Error"}]}}'])), 400],
       ['non-empty client report', post(envelope(DSN, [{ type: 'client_report' }, '{"timestamp":1,"discarded_events":[{"quantity":1}]}'])), 400],
       ['a session', post(envelope(DSN, event(), [{ type: 'session' }, '{}'])), 400],
       ['an attachment', post(envelope(DSN, [{ type: 'attachment', length: 3 }, 'a\nb'])), 400],
@@ -702,7 +731,9 @@ describe('error report tunnel', () => {
     }
     expect((await post(envelope(placeholder, report))).status, 'a client report, as the verifier posts').toBe(200);
     const sent = await Promise.all((fetchSpy.mock.calls as unknown as [string, RequestInit][]).map(([input, init]) => new Request(input, init).text()));
-    expect(sent).toEqual([envelope(SIGNED, event()), envelope(SIGNED, event()), envelope(SIGNED, event()), envelope(SIGNED, report)]);
+    expect(sent).toHaveLength(4);
+    for (const message of sent) expect(JSON.parse(message.split('\n')[0]).dsn).toBe(SIGNED);
+    expect(JSON.parse(sent[3].split('\n')[2])).toEqual({ timestamp: 1, discarded_events: [] });
   });
 
   it("never passes a report on with the page's key when the Worker holds none", async () => {
@@ -739,7 +770,7 @@ describe('error report tunnel', () => {
   it('checks a length-delimited payload against its exact byte boundary', async () => {
     const fetchSpy = sentry();
     vi.stubGlobal('fetch', fetchSpy);
-    const payload = JSON.stringify({ exception: { values: [{ type: 'Error', value: 'Browser script error' }] }, request: { url: 'https://automancer.uk/café/' } }, null, 2);
+    const payload = JSON.stringify({ ...cleanEvent, extra: { fixture: 'café' } }, null, 2);
     const length = new TextEncoder().encode(payload).byteLength;
     expect((await post(envelope(DSN, [{ type: 'event', length }, payload]) + '\n')).status).toBe(200);
     for (const wrongLength of [-1, length - 1, length + 1]) {
