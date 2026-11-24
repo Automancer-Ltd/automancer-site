@@ -13,7 +13,9 @@
  *
  * HONESTY RULES (VISION.md: "Never fake a capability for a score")
  *  - Every promise here describes behaviour this repo actually has. The parts
- *    a test can enforce are enforced: the paths and service ids promised below
+ *    a check can enforce are enforced. Between releases, ops/contract/ compares
+ *    each release with what production serves (`enforcement`, t25827). Within
+ *    a build, the paths and service ids promised below
  *    are read from src/data/api.ts and src/data/business.ts (so this document
  *    cannot claim stability for something that is not served), and a
  *    deprecation cannot be listed without a sunset date and a replacement
@@ -116,6 +118,23 @@ export interface Deprecation {
   sunset: string;
 }
 
+/**
+ * How the promise is held between releases (t25827). The policy above is
+ * generated from the build it ships with, so it can only describe that build;
+ * the check compares each release with the one machines are reading now.
+ * ops/contract/surface.mjs is what it compares, and ops/contract/check-surface.mjs
+ * runs it: on every pull request and again on the exact build a release
+ * publishes (.github/workflows/ci.yml, deploy.yml).
+ */
+export const ENFORCEMENT = {
+  detail:
+    'Before a release is published, its build is compared with what automancer.uk serves at that moment. The release stops if any endpoint path, operationId, response field name, published service id, page URL or enum value served now is missing from it, unless an entry in `deprecations` announced by the release before has run its notice and passed its sunset. A page URL is kept by a redirect left at it. New identifiers always pass.',
+  checkedAgainst: 'The live site, read over HTTPS as an agent reads it, on every pull request and again on the build each release publishes.',
+  limits:
+    'If automancer.uk cannot be read while a release is built, that release is published without the comparison and its log says so; the pull request it came from was compared. Names are compared, not meanings or value types: a field that keeps its name but changes what it means, or its type, is caught only by review and the payload-to-schema test.',
+  source: 'https://github.com/Automancer-Ltd/automancer-site/blob/main/ops/contract/surface.mjs',
+} as const;
+
 /** Nothing is deprecated today. */
 export const DEPRECATIONS: Deprecation[] = [];
 
@@ -160,6 +179,7 @@ export function stabilityPolicy() {
     additiveChanges: ADDITIVE_CHANGES,
     deprecation: DEPRECATION_POLICY,
     deprecations: DEPRECATIONS,
+    enforcement: ENFORCEMENT,
     notPromised: NOT_PROMISED,
     contact: {
       email: business.email,

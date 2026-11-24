@@ -86,6 +86,14 @@ jobs:
       - name: Lint, typecheck and audit the build that ships
         run: pnpm run lint && pnpm run typecheck && SKIP_BUILD=1 pnpm run test
 
+      # The same comparison the pull request ran, on the exact bytes this
+      # release publishes, against what production serves now (t25827). If
+      # production cannot be read, a fix must still ship: the step warns that
+      # nothing was compared instead of failing.
+      - name: Keep every promise production publishes to machines
+        timeout-minutes: 3
+        run: node ops/contract/check-surface.mjs --baseline=https://automancer.uk --candidate=dist --allow-unreachable
+
       - name: Upload artifact
         id: pages-artifact
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0

@@ -48,6 +48,13 @@ jobs:
         require-lockfile: true
     - name: Lint, typecheck, build and test
       run: pnpm run verify
+    # The release before this one is production: /api/stability.json promises
+    # machines that its endpoint paths, operation ids, field names, service ids,
+    # page URLs and enum values stay. Fail the pull request that drops one
+    # without a deprecation that has run its notice (ops/contract/, t25827).
+    - name: Keep every promise production publishes to machines
+      timeout-minutes: 3
+      run: node ops/contract/check-surface.mjs --baseline=https://automancer.uk --candidate=dist
     - name: Install the journey browser
       # The browser alone, from Playwright's CDN (about 20 s). The hosted image
       # already has every library Chromium needs. `--with-deps` added only apt
