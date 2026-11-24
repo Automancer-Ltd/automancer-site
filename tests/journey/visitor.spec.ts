@@ -782,7 +782,7 @@ test("a field note's contents jump to each section and mark the one being read",
 
   for (const n of [2, ids.length - 1]) {
     // On a phone the contents close after a jump, and stay within reach for the next one (t25430).
-    if (phone && !(await contents.getAttribute('open'))) await contents.locator('summary').click();
+    if (phone && (await contents.getAttribute('open')) === null) await contents.locator('summary').click();
     await links.nth(n).click();
     const heading = page.locator(`[id="${ids[n]}"]`);
     const title = (await heading.textContent())!.trim();
@@ -913,6 +913,12 @@ test("a case study's contents list its sections and their parts, and follow the 
   await expect(contents.locator('a[aria-current="location"]')).toHaveText((await heading.textContent())!.trim());
   const section = contents.locator('li:has(> ol a[aria-current]) > a');
   await expect(section).toHaveCount(1);
+  if (phone) {
+    // The bar under the nav names the part, and the list, opened again, lights its section.
+    await expect(contents).not.toHaveAttribute('open');
+    await expect(contents.locator('summary')).toContainText((await heading.textContent())!.trim());
+    await contents.locator('summary').click();
+  }
   await page.mouse.move(0, 0); // off the contents, so hover lights nothing
   const [lit, unlit] = await Promise.all([section, links.first()].map((l) => l.evaluate((a) => getComputedStyle(a).color)));
   expect(lit).not.toBe(unlit);
