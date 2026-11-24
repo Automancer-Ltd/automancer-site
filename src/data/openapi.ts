@@ -200,7 +200,7 @@ const schemas: Record<string, JsonSchema> = {
             },
             facts: {
               type: 'array',
-              description: 'Figures the case study states in its introduction (subhead, client line) rather than its headline numbers, with the claims behind them. The page lists them under "Where these numbers come from" with the headline numbers.',
+              description: 'Figures the case study states outside its headline numbers (its introduction or its story), with the claims behind them. The page lists them under "Where these numbers come from" with the headline numbers.',
               items: obj(
                 {
                   value: str(),
