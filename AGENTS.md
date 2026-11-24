@@ -149,6 +149,16 @@ ops/contract/               what production promises machines, and the check a r
   (`brotliCopy()`, t24283). An integration that changes `dist/` must run before `precompress()`,
   or visitors read the old bytes: `tests/precompress.test.ts` decodes every copy through the
   Worker and fails on any difference from the file.
+- A browser holding the release's compression dictionary gets the build's own `<page>.dcz` (t26098,
+  RFC 9842). `compressionDictionary()` (`src/integrations/compression-dictionary.ts`) writes one
+  dictionary per release under `/_dictionary/` (the home page as served, without its `<main>`) and
+  names it in every page's `<head>`; `precompress()` compresses each page against it. The Worker
+  sends the `.dcz` only when `Available-Dictionary` is the hash the copy starts with, and Brotli
+  otherwise; `keptPage()` keeps it apart from the Brotli copy and never makes a visitor wait for it
+  when a Brotli copy is already kept. Only Chromium takes `dcz` today. The dictionary file and the
+  `.dcz` copies must come from the same build, and the Worker must be live before a build that names
+  a dictionary (`tests/precompress.test.ts`, `tests/edge-worker.test.ts`,
+  `tests/journey/dictionary.spec.ts`).
 - Pages are fetched ahead of a click only by Chromium's Speculation Rules (`BaseLayout.astro`) and,
   in browsers that cannot prerender, by `src/scripts/prefetch.ts`: on a mouse hover (t23288), and
   on a touch screen for a link kept on screen half a second (t24026). Reading warms up to three
