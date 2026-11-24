@@ -19,6 +19,7 @@
     /* ── Scroll reveal ── */
     var revealEls = document.querySelectorAll('.reveal, .reveal-stagger');
     if (revealEls.length) {
+      /* CSS shows every reveal; only what is below the fold waits for a scroll (t25989). */
       if (reduce || !('IntersectionObserver' in window)) {
         revealEls.forEach(function (el) { el.classList.add('is-visible'); });
       } else {
@@ -30,7 +31,13 @@
             }
           });
         }, { threshold: 0.1, rootMargin: '0px 0px -8% 0px' });
-        revealEls.forEach(function (el) { io.observe(el); });
+        var fold = window.innerHeight;
+        revealEls.forEach(function (el) {
+          var box = el.getBoundingClientRect();
+          if (box.top < fold && box.bottom > 0) el.classList.add('is-visible');
+          else io.observe(el);
+        });
+        document.documentElement.classList.add('reveal-armed');
       }
     }
 
