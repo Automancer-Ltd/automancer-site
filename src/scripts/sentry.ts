@@ -87,6 +87,31 @@ if (import.meta.env.PROD && dsn) {
             if (!exceptions?.length) return null;
             // Messages, rejection objects and stack labels can contain visitor
             // data. Build a fresh event with only the fields used to locate bugs.
+            const values = exceptions.map(({ type, stacktrace, mechanism }) => ({
+              type: type && errorTypes.has(type) ? type : 'Error',
+              value: 'Browser script error',
+              mechanism: mechanism && {
+                type: 'generic',
+                handled: mechanism.handled,
+                exception_id: mechanism.exception_id,
+                parent_id: mechanism.parent_id,
+                is_exception_group: mechanism.is_exception_group,
+              },
+              stacktrace: {
+                frames: (stacktrace?.frames ?? []).flatMap(({ filename, lineno, colno }) => {
+                  const source = filename && locationOnly(filename);
+                  return source && sources.has(source)
+                    ? [{ filename: source, lineno, colno, in_app: true }]
+                    : [];
+                }),
+              },
+            }));
+            // A report with no frame from the site's own scripts names nothing we can
+            // fix: it came from a browser extension, a cross-origin script or code the
+            // page did not load. Sentry stored those as an empty
+            // `Error: Browser script error` (AUTOMANCER-SITE-9, t25374), so drop them
+            // at the source instead of filing another report no one can act on.
+            if (!values.some(({ stacktrace }) => stacktrace.frames.length > 0)) return null;
             return {
               type: undefined,
               event_id: event.event_id,
@@ -95,27 +120,7 @@ if (import.meta.env.PROD && dsn) {
               environment: 'production',
               release,
               request: pageUrl ? { url: pageUrl } : undefined,
-              exception: {
-                values: exceptions.map(({ type, stacktrace, mechanism }) => ({
-                  type: type && errorTypes.has(type) ? type : 'Error',
-                  value: 'Browser script error',
-                  mechanism: mechanism && {
-                    type: 'generic',
-                    handled: mechanism.handled,
-                    exception_id: mechanism.exception_id,
-                    parent_id: mechanism.parent_id,
-                    is_exception_group: mechanism.is_exception_group,
-                  },
-                  stacktrace: {
-                    frames: (stacktrace?.frames ?? []).flatMap(({ filename, lineno, colno }) => {
-                      const source = filename && locationOnly(filename);
-                      return source && sources.has(source)
-                        ? [{ filename: source, lineno, colno, in_app: true }]
-                        : [];
-                    }),
-                  },
-                })),
-              },
+              exception: { values },
             };
           },
           // Sentry 11 removed enableLogs; logs are always on and only ship when

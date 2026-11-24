@@ -90,6 +90,9 @@ through `alert-email.sh`.
 Error reports keep standard JavaScript error types, the release ID, the page's built canonical
 path and known first-party script locations with line and column numbers. The browser excludes
 exception messages, rejected values, stack function names, activity history and arbitrary URLs.
+A report with no frame from the site's own scripts is dropped before it leaves the page: it names
+a browser extension, a cross-origin script or code the page did not load, so it cannot be acted on
+(AUTOMANCER-SITE-9, t25374).
 The SDK sends error events only. The telemetry browser journey intercepts the real SDK envelopes,
 including on production, so its synthetic probes never reach Sentry. The Vitest audit and the local
 journey build with the unreachable dummy DSN in `tests/support/build-env.ts`, so the bootstrap and
