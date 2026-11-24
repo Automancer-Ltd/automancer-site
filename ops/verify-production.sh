@@ -68,6 +68,18 @@ readonly REPORTING_HEADERS=("NEL" "Report-To" "Reporting-Endpoints")
 # and receivers had no policy telling them to refuse it. Read over DNS over
 # HTTPS (DOH_URL), so it works where port 53 is blocked.
 readonly NO_MAIL_DOMAINS=("automancer.co.uk")
+# The site's domains and the certificate authorities that may issue for them
+# (t25293). Until then neither published CAA, so every publicly trusted CA
+# could issue a certificate for automancer.uk or any name under it, and one
+# mis-issuance anywhere could impersonate the site. Each domain now publishes
+# CAA "issue" for the CAs Cloudflare's certificate packs use (CAA_REQUIRED:
+# Universal SSL is Let's Encrypt with an SSL.com backup, the per-host advanced
+# certificates are Google Trust Services); Cloudflare's DNS adds its own other
+# issuers to the answer (CAA_ALLOWED). A CAA answer is only trusted when it is
+# DNSSEC-signed, so the resolver must report it authenticated (AD).
+readonly CAA_DOMAINS=("automancer.uk" "automancer.co.uk")
+readonly CAA_REQUIRED=("letsencrypt.org" "pki.goog" "ssl.com")
+readonly CAA_ALLOWED=("letsencrypt.org" "pki.goog" "ssl.com" "digicert.com" "comodoca.com" "sectigo.com")
 # The site's names. None may resolve to a GitHub Pages address or a github.io
 # name (t22925): the Pages site has no custom domain since then, so GitHub
 # would let anyone's Pages site claim a name that still pointed there. Both
@@ -1157,6 +1169,72 @@ check_no_mail_domains() {
   printf 'forged mail is refused: %s\n' "${ok[*]}"
 }
 
+# caa_verdict <domain> — reads the domain's CAA from DOH_URL and prints why it
+# does not hold certificate issuance to CAA_ALLOWED, or a one-line summary.
+# Fails when the answer is unreadable or unsigned (never "no record"), when no
+# "issue" property is published (any CA may issue), when an issue or issuewild
+# names a CA outside CAA_ALLOWED, when a CA in CAA_REQUIRED is missing (its
+# renewals would be refused), or on a critical property CAs do not understand
+# (every CA must then refuse, so no certificate renews).
+caa_verdict() {
+  python3 - "$DOH_URL" "$1" "$HTTP_TIMEOUT_SECS" "${CAA_REQUIRED[*]}" "${CAA_ALLOWED[*]}" <<'PY'
+import json, re, sys, urllib.request
+doh, domain, timeout = sys.argv[1], sys.argv[2], float(sys.argv[3])
+required, allowed = sys.argv[4].split(), set(sys.argv[5].split())
+req = urllib.request.Request(f"{doh}?name={domain}&type=CAA", headers={"Accept": "application/dns-json"})
+try:
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        data = json.load(r)
+except Exception as e:
+    sys.exit(f"CAA {domain}: DNS-over-HTTPS query to {doh} failed ({e})")
+if data.get("Status") != 0:
+    sys.exit(f"CAA {domain}: resolver answered DNS status {data.get('Status')}")
+def parse(v):
+    # Presentation form `0 issue "letsencrypt.org"`, or RFC 3597 `\# len hex` from resolvers that do not decode CAA.
+    m = re.fullmatch(r'(\d+)\s+([A-Za-z0-9]+)\s+"(.*)"', v.strip())
+    if m:
+        return int(m[1]), m[2].lower(), m[3]
+    m = re.fullmatch(r'\\#\s+\d+\s+([0-9A-Fa-f\s]+)', v.strip())
+    if m:
+        b = bytes.fromhex("".join(m[1].split()))
+        return b[0], b[2:2 + b[1]].decode().lower(), b[2 + b[1]:].decode()
+    sys.exit(f"CAA {domain}: cannot read record {v!r}")
+records = [parse(str(a.get("data", ""))) for a in data.get("Answer") or [] if a.get("type") == 257]
+bad = []
+if not data.get("AD"):
+    bad.append("the answer is not DNSSEC-authenticated (AD), so a CA could be fed a forged one")
+issue = {t: [v.split(";", 1)[0].strip().lower() for f, tag, v in records if tag == t] for t in ("issue", "issuewild")}
+if not issue["issue"]:
+    bad.append(f"no CAA issue property ({len(records)} record(s)): every public CA may issue for it")
+outside = sorted({ca or ';' for t in issue for ca in issue[t] if ca not in allowed})
+if outside:
+    bad.append(f"issue/issuewild names {', '.join(outside)}, outside {' '.join(sorted(allowed))}")
+missing = [ca for ca in required if issue["issue"] and ca not in issue["issue"]]
+if missing:
+    bad.append(f"issue lacks {', '.join(missing)}, which issues this zone's certificates now")
+critical = sorted({tag for f, tag, v in records if f & 128 and tag not in ("issue", "issuewild", "iodef")})
+if critical:
+    bad.append(f"critical property {', '.join(critical)} makes every CA refuse")
+if bad:
+    print(f"{domain}: " + "; ".join(bad))
+    sys.exit(1)
+print(f"{domain}: CAA signed, issue {' '.join(sorted(set(issue['issue'])))}")
+PY
+}
+
+check_caa() {
+  local domain verdict ok=()
+  for domain in "${CAA_DOMAINS[@]}"; do
+    if ! verdict=$(caa_verdict "$domain" 2>&1); then
+      printf '%s does not limit who may issue its certificates: %s\n' "$domain" "$(printf '%s' "$verdict" | tr '\n' ' ')"
+      return 1
+    fi
+    ok+=("$verdict")
+  done
+  local IFS=';'
+  printf 'only the CAs in use may issue: %s\n' "${ok[*]}"
+}
+
 # github_dns_verdict <name> — reads the name's A, AAAA and CNAME answers from
 # DOH_URL and prints any that lead to GitHub Pages (185.199.108.0/22,
 # 192.30.252.0/22, 2606:50c0::/32 or a *.github.io name), or a one-line summary
@@ -1828,6 +1906,46 @@ print(json.dumps({"routes": routes, "default": {"status": 404, "body": ""}}))
 PY
 }
 
+# self_test_caa_scenario <mutation> — DNS-over-HTTPS CAA answers for every
+# CAA_DOMAINS entry, as Cloudflare's resolver sends them (our three issue
+# records plus the issuers Cloudflare adds, signed). The second domain answers
+# in RFC 3597 hex, as a resolver that does not decode CAA would. <mutation>
+# breaks one rule; "none" is the control.
+self_test_caa_scenario() {
+  python3 - "$1" "${CAA_DOMAINS[@]}" >"$SELFTEST_SCENARIO" <<'PY'
+import json, sys
+mutation, domains = sys.argv[1], sys.argv[2:]
+known = {"none", "absent", "extra_ca", "extra_wild", "missing_required", "unsigned", "critical", "servfail"}
+if mutation not in known:
+    sys.exit(f"unknown mutation {mutation}")
+def hexform(flags, tag, value):
+    b = bytes([flags, len(tag)]) + tag.encode() + value.encode()
+    return f"\\# {len(b)} {b.hex()}"
+routes = {}
+for i, d in enumerate(domains):
+    recs = [(0, "issue", ca) for ca in ("comodoca.com", "digicert.com; cansignhttpexchanges=yes", "letsencrypt.org", "pki.goog; cansignhttpexchanges=yes", "ssl.com")]
+    recs += [(0, "issuewild", v) for _, _, v in recs]
+    if i == 0:
+        if mutation == "absent":
+            recs = []
+        if mutation == "extra_ca":
+            recs.append((0, "issue", "buypass.com"))
+        if mutation == "extra_wild":
+            recs.append((0, "issuewild", "buypass.com"))
+        if mutation == "missing_required":
+            recs = [r for r in recs if not (r[1] == "issue" and r[2] == "pki.goog; cansignhttpexchanges=yes")]
+        if mutation == "critical":
+            recs.append((128, "tbs", "unknown"))
+    data = [hexform(*r) if i == 1 else f'{r[0]} {r[1]} "{r[2]}"' for r in recs]
+    routes[f"/dns-query?name={d}&type=CAA"] = {
+        "body": json.dumps({"Status": 2 if mutation == "servfail" and i == 1 else 0,
+                            "AD": not (mutation == "unsigned" and i == 1),
+                            "Answer": [{"name": d, "type": 257, "data": x} for x in data]}),
+        "headers": {"Content-Type": "application/dns-json"}}
+print(json.dumps({"routes": routes, "default": {"status": 404, "body": ""}}))
+PY
+}
+
 # self_test_github_dns_scenario <mutation> — DNS-over-HTTPS answers for every
 # SITE_NAMES entry: Cloudflare proxy addresses in the control, a GitHub Pages
 # address or github.io CNAME in a mutation, a SERVFAIL, or no answer at all.
@@ -2111,6 +2229,21 @@ PY
     self_test_expect fail "$label" check_no_mail_domains
     self_test_no_mail_scenario none
     self_test_expect pass "$label" check_no_mail_domains
+  done
+
+  for mutation in absent extra_ca extra_wild missing_required unsigned critical servfail; do
+    case $mutation in
+      absent) label="a site domain publishes CAA issue" ;;
+      extra_*) label="CAA names only the CAs Cloudflare uses" ;;
+      missing_required) label="CAA keeps every CA that issues the zone's certificates" ;;
+      unsigned) label="a CAA answer must be DNSSEC-authenticated" ;;
+      critical) label="CAA carries no critical property CAs refuse" ;;
+      servfail) label="an unreadable DNS answer fails the CAA check" ;;
+    esac
+    self_test_caa_scenario "$mutation"
+    self_test_expect fail "$label" check_caa
+    self_test_caa_scenario none
+    self_test_expect pass "$label" check_caa
   done
 
   for mutation in apex_github_ip www_github_cname apex_github_ipv6 servfail empty; do
@@ -2413,6 +2546,7 @@ main() {
   if (( ! PREVIEW_MODE )); then
     if ! poll_check "${NO_MAIL_DOMAINS[*]} refuses forged mail (null MX, SPF -all, DMARC p=reject)" check_no_mail_domains; then :; fi
     if ! poll_check "${SITE_NAMES[*]} point at no GitHub Pages address" check_no_github_dns; then :; fi
+    if ! poll_check "only the CAs in use may issue certificates for ${CAA_DOMAINS[*]} (signed CAA)" check_caa; then :; fi
     if ! poll_check "www.automancer.uk answers one 301 to the apex from the Worker" check_www_redirect; then :; fi
     if ! poll_check "${REDIRECT_DOMAINS[*]} upgrade to HTTPS on their own name, then 301 to automancer.uk with HSTS" check_redirect_domains; then :; fi
   fi
