@@ -7,7 +7,7 @@ It does not outrank anything: `VISION.md` is authority 0 and `SPEC.md` describes
 When this file and `SPEC.md` disagree about what exists, `SPEC.md` and the code are right and this
 file is out of date.
 
-Last updated: 24 November 2026 (the developer page becomes an endpoint reference, t25710).
+Last updated: 24 November 2026 (every release is held to the promises production publishes to machines, t25827).
 
 ## Where the site stands against the vision
 
@@ -21,7 +21,7 @@ disagree. Against that, today:
 | An agent can quote, price and act on it correctly | Built. The `/api/*.json` endpoints in one registry (`src/data/api.ts`) behind the discovery document, the OpenAPI 3.1 spec and `/developers`; `agent.json`, `security.txt`, `llms.txt`, Markdown twins and full-content feeds. `/api/services.json` `includes` is the same included list `/services/` shows, and the build fails if they disagree. Acting still means email: the form needs a browser security check, and since 12 Nov 2026 that is data: `/api/enquiry.json` names email as the route an agent can complete, with the form's fields, limits and an email template that asks the same questions. |
 | What a machine is told never differs from what a person is shown | Enforced for the facts that matter most: prices, service names, each service's included list, page inventory, JSON-LD, twins and feeds all read shared modules, and dist-level tests compare the payloads with the pages. |
 | Its own honesty audited | Partly. Production is verified after every deploy and every 30 minutes (`ops/verify-production.sh`), including the revision served, the legal block, TLS and the machine surfaces. Nothing yet audits the *claims* on the pages against the truth layer continuously. Since t23334 a person sees the same evidence a machine gets: every case-study figure the claims registry backs links to the dossier line behind it. Since t23577 that holds wherever a figure is repeated (home, /work/, /services/, /about/, field notes), and the build fails on a page that states a registered figure without a link to its evidence (`tests/figure-sources.test.ts`). Since t25118 a case study cannot state a number the registry does not hold, and since t25645 neither can a field note or any page a buyer reads before getting in touch: five unbacked facts are named as debt. |
-| Published identifiers are promises | **Built in this slice.** The promise is now a document an agent can fetch and check: `/api/stability.json`. |
+| Published identifiers are promises | Built and held between releases. The promise is a document an agent can fetch (`/api/stability.json`), and since t25827 every pull request and every release is compared with what production publishes: a build that drops an endpoint, operationId, field, service id, page URL or enum value without a deprecation that has run its notice does not ship. |
 | Nothing reaches the public without Waseem | Honoured: this repository ships the site; it never speaks to a prospect itself. |
 
 ## The last slice, and what it taught
@@ -125,6 +125,36 @@ The former cache and release-note slices shipped in PRs #164 and #165 respective
 "gap above a field note's first paragraph on phones" slice is dropped from the list: t22126
 measured every note's opening line already on a 390×844 phone's first screen (17 of 17), so the
 gap is a spacing taste call, not lost content.
+
+## Slice: every release keeps the promises production publishes to machines (24 November 2026, t25827)
+
+`/api/stability.json` promised that endpoint paths, operation ids, response field names, service
+ids, page URLs and enum values stay stable between deploys, but it is generated from the build it
+ships with. A release that renamed a field or dropped a page would have published a policy that no
+longer mentioned it, and every test would have passed: the promise checked the build against
+itself, never against the release machines were reading.
+
+- `ops/contract/surface.mjs` reads every identifier a copy of the site promises (270 on
+  production today: 10 endpoints, 10 operationIds, 198 fields, 4 service ids, 32 page URLs, 16
+  enum values) and lists every one a candidate build drops. A field the schema still declares is
+  kept with no value today; a page is kept by any file at its URL (a redirect left behind). An
+  identifier may go only when the previous release's `deprecations[]` announced it with the full
+  notice and its sunset has passed.
+- `ops/contract/check-surface.mjs` runs it against `https://automancer.uk`: strictly on every pull
+  request (`ci.yml`), and on the exact `dist/` each release uploads (`deploy.yml`, warns and ships
+  if production cannot be read). `/api/stability.json` publishes this as `enforcement`, with its
+  limits (names, not meanings or value types).
+- Proof: `tests/published-contract.test.ts` (14 tests) plants a renamed field, a changed
+  operationId, a dropped enum value, a changed service id, a removed endpoint and a page with
+  nothing left at its URL, and checks the deprecation rules both ways. Replaying the 30 main
+  commits that touched the API since the policy took effect (20 Oct to 24 Nov, each built from
+  `git archive`) found 0 broken promises in 29 release-to-release steps: the surface only grew,
+  165 to 270. `pnpm run compare`: only `/developers/` differs (the stability endpoint lists 15
+  fields, not 14).
+- Not covered: claim ids in `/api/claims.json`. The policy does not promise them, and on 20 Nov
+  (`ef8c050`) two were renamed to match the BD registry. Whether a withdrawn or renamed claim id
+  should leave a pointer is a question for the next slice; honesty outranks stability there.
+- Undo: revert the merge. The `enforcement` field is additive.
 
 ## Frontend slice: the developer page becomes an endpoint reference (24 November 2026, t25710)
 

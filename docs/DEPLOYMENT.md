@@ -5,13 +5,19 @@
 1. Pull request → `.github/workflows/ci.yml` job `checks` (the one required context): estate
    checks, `pnpm run verify` (lint, typecheck, build, `dist/` audit), the visitor journey
    (`SKIP_BUILD=1 pnpm run journey`, Playwright at phone and desktop width on the `dist/` verify
-   just built and audited) and the `ops/` self-tests.
+   just built and audited), the `ops/` self-tests, and the published contract: `node
+   ops/contract/check-surface.mjs` reads every identifier `/api/stability.json` promises machines
+   from production (endpoint paths, operationIds, response field names, service ids, page URLs,
+   enum values) and fails when the built `dist/` drops one without a deprecation that has run its
+   notice (t25827).
 2. Merge to `main` → `.github/workflows/deploy.yml`, in about two minutes:
    - `build` builds the merged commit once, with the Sentry DSN, `PUBLIC_SENTRY_RELEASE=$GITHUB_SHA`
      and production's page dates, then runs lint, typecheck and the whole `dist/` audit on those
      exact bytes before uploading them as the Pages artifact (a merge can produce a tree no pull
-     request tested; there is no separate CI run on `main`). It holds no Pages or OIDC permission:
-     only `deploy` can publish;
+     request tested; there is no separate CI run on `main`). It compares those bytes with the
+     promises production publishes, as the pull request did, with `--allow-unreachable`: if
+     production cannot be read, the release still ships (it may be the fix) and the step's warning
+     says nothing was compared. It holds no Pages or OIDC permission: only `deploy` can publish;
    - `deploy` downloads the audited archive by its artifact ID, signs its SHA-256 digest
      with GitHub artifact attestations and verifies the signature, workflow and exact
      `main` commit before publishing the archive with `actions/deploy-pages`. Then it runs

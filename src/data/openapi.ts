@@ -413,6 +413,18 @@ const schemas: Record<string, JsonSchema> = {
           { required: ['path', 'replacement', 'deprecatedOn', 'sunset'] }
         ),
       },
+      enforcement: obj(
+        {
+          detail: str('What is compared before a release, and what stops it.'),
+          checkedAgainst: str('Which copy of the site each release is compared with, and when.'),
+          limits: str('What the comparison does not catch, stated rather than implied.'),
+          source: uri('The code that does the comparison.'),
+        },
+        {
+          required: ['detail', 'checkedAgainst', 'limits', 'source'],
+          description: 'How the promises above are held from one release to the next: each release is compared with the one agents are reading now.',
+        }
+      ),
       notPromised: strArray('What this site does not promise, stated rather than implied.'),
       contact: obj(
         { email: emailSchema(), url: uri(), note: str() },
@@ -433,6 +445,7 @@ const schemas: Record<string, JsonSchema> = {
         'additiveChanges',
         'deprecation',
         'deprecations',
+        'enforcement',
         'notPromised',
         'contact',
       ],

@@ -16,6 +16,10 @@ points to: `/llms.txt`, `/llms-full.txt`, `/agent.json`, `/security.txt`, `/open
   `/developers/` lists each endpoint's response fields as the spec declares them),
   `tests/agent-readiness.test.ts` (twins, `llms*.txt`, manifests, security.txt, feeds, robots),
   `tests/feeds.test.ts` and `tests/claims.test.ts`.
+- Between releases: `node ops/contract/check-surface.mjs` (CI and the deploy) fails a build that
+  drops an endpoint, operationId, field, service id, page URL or enum value production publishes;
+  `tests/published-contract.test.ts` plants each kind of break and the deprecations that may allow
+  one (t25827).
 - Production: `ops/verify-production.sh` reads every page and twin from the served sitemap and
   `/api/pages.json` after each deploy and every 30 minutes.
 
