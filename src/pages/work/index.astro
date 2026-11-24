@@ -10,6 +10,7 @@ import { contactHref } from '../../data/enquiry';
 import { SOURCES_ANCHOR, evidenceRows } from '../../data/claims';
 
 const auditFrom = formatGBP(serviceById('automation-opportunity-audit').priceFrom);
+const directoryTitle = 'Case studies by sector';
 
 const isProd = import.meta.env.PROD;
 const studies = (await getCollection('case-studies'))
@@ -26,16 +27,30 @@ const sourcesHref = (e: (typeof studies)[number]) => (evidenceRows(e.data).lengt
   title="Work"
   description="Real systems, live in production. Case studies from a care provider, a manufacturer, a diversity & inclusion consultancy and small firms — all real work."
 >
-  <section class="page-hero hatch">
+  <section class="page-hero work-hero hatch">
     <SpectrumGlow class="page-hero__glow" px={26} />
     <div class="page-hero__inner">
-      <p class="eyebrow">Selected work</p>
-      <h1 class="page-hero__title">Real businesses. Real systems. Live in production.</h1>
-      <p class="page-hero__sub">
-        Working systems we built for real UK
-        businesses — a care provider, a manufacturer, a diversity &amp; inclusion consultancy, a handful
-        of small firms who just needed a proper website. Here's what we did and what it changed.
-      </p>
+      <div>
+        <h1 class="page-hero__title">Real businesses. Real systems. Live in production.</h1>
+        <p class="page-hero__sub">
+          Working systems we built for real UK businesses. Here's what we did and what it changed.
+        </p>
+      </div>
+      {studies.length > 0 && (
+        <nav class="work-directory" aria-label={directoryTitle} data-page-words="skip">
+          <h2>{directoryTitle}</h2>
+          <ul role="list">
+            {studies.map(({ id, data }) => (
+              <li>
+                <a href={`/work/${id}/`}>
+                  <span>{data.sector}</span>
+                  <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 12h14m-6-6 6 6-6 6" /></svg>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      )}
     </div>
   </section>
 
@@ -111,3 +126,43 @@ const sourcesHref = (e: (typeof studies)[number]) => (evidenceRows(e.data).lengt
     </div>
   </section>
 </BaseLayout>
+
+<style>
+  .page-hero.work-hero { padding-block: clamp(6.5rem, 10vw, 9rem) clamp(2rem, 5vw, 4rem); }
+  .work-hero .page-hero__inner {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 26rem), 1fr));
+    align-items: start;
+    gap: clamp(1.5rem, 5vw, 4rem);
+  }
+  .work-hero .page-hero__title { font-size: clamp(1.75rem, 10vw - .25rem, 3.125rem); margin-block-start: 0; }
+  .work-hero .page-hero__sub { font-size: var(--t-0); margin-block-start: var(--sp-4); }
+  .work-directory h2 {
+    font-size: var(--t-0);
+    letter-spacing: 0;
+    margin-block-end: var(--sp-2);
+  }
+  .work-directory ul { list-style: none; padding: 0; border-block-start: 1px solid var(--border); }
+  .work-directory li { border-block-end: 1px solid var(--border); }
+  .work-directory a {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    min-block-size: 3rem;
+    padding-block: var(--sp-2);
+    color: var(--ink);
+    text-decoration: none;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+  }
+  .work-directory svg { flex: none; color: var(--muted); }
+  .work-directory a:focus-visible { outline-offset: -2px; }
+  .work-directory a:active { background: var(--g-900); }
+  @media (hover: hover) and (pointer: fine) {
+    .work-directory a:hover span { text-decoration: underline; text-underline-offset: 0.2em; }
+  }
+  @media print {
+    .work-directory { display: none; }
+  }
+</style>
