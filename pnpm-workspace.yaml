@@ -17,3 +17,8 @@ overrides:
 # recognise here, so a misspelt setting can no longer drop a policy in silence.
 minimumReleaseAge: 1440
 minimumReleaseAgeStrict: true
+# Refuse dependency releases with weaker publishing evidence than earlier releases.
+trustPolicy: no-downgrade
+trustPolicyExclude:
+  # pnpm ranks the two-factor bootstrap publish above tsrs's GitHub trusted publishing.
+  - tsrs@7.1.0-beta.tsrs3
