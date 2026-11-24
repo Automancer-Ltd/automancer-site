@@ -80,8 +80,8 @@ dispatch records and invoice drafts.
 At the centre sits a multi-unit pricing matrix covering feet, metres, square
 feet, square metres or each, with bulk reprice, plus handling for cross-border
 orders into Ireland. The demo was seeded from the client's own real price-list
-workbook, so it stood up loaded with around 74 customers, 888 products and
-1,263 price rules on day one rather than three tidy fake ones.
+workbook, so it stood up loaded with [around 74 customers, 888 products and
+1,263 price rules](/work/manufacturer-trade-portal/#source-manufacturer-portal-demo-seed-data) on day one rather than three tidy fake ones.
 
 Phase 1 was signed off in April 2026 as a usable foundation: order to dispatch
 working end to end, running as a hosted preview behind secure access, staged

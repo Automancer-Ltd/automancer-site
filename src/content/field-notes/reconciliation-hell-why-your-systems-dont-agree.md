@@ -76,8 +76,8 @@ when the numbers disagree, instead of hoping they won't.
 On the core platform we built for [a ~600-person supported-living care
 provider](/work/care-provider-transformation/), the new system's report
 mirrors were reconciled against the client's real exports before anyone was
-asked to trust a number coming out of it. That check covered 500 visits,
-175 medication alerts and 416 names routed to review.
+asked to trust a number coming out of it. That check covered [500 visits,
+175 medication alerts and 416 names routed to review](/work/care-provider-transformation/#source-reconciliation-visit-count).
 
 Care makes the stakes easy to see. When the records are visits and
 medication alerts, "roughly right" is not good enough. Every workstream on

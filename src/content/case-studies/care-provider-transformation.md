@@ -18,8 +18,9 @@ stats:
   - { v: "274 / 418", l: "duplicate or ambiguous records matched automatically", claims: [identity_matching_auto_resolved] }
   - { v: "0 / 0", l: "failures and warnings across the production infrastructure audit", claims: [infrastructure_audit_result] }
 facts:
-  - { v: "~600 people", l: "at the provider: around 100 office staff and 500 support workers", claims: [care_provider_size] }
+  - { v: "~600 people", l: "at the provider: around 100 office staff and 500 support workers", claims: [care_provider_size, care_provider_staff_split] }
   - { v: "~18", l: "governed workstreams, delivered one at a time", claims: [governed_workstream_count] }
+  - { v: "500 / 175 / 416", l: "visits, medication alerts and names routed to review: the client's real exports every report was checked against", claims: [reconciliation_visit_count, reconciliation_medication_alert_count, reconciliation_names_routed_to_review] }
 ---
 
 ## A care business held together by spreadsheets and goodwill
@@ -43,7 +44,7 @@ Results from the live pilot:
 - One roster import created [**294 carers and 293 service users**](/work/care-provider-transformation/#source-carer-record-count) as clean records straight from the client's CSV files.
 - Identity matching [**resolved 274 of 418**](/work/care-provider-transformation/#source-identity-matching-auto-resolved) possible duplicates automatically, leaving only the genuinely unclear ones for staff to check.
 - [**588 supervision and spot-check schedules**](/work/care-provider-transformation/#source-supervision-schedule-count) were created automatically.
-- Every report was checked against the client's existing exports — 500 visits, 175 medication alerts, and 416 names flagged for review — so managers could trust the figures from day one.
+- Every report was checked against the client's existing exports — [500 visits, 175 medication alerts, and 416 names flagged for review](/work/care-provider-transformation/#source-reconciliation-visit-count) — so managers could trust the figures from day one.
 
 The platform is live in a production pilot that the client uses and reviews daily.
 

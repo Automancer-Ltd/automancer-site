@@ -87,7 +87,7 @@ trade portal case study](/work/manufacturer-trade-portal/).
    them right, unless the integration is the entire point of the project.
 3. **What can you load with real data on day one?** That trade portal was
    seeded from the client's own price-list workbook, so it stood up loaded with
-   around 74 customers, 888 products and 1,263 price rules rather than three
+   [around 74 customers, 888 products and 1,263 price rules](/work/manufacturer-trade-portal/#source-manufacturer-portal-demo-seed-data) rather than three
    tidy fake ones. Fake data hides exactly the problems real data finds.
 4. **What are you keeping just in case?** Every brief has items nobody can
    describe an actual Monday morning for. Those are not phase 2. They are phase

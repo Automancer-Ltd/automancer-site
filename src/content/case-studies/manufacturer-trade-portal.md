@@ -17,6 +17,8 @@ stats:
   - { v: "Computed", l: "per-customer pricing, calculated automatically" }
   - { v: "Apr 2026", l: "Phase 1 signed off as a usable foundation", claims: [manufacturer_portal_phase_status] }
   - { v: "5 units", l: "multi-unit pricing: feet, metres, sqft, sqm, each", claims: [manufacturer_portal_pricing_units] }
+facts:
+  - { v: "~74 / 888 / 1,263", l: "customers, products and price rules loaded on day one from the client's price-list spreadsheet", claims: [manufacturer_portal_demo_seed_data] }
 ---
 
 ## When customer prices live in someone's head
@@ -34,7 +36,7 @@ We built a trade portal covering the full order journey, alongside a redesigned 
 
 At the centre is a pricing calculator that handles [five units of measure](/work/manufacturer-trade-portal/#source-manufacturer-portal-pricing-units) — feet, metres, square feet, square metres, and individual items — plus bulk price updates and Irish cross-border orders.
 
-We loaded the system from the client's existing price-list spreadsheet: 74 customers, 888 products, and 1,263 price rules ready on day one.
+We loaded the system from the client's existing price-list spreadsheet: [74 customers, 888 products, and 1,263 price rules](/work/manufacturer-trade-portal/#source-manufacturer-portal-demo-seed-data) ready on day one.
 
 ## Delivered in stages
 
@@ -45,4 +47,4 @@ We delivered Phase 1 as a working order-to-dispatch system in a secure review en
 - [**Phase 1 signed off** in April 2026](/work/manufacturer-trade-portal/#source-manufacturer-portal-phase-status).
 - Order, production, dispatch, and draft invoicing run in **one workflow**.
 - Customer-specific prices are **calculated automatically** across [five units of measure](/work/manufacturer-trade-portal/#source-manufacturer-portal-pricing-units).
-- Loaded with 74 customers, 888 products, and 1,263 price rules from the client's real records.
+- Loaded with [74 customers, 888 products, and 1,263 price rules](/work/manufacturer-trade-portal/#source-manufacturer-portal-demo-seed-data) from the client's real records.

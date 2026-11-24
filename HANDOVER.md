@@ -7,7 +7,7 @@ It does not outrank anything: `VISION.md` is authority 0 and `SPEC.md` describes
 When this file and `SPEC.md` disagree about what exists, `SPEC.md` and the code are right and this
 file is out of date.
 
-Last updated: 21 November 2026 (every case-study figure links to its evidence, t23577).
+Last updated: 24 November 2026 (no unbacked number on a case study, t25118).
 
 ## Where the site stands against the vision
 
@@ -20,7 +20,7 @@ disagree. Against that, today:
 | A UK business reads pages that answer plainly and publish the price | Built. `/services/` prices render from `src/data/business.ts`; a build test fails if a from-price in the output is not a published `priceFrom` (`v2026.10.14.1`, PR #69). |
 | An agent can quote, price and act on it correctly | Built. The `/api/*.json` endpoints in one registry (`src/data/api.ts`) behind the discovery document, the OpenAPI 3.1 spec and `/developers`; `agent.json`, `security.txt`, `llms.txt`, Markdown twins and full-content feeds. `/api/services.json` `includes` is the same included list `/services/` shows, and the build fails if they disagree. Acting still means email: the form needs a browser security check, and since 12 Nov 2026 that is data: `/api/enquiry.json` names email as the route an agent can complete, with the form's fields, limits and an email template that asks the same questions. |
 | What a machine is told never differs from what a person is shown | Enforced for the facts that matter most: prices, service names, each service's included list, page inventory, JSON-LD, twins and feeds all read shared modules, and dist-level tests compare the payloads with the pages. |
-| Its own honesty audited | Partly. Production is verified after every deploy and every 30 minutes (`ops/verify-production.sh`), including the revision served, the legal block, TLS and the machine surfaces. Nothing yet audits the *claims* on the pages against the truth layer continuously. Since t23334 a person sees the same evidence a machine gets: every case-study figure the claims registry backs links to the dossier line behind it. Since t23577 that holds wherever a figure is repeated (home, /work/, /services/, /about/, field notes), and the build fails on a page that states a registered figure without a link to its evidence (`tests/figure-sources.test.ts`). Numbers with no registry entry are not caught: see the next slices. |
+| Its own honesty audited | Partly. Production is verified after every deploy and every 30 minutes (`ops/verify-production.sh`), including the revision served, the legal block, TLS and the machine surfaces. Nothing yet audits the *claims* on the pages against the truth layer continuously. Since t23334 a person sees the same evidence a machine gets: every case-study figure the claims registry backs links to the dossier line behind it. Since t23577 that holds wherever a figure is repeated (home, /work/, /services/, /about/, field notes), and the build fails on a page that states a registered figure without a link to its evidence (`tests/figure-sources.test.ts`). Since t25118 a case study cannot state a number the registry does not hold (field notes are not yet checked). |
 | Published identifiers are promises | **Built in this slice.** The promise is now a document an agent can fetch and check: `/api/stability.json`. |
 | Nothing reaches the public without Waseem | Honoured: this repository ships the site; it never speaks to a prospect itself. |
 
@@ -145,11 +145,38 @@ and 293 service users" with nothing behind it.
 - `/` grew 1,651 B; `LAYOUT_MEASURED` re-measured (docs/PERFORMANCE.md).
 - Undo: revert this slice's merge commit.
 
-Next for this thread: numbers on the site with no registry entry are not checked at all. The
-manufacturer card's statline ("74 customers · 888 products · 1,263 price rules"), the
-reconciliation note's "500 visits, 175 medication alerts and 416 names" and the website case study's
-figures have no claim in automancer-bd `data/claims.toml`. Add them there if the dossier holds
-them (then to `src/data/claims.ts` and `MENTIONS`), or drop them from the pages.
+Next for this thread: shipped in t25118, below.
+
+## Slice: no unbacked number on a case study (24 November 2026, t25118)
+
+t23577 linked every registered figure to its evidence, but numbers with no registry entry were not
+checked at all, and seven mentions on two case studies and five field notes had no route to their
+source: the reconciliation check ("500 visits, 175 medication alerts and 416 names routed to
+review") and the trade portal's day-one data ("74 customers, 888 products and 1,263 price rules").
+Both were already verified claims in automancer-bd `data/claims.toml`, quoting the dossier.
+
+- `src/data/claims.ts` copies five more claims from the registry: the three reconciliation counts,
+  `manufacturer_portal_demo_seed_data` and `care_provider_staff_split` (17 in all).
+- Two new rows under "Where these numbers come from": "500 / 175 / 416" on the care study and
+  "~74 / 888 / 1,263" on the trade portal (`facts`). All seven mentions link to their row.
+- `tests/figure-sources.test.ts`: a `facts` figure is an introduction figure only where the
+  study's hero states it, so a figure stated only in the story must link. A new check reads each
+  case study's page, cards and description, and fails on any number that is not a registered
+  claim, a published from-price, a date or a phase, or named in `NOT_A_FIGURE` with a reason
+  (only "Microsoft 365" today). Both failed when a link was removed and "we trained 12 staff" was
+  added to a study. It also fails when a claim's pattern matches nothing.
+- Found, not changed (wording needs Waseem's instruction): the trade portal's statline and story say
+  "74 customers ... from the client's real records", where the record says "~74" and calls it demo
+  seed data built from the client's real price-list workbook (the field notes say "around 74" and
+  "seeded from the client's own price-list workbook"). And "what governed AI means" says the check
+  "flagged 175 medication alerts that needed review"; the record says the reconciliation was
+  verified against exports holding 175 medication alerts. The evidence rows now show the record's
+  own words beside both.
+- Field notes are not yet held to the no-unbacked-number rule: they carry illustrative numbers
+  ("three tidy fake ones", "2 weeks") as well as claims. "144 genuinely ambiguous records" on the
+  identity-matching note is a registry claim (`identity_matching_manual_remainder`) whose source is
+  a LinkedIn draft, not the dossier, so it is not linked.
+- Undo: revert this slice's merge commit.
 
 ## Frontend slice: release notes as a dated timeline (21 November 2026, t23438)
 
