@@ -8,6 +8,8 @@ import '../styles/hero.css';
 import Bead from '../components/Bead.astro';
 import { business } from '../data/business';
 import { API_ENDPOINTS } from '../data/api';
+import { responseFields } from '../data/openapi';
+import InlineScript from '../components/InlineScript.astro';
 
 const url = (path: string) => `${business.url}${path}`;
 ---
@@ -70,15 +72,39 @@ const url = (path: string) => `${business.url}${path}`;
         </p>
       </div>
 
-      {API_ENDPOINTS.map((endpoint) => (
-        <div class="reveal" style="margin-bottom: var(--sp-8);">
-          <h3 style="font-size:var(--t-3); margin-bottom:var(--sp-2);">
-            <a class="tlink" href={endpoint.path}>{endpoint.path}</a>
-          </h3>
-          <p style="color:var(--muted); margin-bottom:var(--sp-3);">{endpoint.description}</p>
-          <pre tabindex="0" style="background:var(--near, #111); padding:var(--sp-4); overflow-x:auto;"><code style="font-family:'JetBrains Mono', monospace; font-size:0.9em;">curl -s {url(endpoint.path)}</code></pre>
-        </div>
-      ))}
+      <ol class="endpoints reveal">
+        {API_ENDPOINTS.map((endpoint) => {
+          const fields = responseFields(endpoint.operationId);
+          return (
+            <li class="ep">
+              <div class="ep__about">
+                <h3 class="ep__path"><a class="tlink" href={endpoint.path}>{endpoint.path}</a></h3>
+                <p>{endpoint.description}</p>
+              </div>
+              <div class="ep__use">
+                <div class="ep__cmd">
+                  <pre><code>curl -s {business.url}<wbr />{endpoint.path}</code></pre>
+                  <button class="ep__copy" type="button" hidden>Copy<span class="sr-only"> the command for {endpoint.path}</span></button>
+                </div>
+                <details class="ep__fields">
+                  <summary>Response: {fields.length} fields</summary>
+                  <dl>
+                    {fields.map((f) => (
+                      <div>
+                        <dt><code>{f.name}</code> <span>{f.type}{f.required ? '' : ', optional'}</span></dt>
+                        {(f.description || f.members) && (
+                          <dd>{f.description}{f.members && <span>Each has {f.members.join(', ')}.</span>}</dd>
+                        )}
+                      </div>
+                    ))}
+                  </dl>
+                </details>
+              </div>
+            </li>
+          );
+        })}
+      </ol>
+      <p class="sr-only" role="status" id="copy-status"></p>
     </div>
   </section>
 
@@ -138,4 +164,92 @@ const url = (path: string) => `${business.url}${path}`;
       </div>
     </div>
   </section>
+  <InlineScript><script is:inline>
+    (function () {
+      var status = document.getElementById('copy-status');
+      if (!navigator.clipboard || !status) return;
+      document.querySelectorAll('.ep__copy').forEach(function (button) {
+        var code = button.previousElementSibling, timer;
+        button.hidden = false;
+        button.addEventListener('click', function () {
+          status.textContent = '';
+          navigator.clipboard.writeText(code.textContent).then(function () {
+            button.firstChild.nodeValue = 'Copied';
+            button.dataset.done = '';
+            status.textContent = 'Command copied.';
+            clearTimeout(timer);
+            timer = setTimeout(function () { button.firstChild.nodeValue = 'Copy'; delete button.dataset.done; }, 2000);
+          }, function () {
+            var range = document.createRange();
+            range.selectNodeContents(code);
+            getSelection().removeAllRanges();
+            getSelection().addRange(range);
+            status.textContent = 'Command selected. Copy it with your keyboard.';
+          });
+        });
+      });
+    })();
+  </script></InlineScript>
 </BaseLayout>
+
+<style is:global>
+/* ─────────────────────── The endpoint reference ───────────────────────
+   One row per endpoint: what it is on the left, how to call it and what comes
+   back on the right; stacked on phones. The command wraps rather than scrolls,
+   so a phone shows the whole URL; on the narrowest screens the Copy button
+   drops below it rather than squeezing the URL. */
+.endpoints { list-style: none; padding: 0; margin: var(--sp-12) 0 0; border-top: 1px solid var(--border); }
+.ep { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-5) var(--sp-12); padding-block: var(--sp-8); border-bottom: 1px solid var(--border); }
+@media (min-width: 64rem) {
+  .ep { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); }
+}
+.ep__path { font-size: var(--t-2); letter-spacing: -0.02em; margin-bottom: var(--sp-3); }
+.ep__about p { color: var(--muted); max-width: 58ch; }
+
+.ep__cmd {
+  display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--sp-2) var(--sp-3);
+  background: var(--g-950); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-4);
+}
+.ep__cmd pre {
+  flex: 1 1 13rem; min-width: 0; margin: 0; padding-block: var(--sp-2);
+  font-family: var(--font-mono); font-size: 0.875rem; line-height: 1.55; color: var(--ink);
+  white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.ep__cmd pre::selection, .ep__cmd pre ::selection { background: var(--ink); color: var(--black); }
+.ep__copy {
+  flex: none; min-width: 5.25rem; min-height: 2.5rem; padding: 0 var(--sp-3);
+  font-family: var(--font-mono); font-weight: 600; font-size: 0.72rem;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--ink); background: transparent; cursor: pointer;
+  border: 1.5px solid var(--border-strong); border-radius: var(--radius);
+  transition: border-color var(--dur-1), background-color var(--dur-1), color var(--dur-1);
+}
+.ep__copy:hover { border-color: var(--ink); }
+.ep__copy[data-done] { background: var(--ink); border-color: var(--ink); color: var(--black); }
+
+.ep__fields { margin-top: var(--sp-2); }
+.ep__fields summary {
+  display: inline-flex; align-items: center; gap: var(--sp-3); min-height: 2.75rem;
+  font-family: var(--font-mono); font-size: 0.8125rem; color: var(--muted);
+  cursor: pointer; list-style: none;
+}
+.ep__fields summary::-webkit-details-marker { display: none; }
+.ep__fields summary::before {
+  content: ""; width: 0.42em; height: 0.42em; margin-inline: 0.15em;
+  border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg); transition: transform var(--dur-1) var(--ease-out-quart);
+}
+.ep__fields[open] summary::before { transform: rotate(45deg); }
+.ep__fields summary:hover, .ep__fields[open] summary { color: var(--ink); }
+.ep__fields dl { margin: var(--sp-1) 0 0; border-top: 1px solid var(--border); }
+.ep__fields dl > div { padding-block: 0.625rem; border-bottom: 1px solid var(--border); }
+.ep__fields dt { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--sp-3); }
+.ep__fields dt code { font-family: var(--font-mono); font-size: 0.875rem; color: var(--ink); overflow-wrap: anywhere; }
+.ep__fields dt span, .ep__fields dd span {
+  font-family: var(--font-mono); font-size: 0.8125rem; color: var(--muted);
+}
+.ep__fields dd { margin: var(--sp-1) 0 0; color: var(--muted); font-size: var(--t--1); line-height: 1.55; max-width: 64ch; }
+.ep__fields dd span { display: block; overflow-wrap: anywhere; }
+.ep__fields dd span:not(:first-child) { margin-top: var(--sp-1); }
+</style>

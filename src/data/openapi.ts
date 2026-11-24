@@ -719,3 +719,48 @@ export function renderOpenApiSpec(): Response {
     headers: { 'Content-Type': 'application/json; charset=utf-8' },
   });
 }
+
+/** One top-level field of an endpoint's 200 response, as /developers lists it. */
+export interface ResponseField {
+  name: string;
+  /** Plain-language type: "string", "date-time", "list of objects", "one of GBP"… */
+  type: string;
+  required: boolean;
+  description?: string;
+  /** The field names each object (or each list item) carries. */
+  members?: string[];
+}
+
+function typeLabel(schema: JsonSchema): string {
+  if (Array.isArray(schema.enum)) return `one of ${(schema.enum as string[]).join(', ')}`;
+  if (schema.type === 'array') {
+    const items = (schema.items ?? {}) as JsonSchema;
+    const of = items.type === 'object' ? 'objects' : `${typeLabel(items)}s`;
+    return `list of ${of}`;
+  }
+  if (schema.type === 'string' && schema.format === 'uri') return 'URL';
+  if (schema.type === 'string' && typeof schema.format === 'string') return schema.format;
+  return String(schema.type);
+}
+
+/**
+ * The response fields of one operation, read from the same component schema
+ * /openapi.json publishes, in its order, so the page and the spec cannot
+ * disagree (tests/developer-surface.test.ts compares the built pair).
+ */
+export function responseFields(operationId: string): ResponseField[] {
+  const schema = schemas[RESPONSE_SCHEMA_BY_OPERATION[operationId]];
+  if (!schema) throw new Error(`No response schema for ${operationId}`);
+  const required = new Set((schema.required ?? []) as string[]);
+  return Object.entries(schema.properties as Record<string, JsonSchema>).map(([name, field]) => {
+    const inner = (field.type === 'array' ? field.items : field) as JsonSchema | undefined;
+    const members = inner?.type === 'object' ? Object.keys((inner.properties ?? {}) as object) : [];
+    return {
+      name,
+      type: typeLabel(field),
+      required: required.has(name),
+      ...(typeof field.description === 'string' ? { description: field.description } : {}),
+      ...(members.length ? { members } : {}),
+    };
+  });
+}

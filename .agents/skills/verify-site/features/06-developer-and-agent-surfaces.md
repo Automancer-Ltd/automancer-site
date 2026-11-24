@@ -10,7 +10,10 @@ points to: `/llms.txt`, `/llms-full.txt`, `/agent.json`, `/security.txt`, `/open
 
 - `home and developer introductions load their hero layout` (t22218 once shipped this page without
   its hero styles).
-- Vitest: `tests/developer-surface.test.ts` (OpenAPI 3.1 describes exactly the listed endpoints),
+- `the developer reference shows each whole command, copies it, and lists what comes back` and
+  `a developer whose clipboard is denied gets the command selected instead` (t25710).
+- Vitest: `tests/developer-surface.test.ts` (OpenAPI 3.1 describes exactly the listed endpoints;
+  `/developers/` lists each endpoint's response fields as the spec declares them),
   `tests/agent-readiness.test.ts` (twins, `llms*.txt`, manifests, security.txt, feeds, robots),
   `tests/feeds.test.ts` and `tests/claims.test.ts`.
 - Production: `ops/verify-production.sh` reads every page and twin from the served sitemap and

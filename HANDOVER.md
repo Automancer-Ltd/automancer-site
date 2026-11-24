@@ -7,7 +7,7 @@ It does not outrank anything: `VISION.md` is authority 0 and `SPEC.md` describes
 When this file and `SPEC.md` disagree about what exists, `SPEC.md` and the code are right and this
 file is out of date.
 
-Last updated: 24 November 2026 (every number a buyer reads is accounted for, t25645).
+Last updated: 24 November 2026 (the developer page becomes an endpoint reference, t25710).
 
 ## Where the site stands against the vision
 
@@ -125,6 +125,24 @@ The former cache and release-note slices shipped in PRs #164 and #165 respective
 "gap above a field note's first paragraph on phones" slice is dropped from the list: t22126
 measured every note's opening line already on a 390×844 phone's first screen (17 of 17), so the
 gap is a spacing taste call, not lost content.
+
+## Frontend slice: the developer page becomes an endpoint reference (24 November 2026, t25710)
+
+On a 390px phone every `curl` command on `/developers/` was cut off mid-URL ("…/api/bus") inside a
+box that scrolled sideways, and nothing on the page said what an endpoint returns: a developer
+had to open `/openapi.json` and follow its `$ref`s to learn a payload's fields.
+
+- Each endpoint is a row: path and description; the command, wrapping at `/api/` so the whole URL
+  shows; a Copy button (scripts only; it selects the command where the clipboard is refused); and
+  a closed "Response: N fields" list read from the OpenAPI component schema
+  (`responseFields` in `src/data/openapi.ts`). No existing words changed; the field descriptions
+  are the ones `/openapi.json` already publishes.
+- Proof: `pnpm run compare` shows only `/developers/` differs (2 of 66 page views). A new dist
+  test fails when the page and the spec list different fields (proved by deleting `legalName`
+  from the built page). The journey copies a command at both widths, checks the denied-clipboard
+  fallback, and the reflow check (320px, 200% text) passes after it caught a path and a field name
+  that pushed the grid past the screen.
+- Undo: revert the merge.
 
 ## Next slice: every figure links to its evidence (21 November 2026, t23577)
 
