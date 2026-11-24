@@ -2,7 +2,7 @@
 // Contact page.
 //
 // Wired to the finalised AUTD lead-intake endpoint (src/config/site.ts).
-// NO third-party form processors. Posts application/json to ENDPOINT_URL.
+// NO third-party form processors. src/scripts/contact-form.ts posts application/json to ENDPOINT_URL.
 //
 // Contract:
 //   Body { name, email, company?, message, turnstileToken, website(honeypot) }.
@@ -23,21 +23,26 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import Bead from '../components/Bead.astro';
 import SpectrumGlow from '../components/SpectrumGlow.astro';
-import InlineScript from '../components/InlineScript.astro';
-import { ENDPOINT_URL, TURNSTILE_SITE_KEY, FIELD_LIMITS, LEAD_ERROR_COPY, LEAD_ERROR_FALLBACK } from '../config/site';
+import { ENDPOINT_URL, TURNSTILE_SITE_KEY } from '../config/site';
+import type { EnquiryPageData } from '../scripts/contact-form';
 import { business } from '../data/business';
 import { AFTER_SEND_STEPS, ENQUIRY_FIELDS, SERVICE_OPTIONS, SERVICE_PARAM, enquiryField } from '../data/enquiry';
 
 const steps = AFTER_SEND_STEPS;
 const f = enquiryField;
 const emailLink = `mailto:${business.email}`;
-const draftFields = ENQUIRY_FIELDS.map(({ id, label }) => ({ id, label }));
-const serviceOptions = SERVICE_OPTIONS.map((o) => ({ ...o }));
+// What src/scripts/contact-form.ts needs from the enquiry contract, as data.
+const enquiry: EnquiryPageData = {
+  email: business.email,
+  serviceParam: SERVICE_PARAM,
+  fields: ENQUIRY_FIELDS.map(({ id, label }) => ({ id, label })),
+  services: SERVICE_OPTIONS.map(({ value, label }) => ({ value, label })),
+};
 // This page alone may load Turnstile, show its challenge frame and send the
 // enquiry to the intake API; every other page's policy refuses all three.
-Astro.csp.insertScriptResource('https://challenges.cloudflare.com');
-Astro.csp.insertDirective('frame-src https://challenges.cloudflare.com');
-Astro.csp.insertDirective(`connect-src ${new URL(ENDPOINT_URL).origin}`);
+Astro.csp!.insertScriptResource('https://challenges.cloudflare.com');
+Astro.csp!.insertDirective('frame-src https://challenges.cloudflare.com');
+Astro.csp!.insertDirective(`connect-src ${new URL(ENDPOINT_URL).origin}`);
 ---
 
 <BaseLayout
@@ -78,7 +83,7 @@ Astro.csp.insertDirective(`connect-src ${new URL(ENDPOINT_URL).origin}`);
           </div>
 
           <p id="form-unavailable">Please email <a href={emailLink}>{business.email}</a> to get in touch.</p>
-          <form id="contact-form" class="form" method="POST" novalidate data-endpoint={ENDPOINT_URL} hidden>
+          <form id="contact-form" class="form" method="POST" novalidate data-endpoint={ENDPOINT_URL} data-enquiry={JSON.stringify(enquiry)} hidden>
             <!-- Arriving from an offer's button names the offer here,
                  so the visitor sees their choice came with them; "Change" jumps to it. -->
             <p id="service-carried" class="service-carried" data-page-words="skip" hidden>
@@ -105,7 +110,7 @@ Astro.csp.insertDirective(`connect-src ${new URL(ENDPOINT_URL).origin}`);
                 <fieldset id="service-pick" class="service-pick" tabindex="-1">
                   <legend>{f('service').label} <span class="opt">(optional)</span></legend>
                   <div class="service-pick__options">
-                    {serviceOptions.map((o) => (
+                    {SERVICE_OPTIONS.map((o) => (
                       <label class="service-option">
                         <input type="radio" name="service" value={o.value} />
                         <span class="service-option__name">{o.label}</span>
@@ -214,350 +219,9 @@ Astro.csp.insertDirective(`connect-src ${new URL(ENDPOINT_URL).origin}`);
     </div>
   </section>
 
-  <InlineScript><script is:inline define:vars={{ endpoint: ENDPOINT_URL, limits: FIELD_LIMITS, draftFields, serviceOptions, serviceParam: SERVICE_PARAM, emailTo: business.email, errorCopy: LEAD_ERROR_COPY, errorFallback: LEAD_ERROR_FALLBACK }}>
-    (function () {
-      var form = document.getElementById('contact-form');
-      if (!form) return;
-      var errEl = document.getElementById('form-error');
-      var confirmEl = document.getElementById('form-confirm');
-      var recovery = document.getElementById('form-recovery');
-      var submitBtn = form.querySelector('button[type="submit"]');
-
-      function showError(msg) {
-        errEl.textContent = msg;
-        errEl.style.display = 'block';
-      }
-      function showDeliveryError(msg) {
-        showError(msg);
-        // The email route carries the chosen service in its subject.
-        var chosen = chosenService();
-        var emailRoute = document.getElementById('email-enquiry');
-        if (emailRoute) emailRoute.href = 'mailto:' + emailTo + (chosen ? '?subject=' + encodeURIComponent('Enquiry: ' + chosen.label) : '');
-        recovery.hidden = false;
-      }
-
-      // Offer fragments let every offer share the same HTTP cache entry. After
-      // arrival use the published query address, so reloads and shares keep the
-      // choice even if the visitor has followed another anchor in the form.
-      var carried = document.getElementById('service-carried');
-      var optionalDetails = document.getElementById('optional-details');
-      var optionalService = document.getElementById('optional-service');
-      var servicePick = document.getElementById('service-pick');
-      var serviceRadios = form.querySelectorAll ? Array.prototype.slice.call(form.querySelectorAll('input[name="service"]')) : [];
-      function chosenService() {
-        var checked = serviceRadios.find(function (r) { return r.checked; });
-        return checked ? serviceOptions.find(function (o) { return o.value === checked.value; }) || null : null;
-      }
-      function showCarried() {
-        if (!carried) return;
-        var chosen = chosenService();
-        if (!chosen) { carried.hidden = true; return; }
-        carried.querySelector('[data-service-name]').textContent = chosen.label;
-        carried.hidden = false;
-      }
-      function selectArrivingService() {
-        var url = new URL(location.href);
-        var offer = url.hash.startsWith('#' + serviceParam + '=') ? new URLSearchParams(url.hash.slice(1)).get(serviceParam) : null;
-        var wanted = url.searchParams.get(serviceParam) ?? offer;
-        var arrived = serviceRadios.find(function (r) { return r.value === wanted; });
-        if (!arrived) return;
-        arrived.checked = true;
-        showCarried();
-        if (offer !== null) {
-          url.hash = '';
-          url.searchParams.set(serviceParam, arrived.value);
-          history.replaceState(history.state, '', url.pathname + url.search);
-        }
-      }
-      // Chrome may activate a prerender with a different fragment than it
-      // started with. Read the address the visitor actually opened.
-      if (document.prerendering) document.addEventListener('prerenderingchange', selectArrivingService, { once: true });
-      else selectArrivingService();
-      if (servicePick) servicePick.addEventListener('change', function () {
-        var chosen = chosenService();
-        if (carried && !carried.hidden) showCarried();
-        else optionalService.textContent = chosen?.label || '';
-        var url = new URL(location.href);
-        if (chosen) url.searchParams.set(serviceParam, chosen.value); else url.searchParams.delete(serviceParam);
-        history.replaceState(history.state, '', url.pathname + url.search + url.hash);
-      });
-      if (carried && servicePick) carried.querySelector('a').addEventListener('click', function (event) {
-        event.preventDefault();
-        optionalDetails.open = true;
-        var target = serviceRadios.find(function (r) { return r.checked; }) || serviceRadios[0];
-        servicePick.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
-        target.focus({ preventScroll: true });
-      });
-      document.getElementById('copy-enquiry').addEventListener('click', async function () {
-        var status = document.getElementById('copy-enquiry-status');
-        var draftField = document.getElementById('enquiry-draft-field');
-        var values = new FormData(form);
-        var text = draftFields.flatMap(function (field) {
-          var value = field.id === 'service' ? chosenService()?.label : values.get(field.id)?.trim();
-          return value ? [field.label + '\n' + value] : [];
-        }).join('\n\n');
-        if (!text) {
-          status.textContent = 'There is nothing to copy yet.';
-          return;
-        }
-        try {
-          await navigator.clipboard.writeText(text);
-          draftField.hidden = true;
-          status.textContent = 'Copied. Paste your enquiry into your email.';
-        } catch {
-          var draft = document.getElementById('enquiry-draft');
-          status.textContent = 'Select and copy your enquiry below.';
-          draft.value = text;
-          draftField.hidden = false;
-          draft.focus();
-          draft.select();
-        }
-      });
-      function clearFieldErrors() {
-        var controls = [form.name, form.email, form.company, form.time_sink, form.team_size, form.extra];
-        for (var i = 0; i < controls.length; i++) {
-          var el = controls[i];
-          if (!el || !el.removeAttribute) continue;
-          el.removeAttribute('aria-invalid');
-          el.removeAttribute('aria-describedby');
-        }
-      }
-      function clearError() {
-        errEl.style.display = 'none';
-        errEl.textContent = '';
-        clearFieldErrors();
-      }
-      // Validation failure: name the field, move focus onto it, and scroll
-      // it into view. At 375 the error sits above Send while #name is off-screen.
-      function failField(field, msg) {
-        showError(msg);
-        if (!field) return;
-        if (optionalDetails?.contains(field)) optionalDetails.open = true;
-        if (field.setAttribute) {
-          field.setAttribute('aria-invalid', 'true');
-          field.setAttribute('aria-describedby', 'form-error');
-        }
-        if (typeof field.focus === 'function') field.focus();
-        if (typeof field.scrollIntoView === 'function') {
-          field.scrollIntoView({ block: 'center' });
-        }
-      }
-
-      function turnstileToken() {
-        // Prefer the official API; fall back to the injected hidden input.
-        try { if (window.turnstile) return window.turnstile.getResponse() || ''; } catch (e) {}
-        var input = form.querySelector('[name="cf-turnstile-response"]');
-        return input ? input.value : '';
-      }
-      var securityCheckCopy = 'The security check could not load.';
-      function securityCheckUnavailable() {
-        clearTimeout(turnstileLoadTimer);
-        turnstileState = 'failed';
-        showDeliveryError(securityCheckCopy);
-      }
-      window.onTurnstileError = function () {
-        securityCheckUnavailable();
-        // Keep a handled widget error out of Sentry (AUTOMANCER-SITE-4).
-        return true;
-      };
-      function resetTurnstile() { try { if (window.turnstile) window.turnstile.reset(); } catch (e) {} }
-
-      // A reader may be here for the phone number. Start the check only when
-      // someone uses the form, early enough to run while they fill it in.
-      var slot = form.querySelector ? form.querySelector('.turnstile-slot') : null;
-      var turnstileState = 'idle';
-      var turnstileLoadTimer;
-      var turnstileRenderTimer;
-      var lastInputAt = 0;
-      function renderTurnstile() {
-        clearTimeout(turnstileRenderTimer);
-        turnstileState = 'ready';
-        // A late load can still render. Leave the email and copy controls
-        // available in case the visitor has already started using them.
-        if (errEl.textContent === securityCheckCopy) clearError();
-        try {
-          window.turnstile.render(slot, {
-            sitekey: slot.getAttribute('data-sitekey'),
-            theme: slot.getAttribute('data-theme'),
-            'error-callback': window.onTurnstileError
-          });
-        } catch (e) { securityCheckUnavailable(); }
-      }
-      function scheduleTurnstileRender() {
-        // Mounting the widget can block typing on a slower phone. Start in a
-        // pause, or immediately if the visitor submits the form first.
-        clearTimeout(turnstileRenderTimer);
-        turnstileRenderTimer = setTimeout(renderTurnstile, Math.max(0, 600 - (Date.now() - lastInputAt)));
-      }
-      window.onTurnstileLoad = function () {
-        clearTimeout(turnstileLoadTimer);
-        turnstileState = 'loaded';
-        scheduleTurnstileRender();
-      };
-      // The page refuses plain strings as script URLs (Trusted Types, astro.config.mjs).
-      // This page's one policy can produce exactly Turnstile's URL and nothing else.
-      var turnstileSrc = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=onTurnstileLoad';
-      var turnstilePolicy = null;
-      try {
-        if (window.trustedTypes) {
-          turnstilePolicy = window.trustedTypes.createPolicy('turnstile', {
-            createScriptURL: function (url) {
-              if (url !== turnstileSrc) throw new TypeError('Only the Turnstile script may load here');
-              return url;
-            }
-          });
-        }
-      } catch (e) {}
-      function loadTurnstile() {
-        if (turnstileState !== 'idle' || !slot || document.prerendering) return;
-        turnstileState = 'loading';
-        var s = document.createElement('script');
-        try {
-          s.src = turnstilePolicy ? turnstilePolicy.createScriptURL(turnstileSrc) : turnstileSrc;
-        } catch (e) { securityCheckUnavailable(); return; }
-        s.async = true;
-        s.onerror = securityCheckUnavailable;
-        // A stalled download does not fire onerror. Offer the draft without
-        // making the visitor wait for the browser's network timeout.
-        turnstileLoadTimer = setTimeout(securityCheckUnavailable, 10_000);
-        document.head.appendChild(s);
-      }
-      form.addEventListener('focusin', loadTurnstile);
-      form.addEventListener('pointerdown', loadTurnstile);
-      form.addEventListener('input', function () {
-        lastInputAt = Date.now();
-        loadTurnstile();
-        if (turnstileState === 'loaded') scheduleTurnstileRender();
-      });
-
-      // Only use our own error copy, even when the API sends an unknown code.
-      function copyFor(payload, ourDefault) {
-        var code = payload && typeof payload.error === 'string' ? payload.error : null;
-        if (code && Object.prototype.hasOwnProperty.call(errorCopy, code)) return errorCopy[code];
-        return ourDefault || errorFallback;
-      }
-
-      // Warm the connection to the intake API with an empty OPTIONS while the visitor types (t20932).
-      var warmedAt = 0;
-      function warmSend() {
-        var now = Date.now();
-        if (now - warmedAt < 60000) return;
-        warmedAt = now;
-        fetch(endpoint, { method: 'OPTIONS', credentials: 'omit' }).catch(function () {});
-      }
-      form.addEventListener('focusin', warmSend);
-      form.addEventListener('input', warmSend);
-
-      var turnstileFailures = 0;
-      form.addEventListener('submit', async function (event) {
-        event.preventDefault();
-        clearError();
-
-        var name = form.name.value.trim();
-        var emailVal = form.email.value.trim();
-        var company = form.company.value.trim();
-        var timeSink = form.time_sink.value.trim();
-        var team = form.team_size.value.trim();
-        var extra = form.extra.value.trim();
-        var honeypot = form.website.value;
-        var chosen = chosenService();
-
-        // Compose the single message field the intake contract expects.
-        var message = (chosen ? 'Interested in: ' + chosen.label + '\n\n' : '') + timeSink;
-        if (team) message += '\n\nTeam size: ' + team;
-        if (extra) message += '\n\nAlso: ' + extra;
-
-        // Client-side validation mirroring the endpoint's limits.
-        if (!name) return failField(form.name, 'Please add your name.');
-        if (name.length > limits.name) return failField(form.name, 'Name is a bit long — keep it under ' + limits.name + ' characters.');
-        if (!emailVal || form.email.validity.typeMismatch) return failField(form.email, 'Please add a valid email so Waseem can reply.');
-        if (emailVal.length > limits.email) return failField(form.email, 'That email looks too long to be right.');
-        if (!timeSink) return failField(form.time_sink, 'Tell us what’s eating your week — even a sentence helps.');
-        if (company.length > limits.company) return failField(form.company, 'Business name is a bit long — under ' + limits.company + ' characters, please.');
-        if (message.length > limits.message) return failField(null, 'Your message is over the ' + limits.message + '-character limit across the message, team size and extra boxes. Please shorten any of them.');
-
-        if (turnstileState === 'loaded') renderTurnstile();
-        var token = turnstileToken();
-        if (!token) {
-          if (turnstileState === 'failed' || !slot) return securityCheckUnavailable();
-          loadTurnstile();
-          return showError('Please complete the security check above.');
-        }
-
-        var payload = {
-          name: name,
-          email: emailVal,
-          company: company || undefined,
-          message: message,
-          turnstileToken: token,
-          website: honeypot
-        };
-
-        submitBtn.disabled = true;
-        submitBtn.querySelector('span').textContent = 'Sending…';
-        var sent = false;
-
-        try {
-          var res = await fetch(endpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'omit',
-            body: JSON.stringify(payload),
-            signal: AbortSignal.timeout(15_000)
-          });
-
-          if (res.status === 200) {
-            var ok = await res.json().catch(function () { return {}; });
-            if (ok && ok.ok) {
-              sent = true;
-              form.style.display = 'none';
-              confirmEl.style.display = 'block';
-              confirmEl.scrollIntoView({ block: 'center' });
-              // The focused Send button was just hidden with the form; land
-              // keyboard and screen-reader users on the confirmation instead.
-              var confirmHeading = confirmEl.querySelector('h2');
-              if (confirmHeading && confirmHeading.focus) confirmHeading.focus({ preventScroll: true });
-              return;
-            }
-          }
-
-          if (res.status === 400) {
-            var body = await res.json().catch(function () { return {}; });
-            showError(copyFor(body, 'Something in the form needs a second look.'));
-          } else if (res.status === 403) {
-            var f = await res.json().catch(function () { return {}; });
-            // A bad token and a bad server secret can both be 403. Offer email after a repeat.
-            turnstileFailures += 1;
-            if (f?.error === 'turnstile_unavailable' || f?.error === 'server_misconfigured') {
-              showDeliveryError(copyFor(f));
-            } else if (turnstileFailures >= 2) {
-              showDeliveryError('The security check keeps failing.');
-            } else {
-              showError(copyFor(f, 'The security check needs another go — please complete it again and resend.'));
-            }
-          } else if (res.status === 429) {
-            var rl = await res.json().catch(function () { return {}; });
-            var secs = rl && rl.retryAfterMs ? Math.ceil(rl.retryAfterMs / 1000) : null;
-            showError(copyFor(rl, 'Whoa, easy — that’s a lot of sending. ' + (secs ? 'Give it about ' + secs + ' seconds' : 'Give it a moment') + ' and try once more.'));
-          } else {
-            showDeliveryError(copyFor(null));
-          }
-        } catch (err) {
-          // Network / CORS failure (expected off the production origin).
-          showDeliveryError('Couldn’t reach us just now.');
-        } finally {
-          // A Turnstile token is single-use, and any request that reached the
-          // API may have spent it: a resend with the old one gets a 403.
-          if (!sent) resetTurnstile();
-          submitBtn.disabled = false;
-          submitBtn.querySelector('span').textContent = 'Send it to Waseem';
-        }
-      });
-      submitBtn.disabled = false;
-      form.hidden = false;
-      document.getElementById('form-unavailable').hidden = true;
-    })();
-  </script></InlineScript>
+  <script>
+    import '../scripts/contact-form';
+  </script>
 </BaseLayout>
 
 <style is:global>

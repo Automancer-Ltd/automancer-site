@@ -10,7 +10,7 @@
  * The previous site posted to Formspree; that is deliberately replaced. This
  * endpoint owns contact-form ingestion end to end.
  *
- * Contract (see src/pages/contact.astro for the client implementation):
+ * Contract (see src/scripts/contact-form.ts for the client implementation):
  *   POST application/json, no credentials.
  *   Body: { name, email, company?, message, turnstileToken, website }
  *         `website` is a honeypot — must submit empty.

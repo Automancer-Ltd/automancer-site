@@ -9,47 +9,50 @@
  * through copyFor()), but none of the suite's assertions covered it: this
  * file exists so that defect cannot come back green.
  *
- * HOW IT ASSERTS: behaviourally, not textually. The contact page's inline
- * script is lifted byte-for-byte out of dist/contact/index.html — the bytes
- * GitHub Pages serves — and executed against a stub DOM and a stubbed fetch;
- * the captured submit handler is then driven exactly as a visitor's browser
- * would drive it. What lands in #form-error is the assertion surface:
+ * HOW IT ASSERTS: behaviourally, not textually. The contact page's form
+ * script (src/scripts/contact-form.ts, which Astro bundles into the page) is
+ * lifted byte-for-byte out of dist/contact/index.html — the bytes GitHub
+ * Pages serves — and run in that built page in happy-dom, with the intake
+ * API stubbed. Send is pressed exactly as a visitor's browser would press
+ * it. What lands in #form-error is the assertion surface:
  *   - every allowlisted code must produce ITS OWN human sentence;
  *   - an unknown or malformed payload must produce honest human copy and
  *     never echo an identifier back;
  *   - machine codes (lowercase_with_underscores, no spaces) and human
  *     sentences have different shapes, and both shapes are asserted.
  *
- * THE NEGATIVE CONTROL is git history, not imagination:
- *   git show 9ac5d96^:src/pages/contact.astro > src/pages/contact.astro
- * rebuild and run this file — every behavioural test below must go red,
- * each failure naming the code a visitor would have seen. If it stays green
- * against that file, this file is wrong, not the fix.
+ * THE NEGATIVE CONTROL is the shipped defect: make copyFor() in
+ * src/scripts/contact-form.ts return the API's own `error` string when it
+ * has one (as the page did before 9ac5d96), rebuild and run this file. The
+ * code-mapping tests below must go red, each failure naming the code a
+ * visitor would have seen. If they stay green, this file is wrong, not the fix.
  */
-import { describe, expect, it, vi } from 'vitest';
-import { Window, type HTMLElement, type HTMLInputElement } from 'happy-dom';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { Window, type HTMLButtonElement, type HTMLElement, type HTMLInputElement } from 'happy-dom';
 import { readDistFile } from './support/dist';
 import { LEAD_ERROR_COPY } from '../src/config/site';
 
 const PAGE = 'contact/index.html';
 
 /**
- * The exact bytes of the contact page's inline logic script as served,
- * including the define:vars preamble Astro injects (endpoint, limits, draftFields,
- * errorCopy, errorFallback as leading const declarations inside the same
- * <script> tag).
+ * The exact bytes of the contact page's form script as served: Astro bundles
+ * src/scripts/contact-form.ts into the page itself, as one inline module.
  */
 function builtContactScript(): string {
   const html = readDistFile(PAGE);
   expect(html, `${PAGE} missing from dist/ — the production build did not emit it`).toBeTruthy();
 
   const tags = html!.match(/<script\b[^>]*>[\s\S]*?<\/script>/g) ?? [];
-  const candidates = tags.filter((t) => t.includes("getElementById('contact-form')"));
+  const candidates = tags.filter((t) => t.includes('contact-form'));
   expect(
     candidates,
     `expected exactly one inline script wiring up #contact-form in ${PAGE}, found ${candidates.length}. ` +
       'Extraction failed, so everything below would prove nothing.'
   ).toHaveLength(1);
+  // It runs as a classic script here: it must import and export nothing.
+  expect(candidates[0], 'the form script imports or exports, so it no longer stands alone in the page').not.toMatch(
+    /\b(?:import|export)\s*[{*"'`\w]/,
+  );
 
   return candidates[0].replace(/^<script[^>]*>/, '').replace(/<\/script>$/, '');
 }
@@ -62,190 +65,111 @@ interface StubResponse {
   reject?: Error;
 }
 
-interface FieldStub {
-  value: string;
-  validity: { typeMismatch: boolean };
-  focusCalls: number;
-  scrollCalls: unknown[];
-  attrs: Record<string, string>;
-  focus(): void;
-  scrollIntoView(opts?: unknown): void;
-  setAttribute(name: string, value: string): void;
-  getAttribute(name: string): string | null;
-  removeAttribute(name: string): void;
+type FieldName = 'name' | 'email' | 'company' | 'time_sink' | 'team_size' | 'extra' | 'website';
+
+interface ContactPage {
+  window: Window;
+  field(name: FieldName): HTMLInputElement;
+  /** Press Send and wait until the form has finished with the submission. */
+  submit(): Promise<void>;
+  /** What #form-error shows. */
+  readonly shown: string;
+  readonly recoveryVisible: boolean;
+  readonly submitBtn: HTMLButtonElement;
+  /** The enquiry bodies the page posted to the intake API. */
+  readonly requests: string[];
+  readonly lastFetchInit: RequestInit | undefined;
 }
 
-interface DriveResult {
-  shown: string;
-  recoveryVisible: boolean;
-  turnstileErrorCallback?: () => boolean;
-  fields: Record<string, FieldStub>;
-  fetchCalls: number;
-  lastFetchInit?: RequestInit;
-  submitBtn: { disabled: boolean; textContent: string };
-}
+const pages: Window[] = [];
+afterEach(async () => {
+  await Promise.all(pages.splice(0).map((w) => w.happyDOM.close()));
+});
 
 /**
- * Execute the served script against browser-shaped stubs, press the form's
- * submit button `submissions` times, and return whatever text ended up in
- * #form-error plus the field stubs (focus / aria). Each call gets a fresh
- * page state, matching a fresh visit.
+ * The built /contact/ page in a DOM, its served form script running, the
+ * security check already passed (Turnstile answers with a token) and the
+ * intake API stubbed with `response`. Each call is a fresh visit.
  */
-async function driveForm(
+function openContactPage(
   scriptText: string,
   response: StubResponse,
-  submissions = 1,
-  values?: Partial<Record<'name' | 'email' | 'company' | 'time_sink' | 'team_size' | 'extra' | 'website', string>>,
-): Promise<string> {
-  return (await driveFormState(scriptText, response, submissions, values)).shown;
+  values?: Partial<Record<FieldName, string>>,
+): ContactPage {
+  const window = new Window({
+    url: 'https://automancer.uk/contact/',
+    settings: { disableJavaScriptFileLoading: true, disableCSSFileLoading: true, disableIframePageLoading: true },
+  });
+  pages.push(window);
+  window.document.write(readDistFile(PAGE)!.replace(/<script\b[\s\S]*?<\/script>/gi, ''));
+  const form = window.document.querySelector<HTMLElement>('form#contact-form')!;
+  const field = (name: FieldName) => form.querySelector<HTMLInputElement>(`[name="${name}"]`)!;
+  const filled: Record<FieldName, string> = {
+    name: 'Test Visitor',
+    email: 'visitor@example.com',
+    company: '',
+    time_sink: 'We retype the same numbers into three systems.',
+    team_size: '',
+    extra: '',
+    website: '',
+    ...values,
+  };
+  for (const [name, value] of Object.entries(filled)) field(name as FieldName).value = value;
+
+  const requests: string[] = [];
+  let lastFetchInit: RequestInit | undefined;
+  window.fetch = async (_url, init) => {
+    if (init?.method === 'OPTIONS') return new window.Response(null, { status: 204 });
+    if (typeof init?.body !== 'string') throw new Error('Expected a JSON enquiry body');
+    requests.push(init.body);
+    lastFetchInit = init as RequestInit;
+    if (response.reject) throw response.reject;
+    return new window.Response(JSON.stringify(response.body ?? null), { status: response.status ?? 200 });
+  };
+  window.eval(scriptText);
+  // Turnstile has loaded (its api.js calls onTurnstileLoad) and the visitor passed it.
+  const turnstile = { getResponse: () => 'test-token', reset() {}, render() {} };
+  Object.assign(window, { turnstile });
+  (window as unknown as { onTurnstileLoad(): void }).onTurnstileLoad();
+
+  const submitBtn = form.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+  expect(form.hidden, 'the served script never took over the form (it is still hidden)').toBe(false);
+  return {
+    window,
+    field,
+    async submit() {
+      form.dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
+      // Send is disabled from the moment an enquiry leaves until the page has its answer.
+      await vi.waitFor(() => expect(submitBtn.disabled).toBe(false));
+    },
+    get shown() {
+      return window.document.querySelector('#form-error')!.textContent;
+    },
+    get recoveryVisible() {
+      return !window.document.querySelector<HTMLElement>('#form-recovery')!.hidden;
+    },
+    submitBtn,
+    requests,
+    get lastFetchInit() {
+      return lastFetchInit;
+    },
+  };
+}
+
+/** Submit once (or `submissions` times) and return what #form-error shows. */
+async function driveForm(scriptText: string, response: StubResponse, submissions = 1): Promise<string> {
+  return (await driveFormState(scriptText, response, submissions)).shown;
 }
 
 async function driveFormState(
   scriptText: string,
   response: StubResponse,
   submissions = 1,
-  values?: Partial<Record<'name' | 'email' | 'company' | 'time_sink' | 'team_size' | 'extra' | 'website', string>>,
-): Promise<DriveResult> {
-  // textContent coerces on assignment in a real DOM (an object becomes
-  // "[object Object]" on screen); mirror that so leaks fail as named
-  // strings rather than as harness TypeErrors.
-  const errEl = {
-    style: {} as Record<string, string>,
-    _text: '',
-    get textContent(): string {
-      return this._text;
-    },
-    set textContent(value: unknown) {
-      // oxlint-disable-next-line typescript/no-base-to-string -- intentionally mirrors DOM textContent coercion on unknown payloads
-      this._text = value === null ? '' : String(value);
-    },
-  };
-  const confirmEl = { style: {} as Record<string, string>, scrollIntoView() {}, querySelector: () => null };
-  const recovery = { hidden: true };
-  const btnLabel = { textContent: '' };
-  const submitBtn = { disabled: false, querySelector: () => btnLabel };
-
-  type SubmitHandler = (event: { preventDefault(): void }) => Promise<void>;
-  let onSubmit: SubmitHandler | null = null;
-  let fetchCalls = 0;
-  let capturedFetchInit: RequestInit | undefined;
-
-  const field = (value: string): FieldStub => {
-    const attrs: Record<string, string> = {};
-    return {
-      value,
-      validity: { typeMismatch: false },
-      focusCalls: 0,
-      scrollCalls: [],
-      attrs,
-      focus() {
-        this.focusCalls += 1;
-      },
-      scrollIntoView(opts?: unknown) {
-        this.scrollCalls.push(opts ?? null);
-      },
-      setAttribute(name: string, value: string) {
-        attrs[name] = value;
-      },
-      getAttribute(name: string) {
-        return Object.prototype.hasOwnProperty.call(attrs, name) ? attrs[name] : null;
-      },
-      removeAttribute(name: string) {
-        delete attrs[name];
-      },
-    };
-  };
-
-  const fields = {
-    name: field(values?.name ?? 'Test Visitor'),
-    company: field(values?.company ?? ''),
-    email: field(values?.email ?? 'visitor@example.com'),
-    time_sink: field(values?.time_sink ?? 'We retype the same numbers into three systems.'),
-    team_size: field(values?.team_size ?? ''),
-    extra: field(values?.extra ?? ''),
-    website: field(values?.website ?? ''),
-  };
-
-  const form = {
-    name: fields.name,
-    company: fields.company,
-    email: fields.email,
-    time_sink: fields.time_sink,
-    team_size: fields.team_size,
-    extra: fields.extra,
-    website: fields.website,
-    style: {} as Record<string, string>,
-    addEventListener(type: string, handler: SubmitHandler): void {
-      if (type === 'submit') onSubmit = handler;
-    },
-    querySelector(selector: string): unknown {
-      if (selector === 'button[type="submit"]') return submitBtn;
-      // No Turnstile widget object -> the script falls back to this input.
-      if (selector === '[name="cf-turnstile-response"]') return field('test-token');
-      return null;
-    },
-  };
-
-  const documentStub = {
-    getElementById(id: string): unknown {
-      if (id === 'contact-form') return form;
-      if (id === 'form-error') return errEl;
-      if (id === 'form-confirm') return confirmEl;
-      if (id === 'form-recovery') return recovery;
-      if (id === 'copy-enquiry') return { addEventListener() {} };
-      if (id === 'form-unavailable') return { hidden: false };
-      return null;
-    },
-  };
-
-  const windowStub: { onTurnstileError?: () => boolean } = {};
-
-  // Named parameters shadow Node globals, so the served bytes see exactly
-  // what a browser hands a page: no Turnstile yet, no stored utm state, and
-  // a fetch that answers with the stubbed response.
-  // oxlint-disable-next-line typescript/no-implied-eval -- executes built inline script from dist/contact/index.html against stubbed globals
-  new Function(
-    'document',
-    'window',
-    'fetch',
-    'sessionStorage',
-    'location',
-    'URLSearchParams',
-    scriptText,
-  )(
-    documentStub,
-    windowStub,
-    async (_url: string, init?: RequestInit) => {
-      fetchCalls += 1;
-      capturedFetchInit = init;
-      if (response.reject) throw response.reject;
-      return { status: response.status ?? 200, json: async () => response.body };
-    },
-    { getItem: () => null },
-    new URL('https://automancer.uk/contact/'),
-    URLSearchParams,
-  );
-
-  expect(
-    onSubmit,
-    'the built page registered no submit handler — nothing was exercised'
-  ).toBeTypeOf('function');
-
-  for (let i = 0; i < submissions; i++) {
-    await onSubmit!({ preventDefault() {} });
-  }
-  return {
-    get shown() { return errEl.textContent; },
-    get recoveryVisible() { return !recovery.hidden; },
-    turnstileErrorCallback: windowStub.onTurnstileError,
-    fields,
-    fetchCalls,
-    lastFetchInit: capturedFetchInit,
-    submitBtn: {
-      disabled: submitBtn.disabled,
-      textContent: btnLabel.textContent,
-    },
-  };
+  values?: Partial<Record<FieldName, string>>,
+): Promise<ContactPage> {
+  const page = openContactPage(scriptText, response, values);
+  for (let i = 0; i < submissions; i++) await page.submit();
+  return page;
 }
 
 /** Whole-string shape of an API error code: lowercase snake_case, no spaces. */
@@ -364,79 +288,67 @@ describe('client-side validation moves focus to the first invalid field', () => 
   const script = builtContactScript();
 
   it('keeps malformed reply addresses out of intake and allows a corrected address', async () => {
-    const window = new Window({
-      url: 'https://automancer.uk/contact/',
-      settings: { disableJavaScriptFileLoading: true, disableCSSFileLoading: true, disableIframePageLoading: true },
-    });
-    try {
-      window.document.write(readDistFile(PAGE)!.replace(/<script\b[\s\S]*?<\/script>/gi, ''));
-      const form = window.document.querySelector('form')!;
-      // happy-dom does not expose named controls as form properties like browsers do.
-      // The service radios share one name; the script reads them by selector, not as a property.
-      const named = new Set<string>();
-      for (const control of Array.from(form.elements)) {
-        const name = control.getAttribute('name');
-        if (name && !named.has(name)) Object.defineProperty(form, name, { value: control });
-        if (name) named.add(name);
-      }
-      const email = form.elements.namedItem('email') as HTMLInputElement;
-      (form.elements.namedItem('name') as HTMLInputElement).value = 'Test Visitor';
-      (form.elements.namedItem('time_sink') as HTMLInputElement).value = 'Manual spreadsheet reconciliation.';
-      const requests: string[] = [];
-      window.fetch = async (_url, init) => {
-        if (typeof init?.body !== 'string') throw new Error('Expected a JSON enquiry body');
-        requests.push(init.body);
-        return new window.Response('{"ok":true}', { status: 200 });
-      };
-      window.eval('window.turnstile = { getResponse: () => "test-token", reset() {} };');
-      window.eval(script);
-
-      for (const address of ['visitor@', 'visitor@@example.test', 'visitor name@example.test']) {
-        email.value = address;
-        form.dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
-        expect(requests, `${address} must be corrected before using an intake request`).toHaveLength(0);
-        expect(window.document.activeElement).toBe(email);
-        expect(email.getAttribute('aria-invalid')).toBe('true');
-      }
-
-      email.value = 'visitor+enquiry@example.test';
-      form.dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
-      await vi.waitFor(() => expect(window.document.querySelector<HTMLElement>('#form-confirm')!.style.display).toBe('block'));
-      expect(requests).toHaveLength(1);
-      expect(JSON.parse(requests[0]).email).toBe('visitor+enquiry@example.test');
-      expect(email.hasAttribute('aria-invalid')).toBe(false);
-    } finally {
-      await window.happyDOM.close();
+    const page = openContactPage(script, { status: 200, body: { ok: true } });
+    const email = page.field('email');
+    for (const address of ['visitor@', 'visitor@@example.test', 'visitor name@example.test']) {
+      email.value = address;
+      await page.submit();
+      expect(page.requests, `${address} must be corrected before using an intake request`).toHaveLength(0);
+      expect(page.window.document.activeElement).toBe(email);
+      expect(email.getAttribute('aria-invalid')).toBe('true');
     }
+
+    email.value = 'visitor+enquiry@example.test';
+    await page.submit();
+    expect(page.window.document.querySelector<HTMLElement>('#form-confirm')!.style.display).toBe('block');
+    expect(page.requests).toHaveLength(1);
+    expect(JSON.parse(page.requests[0]).email).toBe('visitor+enquiry@example.test');
+    expect(email.hasAttribute('aria-invalid')).toBe(false);
   });
 
   it('empty name: focuses #name, scrolls it into view, and associates the message', async () => {
-    const result = await driveFormState(script, { status: 200 }, 1, { name: '' });
-    expect(result.shown).toBe('Please add your name.');
-    expect(result.fetchCalls, 'empty-name submit must not hit the intake endpoint').toBe(0);
-    expect(
-      result.fields.name.focusCalls,
-      'validation failed on name but focus() was never called'
-    ).toBeGreaterThan(0);
-    expect(
-      result.fields.name.scrollCalls.length,
-      'validation failed on name but scrollIntoView() was never called'
-    ).toBeGreaterThan(0);
-    expect(result.fields.name.getAttribute('aria-invalid')).toBe('true');
-    expect(result.fields.name.getAttribute('aria-describedby')).toBe('form-error');
-    expect(result.fields.email.focusCalls, 'focused email instead of the first invalid field').toBe(0);
+    const page = openContactPage(script, { status: 200 }, { name: '' });
+    const name = page.field('name');
+    const scrolled = vi.spyOn(name, 'scrollIntoView');
+    await page.submit();
+    expect(page.shown).toBe('Please add your name.');
+    expect(page.requests, 'empty-name submit must not hit the intake endpoint').toHaveLength(0);
+    expect(page.window.document.activeElement, 'validation failed on name but name was not focused').toBe(name);
+    expect(scrolled, 'validation failed on name but scrollIntoView() was never called').toHaveBeenCalled();
+    expect(name.getAttribute('aria-invalid')).toBe('true');
+    expect(name.getAttribute('aria-describedby')).toBe('form-error');
   });
 
   it('missing email with a name present focuses email, not name', async () => {
-    const result = await driveFormState(script, { status: 200 }, 1, { email: '' });
-    expect(result.shown).toMatch(/valid email/i);
-    expect(result.fetchCalls).toBe(0);
-    expect(result.fields.email.focusCalls).toBeGreaterThan(0);
-    expect(result.fields.email.scrollCalls.length).toBeGreaterThan(0);
-    expect(result.fields.email.getAttribute('aria-invalid')).toBe('true');
-    expect(result.fields.email.getAttribute('aria-describedby')).toBe('form-error');
-    expect(result.fields.name.focusCalls).toBe(0);
-    expect(result.fields.name.getAttribute('aria-invalid')).toBeNull();
+    const page = openContactPage(script, { status: 200 }, { email: '' });
+    const email = page.field('email');
+    const scrolled = vi.spyOn(email, 'scrollIntoView');
+    await page.submit();
+    expect(page.shown).toMatch(/valid email/i);
+    expect(page.requests).toHaveLength(0);
+    expect(page.window.document.activeElement).toBe(email);
+    expect(scrolled).toHaveBeenCalled();
+    expect(email.getAttribute('aria-invalid')).toBe('true');
+    expect(email.getAttribute('aria-describedby')).toBe('form-error');
+    expect(page.field('name').getAttribute('aria-invalid')).toBeNull();
+  });
+});
+
+describe('the published message limit', () => {
+  const script = builtContactScript();
+  const limit = (JSON.parse(readDistFile('api/enquiry.json')!) as { combinedMessage: { maxLength: number } })
+    .combinedMessage.maxLength;
+
+  it('refuses a message over /api/enquiry.json\'s combined limit before sending, and sends one at it', async () => {
+    const over = openContactPage(script, { status: 200, body: { ok: true } }, { time_sink: 'x'.repeat(limit + 1) });
+    await over.submit();
+    expect(over.shown).toContain(`${limit}-character limit`);
+    expect(over.requests).toHaveLength(0);
+
+    const at = openContactPage(script, { status: 200, body: { ok: true } }, { time_sink: 'x'.repeat(limit) });
+    await at.submit();
+    expect(at.requests).toHaveLength(1);
+    expect((JSON.parse(at.requests[0]) as { message: string }).message).toHaveLength(limit);
   });
 });
 
@@ -447,7 +359,7 @@ describe('aborted or timed-out submission', () => {
     const abortError = new DOMException('The operation was aborted due to timeout', 'TimeoutError');
     const result = await driveFormState(script, { reject: abortError });
 
-    expect(result.lastFetchInit?.signal, 'fetch call must receive an AbortSignal').toBeInstanceOf(AbortSignal);
+    expect(result.lastFetchInit?.signal, 'fetch call must receive an AbortSignal').toBeInstanceOf(result.window.AbortSignal);
     expect(result.shown).toContain('Couldn’t reach us just now.');
     expect(result.recoveryVisible).toBe(true);
     assertHumanCopy(result.shown, 'aborted fetch error');
@@ -460,16 +372,17 @@ describe('aborted or timed-out submission', () => {
 describe('Turnstile widget execution errors', () => {
   const script = builtContactScript();
 
-  it('handles 600010, gives the visitor an email fallback, and does not leak an error code', async () => {
+  it('handles 600010, gives the visitor an email fallback, and does not leak an error code', () => {
     const html = readDistFile(PAGE)!;
     expect(html).toContain('data-error-callback="onTurnstileError"');
 
-    const result = await driveFormState(script, { status: 200 });
-    expect(result.turnstileErrorCallback, 'the widget error callback was not installed globally').toBeTypeOf('function');
-    expect(result.turnstileErrorCallback!()).toBe(true);
-    expect(result.shown).toMatch(/security check could not load/i);
-    expect(result.recoveryVisible).toBe(true);
-    expect(result.shown).not.toContain('600010');
-    expect(result.shown).not.toContain('TurnstileError');
+    const page = openContactPage(script, { status: 200 });
+    const onError = (page.window as unknown as { onTurnstileError?: () => boolean }).onTurnstileError;
+    expect(onError, 'the widget error callback was not installed globally').toBeTypeOf('function');
+    expect(onError!()).toBe(true);
+    expect(page.shown).toMatch(/security check could not load/i);
+    expect(page.recoveryVisible).toBe(true);
+    expect(page.shown).not.toContain('600010');
+    expect(page.shown).not.toContain('TurnstileError');
   });
 });

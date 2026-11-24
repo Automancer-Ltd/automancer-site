@@ -213,8 +213,11 @@ deploy the previous Worker version (`deploy.sh` at the previous commit, which up
 bindings).
 A new third-party request needs its origin added here first, deliberately. Turnstile was checked
 on production's real origin with this policy swapped in: the widget and its frame load with no
-refusal on the page, exactly as before (Turnstile's own frame logs its own CSP lines, unrelated). Wrap trusted `is:inline`
-scripts in `src/components/InlineScript.astro`: Astro does not hash those bodies itself, so the
+refusal on the page, exactly as before (Turnstile's own frame logs its own CSP lines, unrelated). A page's own
+script is TypeScript in `src/scripts/`, imported from a `<script>` in the page: Astro bundles it
+into the page and hashes it itself. Only a script that must run at its place in the parse (the
+off-site guard, the font-fallback request, the field-notes topic pick) stays `is:inline`; wrap
+those in `src/components/InlineScript.astro`: Astro does not hash those bodies itself, so the
 wrapper renders them once and registers their exact hash through `Astro.csp`. Existing inline
 style attributes remain allowed. The visitor journey checks real browser refusal and that the
 normal navigation and contact flow run without CSP errors, locally and after every deploy.

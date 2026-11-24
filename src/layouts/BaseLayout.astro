@@ -50,9 +50,9 @@ const imageAlt = Astro.props.imageAlt ?? cardAlt(ownCard!.card);
 const offsiteLock = import.meta.env.PROD ? OFFSITE_LOCK : '';
 if (offsiteLock) {
   const css = /^<style>([^<]*)<\/style>$/.exec(offsiteLock)![1]!;
-  Astro.csp.insertStyleHash(`sha256-${createHash('sha256').update(css).digest('base64')}`);
+  Astro.csp!.insertStyleHash(`sha256-${createHash('sha256').update(css).digest('base64')}`);
 }
-Astro.csp.insertDirective(`trusted-types ${trustedTypes.length ? trustedTypes.join(' ') : "'none'"}`);
+Astro.csp!.insertDirective(`trusted-types ${trustedTypes.length ? trustedTypes.join(' ') : "'none'"}`);
 const markdownUrl = markdown ? abs(markdown) : markdownTwinPath(Astro.url.pathname);
 
 // A static page's JSON-LD type comes from its staticPages entry (the same one

@@ -3,12 +3,11 @@
  * Publishes factual build provenance: the site identity, its maintainers,
  * and the real commit and build timestamp. This is not a live health check.
  *
- * A small inline script converts the real build timestamp into a relative
+ * src/scripts/build-age.ts converts the real build timestamp into a relative
  * "deployed Nh ago" age and updates it while the page is open.
  */
 import { build, formatBuildStamp } from '../data/build';
 import Bead from './Bead.astro';
-import InlineScript from './InlineScript.astro';
 
 const stamp = formatBuildStamp();
 const sha = build.commit ?? 'local';
@@ -52,32 +51,6 @@ const items = [
   </p>
 </div>
 
-<InlineScript><script is:inline>
-  (function () {
-    var el = document.querySelector('[data-build-since]');
-    if (!el) return;
-    var base = el.getAttribute('data-build-since');
-    var full = el.textContent;
-    var t = new Date(base).getTime();
-    if (isNaN(t)) return;
-    function rel() {
-      var s = Math.max(0, Math.floor((Date.now() - t) / 1000));
-      if (s < 90) return s + 's ago';
-      var m = Math.floor(s / 60);
-      if (m < 90) return m + 'm ago';
-      var h = Math.floor(m / 60);
-      if (h < 48) return h + 'h ago';
-      return Math.floor(h / 24) + 'd ago';
-    }
-    // Show the honest relative age; keep the absolute stamp in the title.
-    var live = document.querySelectorAll('[data-build-since]');
-    function tick() {
-      live.forEach(function (n) {
-        n.setAttribute('title', full);
-        n.textContent = rel();
-      });
-    }
-    tick();
-    setInterval(tick, 15000);
-  })();
-</script></InlineScript>
+<script>
+  import '../scripts/build-age';
+</script>

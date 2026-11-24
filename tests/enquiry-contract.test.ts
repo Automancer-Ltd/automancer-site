@@ -134,11 +134,8 @@ describe('/api/enquiry.json — the enquiry contract matches the /contact/ form'
     expect(values).toContain(new URL(contract.prefill.example).searchParams.get(contract.prefill.parameter));
   });
 
-  it('names the joined-message limit the form script enforces', () => {
-    const script = readDistFile('contact/index.html') ?? '';
-    expect(script, 'the form no longer reads the published message limit').toContain(
-      `"message":${contract.combinedMessage.maxLength}`
-    );
+  // The form script enforcing this limit is driven in tests/contact-errors.test.ts.
+  it('joins only fields the form has into the combined message', () => {
     for (const id of contract.combinedMessage.fields) {
       expect(contract.fields.map((f) => f.id), `combinedMessage names unknown field ${id}`).toContain(id);
     }

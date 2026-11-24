@@ -9,7 +9,6 @@ import Bead from '../components/Bead.astro';
 import { business } from '../data/business';
 import { API_ENDPOINTS } from '../data/api';
 import { responseFields } from '../data/openapi';
-import InlineScript from '../components/InlineScript.astro';
 
 const url = (path: string) => `${business.url}${path}`;
 ---
@@ -164,32 +163,9 @@ const url = (path: string) => `${business.url}${path}`;
       </div>
     </div>
   </section>
-  <InlineScript><script is:inline>
-    (function () {
-      var status = document.getElementById('copy-status');
-      if (!navigator.clipboard || !status) return;
-      document.querySelectorAll('.ep__copy').forEach(function (button) {
-        var code = button.previousElementSibling, timer;
-        button.hidden = false;
-        button.addEventListener('click', function () {
-          status.textContent = '';
-          navigator.clipboard.writeText(code.textContent).then(function () {
-            button.firstChild.nodeValue = 'Copied';
-            button.dataset.done = '';
-            status.textContent = 'Command copied.';
-            clearTimeout(timer);
-            timer = setTimeout(function () { button.firstChild.nodeValue = 'Copy'; delete button.dataset.done; }, 2000);
-          }, function () {
-            var range = document.createRange();
-            range.selectNodeContents(code);
-            getSelection().removeAllRanges();
-            getSelection().addRange(range);
-            status.textContent = 'Command selected. Copy it with your keyboard.';
-          });
-        });
-      });
-    })();
-  </script></InlineScript>
+  <script>
+    import '../scripts/copy-command';
+  </script>
 </BaseLayout>
 
 <style is:global>

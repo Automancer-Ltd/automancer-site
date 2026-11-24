@@ -18,7 +18,7 @@ Run builds, tests and typechecks through `checkq` on auto-vps.
 ```bash
 checkq -- pnpm install --frozen-lockfile   # also runs `astro sync` (LSP types in .astro/)
 checkq -- pnpm run check                   # fast (~5 s): oxlint, tsrs, vitest on the dist/ that exists
-checkq -- pnpm run verify                  # the full verdict CI runs: lint, typecheck, build, audit
+checkq -- pnpm run verify                  # the full verdict CI runs: lint, typecheck (tsrs, then astro check for .astro), build, audit
 checkq -- pnpm run journey                 # visitor journey in a real browser (phone + desktop) on the built dist/
 checkq -- pnpm run compare                 # every sitemap page, phone + laptop, screenshot-compared with origin/main
 pnpm run serve                             # the built dist/ as production serves it, through the edge Worker
@@ -71,6 +71,8 @@ src/data/static-markdown.ts Markdown twin prose for static pages, twinRoute()
 src/data/api.ts             API_ENDPOINTS registry behind /api/index.json, /openapi.json, /developers/
 src/config/site.ts          ENDPOINT_URL, FIELD_LIMITS, TURNSTILE_SITE_KEY, LEAD_ERROR_COPY
 src/content/                case-studies/*.md and field-notes/*.md (schema: src/content.config.ts)
+src/scripts/                the browser code pages load: TypeScript, linted and type-checked; Astro puts
+                            each page's own script in the page (assetsInlineLimit in astro.config.mjs)
 src/lib/og-card.ts          share cards: each note's and case study's og:image, drawn at build (src/pages/og/)
 src/pages/                  .astro HTML routes; .md.ts / .json.ts / .txt.ts / .xml.ts endpoints
 src/layouts/BaseLayout.astro shared shell, SEO, JSON-LD, nav, footer, Sentry bootstrap
