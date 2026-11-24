@@ -1,5 +1,15 @@
 # Release notes
 
+## v2026.11.24.6 — 24 November 2026
+
+The service price comparison fits on the first phone screen.
+
+### Improvements
+
+- Revealing page content appears from the first screen, including service prices and case study figures.
+- When a reveal ends, its content no longer stays held in place.
+
+
 ## v2026.11.24.5 — 24 November 2026
 
 The home page makes its proof and service information easier to scan on phones.
