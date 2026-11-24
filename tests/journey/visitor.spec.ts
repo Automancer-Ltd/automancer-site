@@ -172,16 +172,15 @@ test('home actions are visible from the first frame and the headline holds its h
   }
 });
 
-test('visitor can compare starting prices immediately and jump to each offer', async ({ page }, info) => {
+test('visitor can compare starting prices immediately and jump to each offer', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/services/');
+  await page.evaluate(() => document.fonts.ready);
   const comparison = page.getByRole('navigation', { name: 'Services & pricing', exact: true });
-  for (const [index, service] of services.entries()) {
-    // A page about published prices must show them on arrival, not below a
-    // promotional introduction. A phone has room for the first offer only.
-    if (info.project.name === 'desktop' || index === 0) {
-      await expect(comparison.getByText(formatGBP(service.priceFrom), { exact: false })).toBeInViewport();
-    }
+  for (const service of services) {
+    await expect(comparison.getByText(formatGBP(service.priceFrom), { exact: false })).toBeInViewport({ ratio: 1 });
+  }
+  for (const service of services) {
     const link = comparison.getByRole('link', { name: service.name, exact: true });
     await link.focus();
     await link.press('Enter');
