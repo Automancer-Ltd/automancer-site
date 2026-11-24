@@ -5,9 +5,12 @@
  * note or case study and jump to the part they came for.
  *
  * Two forms of the same list, chosen by width in the styles below: `inline` is a closed disclosure above the first paragraph on
- * phones and tablets; `rail` sits beside the text on wide screens and stays in
- * view while reading. main.js marks the part being read (aria-current), and
- * CSS lights the section that holds it.
+ * phones and tablets; `rail` sits beside the text on wide screens. Both stay in
+ * view while reading: the rail beside the text, the disclosure as a bar under
+ * the fixed nav that names the part being read and where it falls ("4/7"), and
+ * opens over the text (t25430). main.js marks the part being read
+ * (aria-current), fills the bar, and closes it after a jump; CSS lights the
+ * section that holds the part.
  *
  * The list repeats the page's own headings, so it is not counted as the page's
  * words (data-page-words="skip", src/integrations/page-dates.ts): adding it
@@ -37,6 +40,8 @@ for (const h of headings) {
       <summary>
         <span class="toc__label">On this page</span>
         <span class="toc__count">{sections.length} {unit}</span>
+        <span class="toc__now" aria-hidden="true" data-toc-now></span>
+        <span class="toc__step" aria-hidden="true" data-toc-step></span>
       </summary>
       <ol>
         {sections.map(({ head, parts }) => (
@@ -71,8 +76,33 @@ for (const h of headings) {
 /* A section's parts sit indented under it; the section holding the part being read stays lit. */
 .toc ol ol a { padding-left: var(--sp-4); font-size: .9em; }
 .toc li:has(> ol a[aria-current]) > a { color: var(--white); }
-.toc--inline { max-width: var(--w-read); margin-bottom: clamp(1.75rem, 4vw, 2.5rem); border-bottom: 1px solid var(--border); }
-.toc--inline > ol { padding-bottom: var(--sp-4); }
+/* Phones and tablets: a bar the width of the screen that stays under the fixed
+   nav (--nav-h, measured by main.js) while the article is read, and leaves with
+   the article. Its list opens over the text rather than pushing it down, so the
+   page under the reader does not move. A screen too short to spare the bar
+   (a phone on its side) keeps it in place above the text. */
+.toc--inline { position: relative; z-index: calc(var(--z-nav) - 1);
+  margin: 0 calc(-1 * var(--pad-x)) clamp(1.75rem, 4vw, 2.5rem); padding-inline: var(--pad-x);
+  background: var(--bg);
+  border-bottom: 1px solid var(--border); }
+/* A part's heading then lands below the nav and the bar, not under them. */
+@media (width < 64rem) and (height >= 30rem) {
+  .toc--inline { position: sticky; top: var(--nav-h, 4.3rem); }
+  .article-layout:has(> .toc--inline) [id] { scroll-margin-top: calc(var(--nav-h, 4.3rem) + 3.75rem); }
+}
+.toc--inline > summary, .toc--inline > ol > li { max-width: var(--w-read); }
+.toc--inline > ol { position: absolute; inset: 100% 0 auto; padding: var(--sp-2) var(--pad-x) var(--sp-4);
+  max-height: calc(100dvh - var(--nav-h, 4.3rem) - 3.75rem); overflow-y: auto; overscroll-behavior: contain;
+  scrollbar-width: thin; background: var(--near); border-bottom: 1px solid var(--border-strong);
+  box-shadow: 0 1.5rem 2.5rem -1rem rgba(0,0,0,.85); }
+/* Once a part is being read, the bar names it, and where it falls among the
+   sections, in place of the label and the count (kept for screen readers). */
+.toc__now { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  font-family: var(--font-ui); font-size: .9375rem; color: var(--ink); }
+.toc__step { font-family: var(--font-mono); font-size: .72rem; color: var(--faint); font-variant-numeric: tabular-nums; }
+.toc__now:empty, .toc__step:empty { display: none; }
+.toc--inline[data-at] :is(.toc__label, .toc__count) { position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip-path: inset(50%); white-space: nowrap; }
 .toc summary { display: flex; align-items: center; gap: var(--sp-4); min-height: 2.75rem; cursor: pointer; list-style: none; }
 .toc summary::-webkit-details-marker { display: none; }
 .toc summary::after { content: ""; margin-inline-start: auto; width: .5rem; height: .5rem;

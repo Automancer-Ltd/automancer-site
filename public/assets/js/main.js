@@ -74,6 +74,8 @@
     });
     if (toc.length) {
       var tocId, tocQueued;
+      /* Phones: the contents bar names the part being read and its section's place, "4/7". */
+      var bar = document.querySelector('details.toc--inline'), parts = bar ? bar.querySelectorAll(':scope > ol > li') : [];
       var markToc = function () {
         tocQueued = false;
         var id = null;
@@ -84,7 +86,30 @@
           if (decodeURIComponent(a.hash.slice(1)) === id) a.setAttribute('aria-current', 'location');
           else a.removeAttribute('aria-current');
         });
+        if (!bar) return;
+        var at = -1, a = bar.querySelector('a[aria-current]');
+        parts.forEach(function (li, i) { if (a && li.contains(a)) at = i; });
+        bar.toggleAttribute('data-at', at >= 0);
+        bar.querySelector('[data-toc-now]').textContent = at < 0 ? '' : a.textContent;
+        bar.querySelector('[data-toc-step]').textContent = at < 0 ? '' : at + 1 + '/' + parts.length;
       };
+      if (bar) {
+        /* Its list opens over the text: a jump, a tap or focus elsewhere, or Escape closes it. */
+        var shut = function (event) {
+          var t = event.target;
+          if (bar.open && (!bar.contains(t) || (event.type === 'click' && t.closest('a')))) bar.open = false;
+        };
+        document.addEventListener('click', shut);
+        document.addEventListener('focusin', shut);
+        addEventListener('pageshow', function () { bar.open = false; });
+        document.addEventListener('keydown', function (event) {
+          if (event.key === 'Escape' && bar.open) { bar.open = false; bar.querySelector('summary').focus(); }
+        });
+        /* It sits right under the fixed nav, whatever height the nav has. */
+        if (nav && window.ResizeObserver) new ResizeObserver(function () {
+          document.documentElement.style.setProperty('--nav-h', nav.offsetHeight + 'px');
+        }).observe(nav);
+      }
       addEventListener('scroll', function () { if (!tocQueued) { tocQueued = true; requestAnimationFrame(markToc); } }, { passive: true });
       markToc();
     }

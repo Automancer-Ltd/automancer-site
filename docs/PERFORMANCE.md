@@ -509,3 +509,11 @@ exact `dist/` it publishes, so a heavier production build fails the release inst
   Case studies reuse it (t21875): nested parts and the lit section add 476 B of unminified source
   CSS and 205 B to `main.js` (7,236 → 7,441 B, the marker now follows the headings the list links
   to). Both stay inside the budgets' headroom, so neither measure was re-pinned.
+- **The phone contents bar costs every page 1.6 KB of script (t25430, 24 Nov 2026).** On phones
+  and tablets the contents stay under the nav while an article is read, name the part being read
+  and its section's place ("4/7"), open over the text and close after a jump. `main.js` grew
+  6,326 → 7,894 B (unminified), on every page because `main.js` is the one shared script; the
+  styles are in `ArticleContents.astro` and reach only the pages with contents. `/contact/` had
+  250 B of headroom left, so the JS measure (12,149 → 13,803 B), `/contact/` (167,719 →
+  172,392 B) and the default (161,980 → 164,507 B, now the care-provider case study) were
+  re-pinned with `measureAllPages()` on this build.
