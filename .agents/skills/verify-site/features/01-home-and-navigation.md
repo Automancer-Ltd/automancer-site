@@ -16,7 +16,7 @@ gets a real 404 with a way back.
 - `home actions are visible from the first frame and the headline holds its height while Syne loads`.
 - `homepage prices are one scroll away and link to the matching offer`.
 - `a missing page shows recovery links on arrival and leads back to the site`.
-- `every page keeps its words on screen at 320px and with text at 200%` (every sitemap page and the 404).
+- `every page keeps its words on screen at 320px and with text at 200%` (every sitemap page and the 404, in four parts that the name runs together).
 - Vitest on `dist/`: `tests/speculation-rules.test.ts` (Chromium's hover prerender, and the
   Firefox/Safari hover and touch-screen prefetch in `src/scripts/prefetch.ts`, fetch only this
   site's pages, the same links). Click speed in Firefox and WebKit: `node ops/perf/click-wait.mjs

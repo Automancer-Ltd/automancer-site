@@ -28,7 +28,8 @@ pnpm run serve                             # the built dist/ as production serve
 for reasons your change did not cause: run `verify` (it rebuilds) or delete `dist/` first. Tests and
 the journey build alike, with monitoring on as production ships it (`tests/support/build-env.ts`),
 so `check` after `journey` audits a good build; the deploy runs the same audit on the exact `dist/`
-it publishes.
+it publishes. `SKIP_BUILD=1` skips the build in either: `SKIP_BUILD=1 pnpm run journey` serves the
+`dist/` already there, as CI does straight after `verify`, so the journey reads the audited bytes.
 
 - **The visitor journey** (`tests/journey/`, Playwright): nav, published prices, the contact form's
   validation, send, refusal and outage paths, the edge Worker's headers, painted screenshots, and no

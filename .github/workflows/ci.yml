@@ -61,7 +61,10 @@ jobs:
       run: pnpm exec playwright install --with-deps chromium
     - name: Visitor journey (phone and desktop, against the built dist/)
       timeout-minutes: 10
+      # The dist/ verify just built and audited, not a second build of it.
       run: pnpm run journey
+      env:
+        SKIP_BUILD: "1"
     - name: Self-test the production checker
       run: ops/verify-production.sh --self-test
     - name: Self-test the preview target's deploy logic

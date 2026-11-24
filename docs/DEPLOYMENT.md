@@ -4,8 +4,8 @@
 
 1. Pull request → `.github/workflows/ci.yml` job `checks` (the one required context): estate
    checks, `pnpm run verify` (lint, typecheck, build, `dist/` audit), the visitor journey
-   (`pnpm run journey`, Playwright at phone and desktop width on the built `dist/`) and the `ops/`
-   self-tests.
+   (`SKIP_BUILD=1 pnpm run journey`, Playwright at phone and desktop width on the `dist/` verify
+   just built and audited) and the `ops/` self-tests.
 2. Merge to `main` → `.github/workflows/deploy.yml`, in about two minutes:
    - `build` builds the merged commit once, with the Sentry DSN, `PUBLIC_SENTRY_RELEASE=$GITHUB_SHA`
      and production's page dates, then runs lint, typecheck and the whole `dist/` audit on those
