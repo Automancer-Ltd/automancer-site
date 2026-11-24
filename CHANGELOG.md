@@ -1,5 +1,15 @@
 # Release notes
 
+## v2026.11.24.2 — 24 November 2026
+
+The site is easier to follow on phones, and reported errors are sent in a single bounded report.
+
+### Improvements
+
+- On phones and tablets, a bar under the navigation shows which section of a field note, case study or release note you’re reading and its place in the article. Open the contents list over the text, jump to a section, and the list closes; headings land below the bar.
+- When a site error is reported, it is sent as one bounded report.
+
+
 ## v2026.11.24.1 — 24 November 2026
 
 The Work page brings case studies into clearer view, and Field Notes is easier to browse on phones.
