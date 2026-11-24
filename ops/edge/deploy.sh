@@ -35,12 +35,15 @@ message="$(basename "$worker") at ${revision}${dirty:+ (not as committed)}"
 edge_source="sha256:$(python3 -I -c 'import hashlib, sys; print(hashlib.sha256(open(sys.argv[1], "rb").read()).hexdigest())' "$worker")"
 
 python3 -I -c '
-import base64, hashlib, json, sys
+import base64, hashlib, json, os, sys
+from urllib.error import URLError
+from urllib.request import Request, urlopen
+
 account, cf_account, script, date, path, message, source = sys.argv[1:8]
 code = open(path, "rb").read()
 if source != "sha256:" + hashlib.sha256(code).hexdigest():
     sys.exit("worker file changed while deploying; run again")
-print(json.dumps({"accountId": account, "input": {
+upload = {"accountId": account, "input": {
   "path": {"account_id": cf_account, "worker_id": script},
   "query": {"deploy": True},
   "contentType": "application/json",
@@ -61,17 +64,54 @@ print(json.dumps({"accountId": account, "input": {
     # Executor checks this body against the response schema, which requires these read-only
     # fields; Cloudflare sets them itself and ignores what is sent.
     "id": "", "number": 0, "urls": [], "created_on": "",
-  }}}))
-' "$EXECUTOR_ACCOUNT" "$CF_ACCOUNT" "$script" "$COMPATIBILITY_DATE" "$worker" "$message" "$edge_source" |
-  executor-tool call 'tools["cloudflare-full-access"].api.versions.createWorkerVersion' - |
-  python3 -I -c '
-import json, sys
-r = json.load(sys.stdin)
-v = r.get("result") if isinstance(r, dict) else None
-if not (isinstance(r, dict) and r.get("success") and v):
-    print(r); sys.exit(1)
+}}}
+
+# The structured MCP call carries the module as data. executor-tool call wraps
+# it in a program, where base64 of a Worker this size exceeds the 64 KiB cap.
+gateway = os.environ.get("EXECUTOR_URL") or "http://127.0.0.1:4790/mcp"
+headers = {
+    "Content-Type": "application/json", "Accept": "application/json, text/event-stream",
+    "User-Agent": "automancer-site-edge-deploy/1.0",
+}
+
+def rpc(method, params, request_id=None):
+    request = {"jsonrpc": "2.0", "method": method, "params": params}
+    if request_id is not None:
+        request["id"] = request_id
+    try:
+        with urlopen(Request(gateway, json.dumps(request).encode(), headers), timeout=120) as response:
+            session = response.headers.get("Mcp-Session-Id")
+            if session:
+                headers["Mcp-Session-Id"] = session
+            body = response.read().decode()
+    except (URLError, TimeoutError):
+        sys.exit(f"Executor did not complete {method}; check the active Worker version before retrying")
+    if request_id is None:
+        return
+    try:
+        data = next((line[5:] for line in reversed(body.splitlines()) if line.startswith("data:")), body)
+        return json.loads(data)["result"]
+    except (ValueError, KeyError):
+        sys.exit(f"Executor returned no result for {method}; check the active Worker version before retrying")
+
+rpc("initialize", {
+    "protocolVersion": "2025-06-18", "capabilities": {},
+    "clientInfo": {"name": "automancer-site-edge-deploy", "version": "1.0.0"},
+}, 1)
+rpc("notifications/initialized", {})
+reply = rpc("tools/call", {"name": "call", "arguments": {"calls": {
+    "path": "tools[\"cloudflare-full-access\"].api.versions.createWorkerVersion", "input": upload,
+}}}, 2)
+result = reply.get("structuredContent", {})
+if result.get("status") == "approval-required":
+    sys.exit("Executor requires approval; the Worker was not uploaded")
+call = result.get("execution", {}).get("value", {})
+r = call.get("value", {}) if call.get("ok") else {}
+v = r.get("result")
+if not r.get("success") or not isinstance(v, dict) or not v.get("id"):
+    sys.exit("Executor did not confirm the Cloudflare upload; check the active Worker version before retrying")
 print("uploaded and deployed version", v.get("id"), "compatibility_date", v.get("compatibility_date"))
-'
+' "$EXECUTOR_ACCOUNT" "$CF_ACCOUNT" "$script" "$COMPATIBILITY_DATE" "$worker" "$message" "$edge_source"
 
 # Read back what Cloudflare now runs: the date must be the one sent, and the error tunnel
 # bindings must be there (without SENTRY_KEY the Worker keeps no error report).
