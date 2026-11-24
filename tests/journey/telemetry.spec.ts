@@ -18,16 +18,19 @@ test('error reports keep source locations without raw browser data', async ({ pa
   const envelopes: string[] = [];
   const kinds: string[] = [];
   await page.route('**/_errors', async (route) => {
-    expect(new URL(route.request().url()).origin, 'reports go to the page’s own origin').toBe(new URL(page.url()).origin);
+    const pageOrigin = new URL(page.url()).origin;
+    expect(new URL(route.request().url()).origin, 'reports go to the page’s own origin').toBe(pageOrigin);
     const body = route.request().postData() ?? '';
     envelopes.push(body);
-    // Pass the real SDK envelope through the checked-in Worker. Test builds use an
-    // inert DSN, so replace only that fixture. Without bindings a valid report
-    // reaches the missing-key check, and no report can leave for Sentry.
+    // Pass the real SDK envelope through the checked-in Worker. Local builds use an
+    // inert DSN and localhost script URLs, so map both to the production format.
+    // A valid report reaches the missing-key check without leaving for Sentry.
     const response = await worker.fetch(new Request('https://automancer.uk/_errors', {
       method: 'POST',
       headers: { Origin: 'https://automancer.uk' },
-      body: body.replace(TEST_SENTRY_DSN, `${SENTRY_INGEST.replace('https://', 'https://test@')}/${SENTRY_PROJECT}`),
+      body: body
+        .replace(TEST_SENTRY_DSN, `${SENTRY_INGEST.replace('https://', 'https://test@')}/${SENTRY_PROJECT}`)
+        .replaceAll(`"${pageOrigin}/`, '"https://automancer.uk/'),
     }));
     expect(response.status, 'the real SDK report reaches the Worker signing step').toBe(503);
     const [, ...items] = body.split('\n');
