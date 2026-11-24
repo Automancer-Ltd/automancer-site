@@ -199,7 +199,7 @@ const url = (path: string) => `${business.url}${path}`;
    so a phone shows the whole URL; on the narrowest screens the Copy button
    drops below it rather than squeezing the URL. */
 .endpoints { list-style: none; padding: 0; margin: var(--sp-12) 0 0; border-top: 1px solid var(--border); }
-.ep { display: grid; gap: var(--sp-5) var(--sp-12); padding-block: var(--sp-8); border-bottom: 1px solid var(--border); }
+.ep { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-5) var(--sp-12); padding-block: var(--sp-8); border-bottom: 1px solid var(--border); }
 @media (min-width: 64rem) {
   .ep { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); }
 }
@@ -245,7 +245,7 @@ const url = (path: string) => `${business.url}${path}`;
 .ep__fields dl { margin: var(--sp-1) 0 0; border-top: 1px solid var(--border); }
 .ep__fields dl > div { padding-block: 0.625rem; border-bottom: 1px solid var(--border); }
 .ep__fields dt { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--sp-3); }
-.ep__fields dt code { font-family: var(--font-mono); font-size: 0.875rem; color: var(--ink); }
+.ep__fields dt code { font-family: var(--font-mono); font-size: 0.875rem; color: var(--ink); overflow-wrap: anywhere; }
 .ep__fields dt span, .ep__fields dd span {
   font-family: var(--font-mono); font-size: 0.8125rem; color: var(--muted);
 }
