@@ -103,7 +103,9 @@ ops/preview/                the non-production preview target
   report is lost; `check_error_tunnel` in `ops/verify-production.sh` fails without it. Only the
   Worker holds a key Sentry takes, the Worker secret `SENTRY_KEY`, and it signs each report with it;
   the DSN in the bundle holds none, and `/_errors` is rate-limited per visitor (`ERROR_REPORTS`,
-  t24883). `ops/edge/deploy.sh` carries both bindings, and `check_error_tunnel_signs` and
+  t24883). The Worker reads at most 64 KiB and signs one exception or empty verifier diagnostic
+  per request, so a batch cannot turn one counted request into many reports (t25486).
+  `ops/edge/deploy.sh` carries both bindings, and `check_error_tunnel_signs` and
   `check_page_key_refused` fail if either half breaks. Never put a Sentry key in the repository. No response may carry `NEL`, `Report-To` or `Reporting-Endpoints`: they make the
   browser report to a server for days, outside the CSP (Cloudflare zone setting `nel` stays off;
   the Worker strips them and `ops/verify-production.sh` fails on one).

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import worker, { ERROR_TUNNEL, OFFSITE_LOCK, SENTRY_INGEST, SENTRY_PROJECT, acceptsBrotli, envelopeItems, signedEnvelope, atOrigin, atPages, brotliFile, cachePolicy, fromPages, legacyRedirect, unlocked } from '../ops/edge/worker.js';
+import worker, { ERROR_TUNNEL, OFFSITE_LOCK, SENTRY_INGEST, SENTRY_PROJECT, acceptsBrotli, atOrigin, atPages, brotliFile, cachePolicy, fromPages, legacyRedirect, unlocked } from '../ops/edge/worker.js';
 import { DIST, allHtmlFiles, contentPages } from './support/dist';
 
 // The Pages project the Worker reads (t22925): the site has no custom domain on GitHub.
@@ -481,6 +481,7 @@ describe('error report tunnel', () => {
     const sent = new Request(input, init);
     expect(sent.url).toBe(`${SENTRY_INGEST}/api/${SENTRY_PROJECT}/envelope/`);
     expect(sent.method).toBe('POST');
+    expect(sent.redirect).toBe('manual');
     expect(await sent.text(), "signed with the Worker's key, the page's key gone, the rest byte for byte").toBe(envelope(SIGNED, event()));
     expect(Object.fromEntries(sent.headers)).toEqual({
       'content-type': 'application/x-sentry-envelope',
@@ -495,16 +496,25 @@ describe('error report tunnel', () => {
     const other = `https://0123456789abcdef0123456789abcdef@o999.ingest.sentry.io/${SENTRY_PROJECT}`;
     const refused: [string, Promise<Response>, number][] = [
       ['GET', post('', visitor, 'GET'), 405],
+      ['empty body', post(''), 400],
       ['another site', post(envelope(DSN, event()), { ...visitor, Origin: 'https://evil.example' }), 403],
       ['no Origin', post(envelope(DSN, event()), { 'Content-Type': 'text/plain' }), 403],
       ['another Sentry org', post(envelope(other, event())), 400],
       ['another project', post(envelope(DSN.replace(SENTRY_PROJECT, '1'), event())), 400],
+      ['wrong project path', post(envelope(`${DSN}/extra`, event())), 400],
+      ['no DSN username', post(envelope(DSN.replace('0123456789abcdef0123456789abcdef@', ''), event())), 400],
       ['the tests\' DSN', post(envelope('https://public@example.invalid/1', event())), 400],
       ['no DSN', post(JSON.stringify({ event_id: 'f' }) + '\n' + JSON.stringify({ type: 'event' }) + '\n{}'), 400],
       ['no items', post(envelope(DSN)), 400],
+      ['two events in one request', post(envelope(DSN, event(), event())), 400],
+      ['no event payload', post(envelope(DSN, [{ type: 'event' }, ''])), 400],
+      ['malformed event payload', post(envelope(DSN, [{ type: 'event' }, '{'])), 400],
+      ['event with no exception', post(envelope(DSN, [{ type: 'event' }, '{}'])), 400],
+      ['non-empty client report', post(envelope(DSN, [{ type: 'client_report' }, '{"timestamp":1,"discarded_events":[{"quantity":1}]}'])), 400],
       ['a session', post(envelope(DSN, event(), [{ type: 'session' }, '{}'])), 400],
       ['an attachment', post(envelope(DSN, [{ type: 'attachment', length: 3 }, 'a\nb'])), 400],
       ['not JSON', post('hello\nworld'), 400],
+      ['declared too large', post(envelope(DSN, event()), { ...visitor, 'Content-Length': '65537' }), 413],
       ['too large', post(envelope(DSN, [{ type: 'event' }, JSON.stringify({ pad: 'x'.repeat(70000) })])), 413],
     ];
     for (const [label, response, status] of refused) {
@@ -519,15 +529,13 @@ describe('error report tunnel', () => {
     const fetchSpy = sentry();
     vi.stubGlobal('fetch', fetchSpy);
     const placeholder = DSN.replace('0123456789abcdef0123456789abcdef', 'tunnel');
-    const report: [Record<string, unknown>, string] = [{ type: 'client_report' }, '{"discarded_events":[]}'];
+    const report: [Record<string, unknown>, string] = [{ type: 'client_report' }, '{"timestamp":1,"discarded_events":[]}'];
     for (const dsn of [DSN, placeholder, DSN.replace('@', ':secret@')]) {
       expect((await post(envelope(dsn, event()))).status, dsn).toBe(200);
     }
     expect((await post(envelope(placeholder, report))).status, 'a client report, as the verifier posts').toBe(200);
     const sent = await Promise.all((fetchSpy.mock.calls as unknown as [string, RequestInit][]).map(([input, init]) => new Request(input, init).text()));
     expect(sent).toEqual([envelope(SIGNED, event()), envelope(SIGNED, event()), envelope(SIGNED, event()), envelope(SIGNED, report)]);
-    const bytes = new TextEncoder().encode(envelope(DSN, [{ type: 'event', length: 5 }, 'a\nb\nc']));
-    expect(new TextDecoder().decode(signedEnvelope(bytes, KEY)), 'length-delimited payloads untouched').toBe(envelope(SIGNED, [{ type: 'event', length: 5 }, 'a\nb\nc']));
   });
 
   it("never passes a report on with the page's key when the Worker holds none", async () => {
@@ -561,13 +569,40 @@ describe('error report tunnel', () => {
     expect(ERROR_REPORTS.limit).toHaveBeenCalledTimes(3);
   });
 
-  it('reads the envelope format, length-delimited items included', () => {
-    const bytes = (text: string) => new TextEncoder().encode(text);
-    expect(envelopeItems(bytes(envelope(DSN, event(), event()) + '\n'))).toEqual(['event', 'event']);
-    expect(envelopeItems(bytes(envelope(DSN, [{ type: 'event', length: 5 }, 'a\nb\nc'], event())))).toEqual(['event', 'event']);
-    expect(envelopeItems(bytes(envelope(DSN, [{ type: 'event', length: -1 }, '{}'])))).toBeNull();
-    expect(envelopeItems(bytes(envelope(`${DSN}/extra`, event())))).toBeNull();
-    expect(envelopeItems(bytes(envelope(DSN.replace('0123456789abcdef0123456789abcdef@', ''), event())))).toBeNull();
+  it('checks a length-delimited payload against its exact byte boundary', async () => {
+    const fetchSpy = sentry();
+    vi.stubGlobal('fetch', fetchSpy);
+    const payload = JSON.stringify({ exception: { values: [{ type: 'Error', value: 'Browser script error' }] }, request: { url: 'https://automancer.uk/café/' } }, null, 2);
+    const length = new TextEncoder().encode(payload).byteLength;
+    expect((await post(envelope(DSN, [{ type: 'event', length }, payload]) + '\n')).status).toBe(200);
+    for (const wrongLength of [-1, length - 1, length + 1]) {
+      expect((await post(envelope(DSN, [{ type: 'event', length: wrongLength }, payload]))).status).toBe(400);
+    }
+    expect((await post(envelope(DSN, [{ type: 'event', length }, payload], event()))).status).toBe(400);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('cancels an undeclared oversized upload as soon as it crosses 64 KiB', async () => {
+    const fetchSpy = sentry();
+    vi.stubGlobal('fetch', fetchSpy);
+    const cancel = vi.fn();
+    let read = 0;
+    const body = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        read += 1;
+        controller.enqueue(new Uint8Array(read === 1 ? 65536 : 1));
+        if (read === 3) controller.close();
+      },
+      cancel,
+    }, { highWaterMark: 0 });
+    const request = new Request(`https://automancer.uk${ERROR_TUNNEL}`, {
+      method: 'POST', headers: visitor, body, duplex: 'half',
+    } as RequestInit);
+    expect(request.headers.get('Content-Length')).toBeNull();
+    expect((await worker.fetch(request, env)).status).toBe(413);
+    expect(read).toBe(2);
+    expect(cancel).toHaveBeenCalledOnce();
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 
   it('answers a 502 problem when Sentry cannot be reached', async () => {
@@ -575,5 +610,14 @@ describe('error report tunnel', () => {
     const res = await post(envelope(DSN, event()));
     expect(res.status).toBe(502);
     expect(res.headers.get('Content-Type')).toBe('application/problem+json');
+  });
+
+  it('refuses upstream redirects so the signed report stays at the pinned endpoint', async () => {
+    const fetchSpy = vi.fn(async () => new Response(null, { status: 307, headers: { Location: 'https://example.invalid/' } }));
+    vi.stubGlobal('fetch', fetchSpy);
+    const res = await post(envelope(DSN, event()));
+    expect(res.status).toBe(502);
+    expect(res.headers.get('Location')).toBeNull();
+    expect(fetchSpy).toHaveBeenCalledOnce();
   });
 });

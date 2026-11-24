@@ -151,14 +151,14 @@ Referer with each report, and each page's CSP named a third party. The Worker se
 envelope, `Content-Type`, `Origin: https://automancer.uk` (so the project's `allowedDomains`
 still matches) and the browser's `User-Agent` (the privacy page says a report names the browser);
 Sentry sees Cloudflare's address. It is not an open relay: it refuses a post from another
-site's page (403), a body over 64 KiB (413), and any envelope whose `dsn` is not this project or
-that holds anything but `event` items (400), without passing anything on. Sentry's status and
+site's page (403), a body over 64 KiB (413), and an envelope for a different project (400),
+without passing anything on. Sentry's status and
 its `Retry-After` and `X-Sentry-Rate-Limits` go back, so the SDK still backs off. Reports from
 browsers whose blockers stop Sentry's own address now arrive too. Order: deploy the Worker,
 then merge; a page that posts to `/_errors` before the Worker holds it loses its report (Pages
 answers 405). Undo: revert the merge (pages post to Sentry again) and only then deploy the
 previous Worker version. `check_error_tunnel` in `ops/verify-production.sh` asks the live Worker
-the two questions it must refuse, so it never sends Sentry an event.
+the questions it must refuse, using empty diagnostics that create no Sentry issues.
 
 **Only the Worker holds a key Sentry takes (t24883, 23 Nov 2026).** Until then the DSN every page
 bundles held the project's live client key (`6dc470c0…`, the project's "Default" key). Anyone could
@@ -169,7 +169,7 @@ header and no limit, burying real errors and spending the plan's quota. Now:
 - The Worker signs every report with its own key: the Worker secret `SENTRY_KEY` (Sentry key
   "automancer.uk edge Worker (SENTRY_KEY, t24883)"), set with `workerPutScriptSecret` on
   `automancer-site-edge` and on the probe. It is never in this repository, a log or a build.
-  `signedEnvelope()` swaps the key in the envelope's `dsn` and leaves every other byte alone. A
+  `signedEnvelope()` rebuilds the envelope and item headers with the Worker's fixed DSN. A
   Worker without `SENTRY_KEY` answers 503 and never forwards with a page's key.
 - The page's DSN holds no key: the repository variable `PUBLIC_AUT_SENTRY_WEB_DSN` is
   `https://tunnel@o4511673494732800.ingest.de.sentry.io/4511769898647632`, which still names the
@@ -180,14 +180,23 @@ header and no limit, burying real errors and spending the plan's quota. Now:
   `ERROR_REPORTS`, namespace 24883). Cloudflare counts per location and loosely: a burst of 53
   posts in a minute from one address had 26 taken on the probe. Past the limit the Worker answers
   429 with `Retry-After: 60` and `X-Sentry-Rate-Limits: 60::organization`, so the SDK pauses. The
-  address is only counted at the edge and never sent on. The tunnel also takes `client_report`
-  items now, which hold only counts of dropped reports and are what the verifier posts.
+  address is only counted at the edge and never sent on.
 - `ops/edge/deploy.sh` uploads both bindings with every version (`SENTRY_KEY` as `inherit`, so it
   needs the secret to exist on the script first) and fails if the read-back lacks either.
 - `ops/verify-production.sh` proves both halves on production after every deploy:
   `check_error_tunnel_signs` posts an empty client report through `/_errors` and needs Sentry's
   200, and `check_page_key_refused` posts one straight to Sentry with the served bundle's key and
   needs 401 or 403. Neither prints a key.
+
+**One request carries one error (t25486).** Each request counts once at the edge. The Worker
+requires one JSON exception event, checks the item's exact byte boundary and rejects batches
+before signing. The only `client_report` it takes is the verifier's empty diagnostic. It
+buffers at most 64 KiB and cancels a stream as soon as it crosses that limit, including requests
+without `Content-Length`. The Worker refuses redirects from the pinned Sentry endpoint.
+The production verifier checks that a batch of empty diagnostics returns 400 and that a single
+diagnostic still returns 200. Rehearse on the probe Worker, then deploy the Worker before merging
+so this live check can pass. To undo, revert the merge through a pull request before redeploying
+the preceding Worker version.
 
 Rotate the Worker's key: create a key on the project (`sentry-guarded`
 `projects.createProjectKey`, the `de.sentry.io` account), put it with `workerPutScriptSecret`

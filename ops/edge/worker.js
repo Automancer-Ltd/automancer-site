@@ -205,8 +205,9 @@ export function atOrigin(pathname, search = '') {
 // the privacy page says a report names the browser it happened in. Reports that
 // ad blockers used to stop at Sentry's address now arrive too.
 //
-// The Worker is not an open relay: it forwards only from a page of this site
-// (Origin), only small envelopes of error events, and only to SENTRY_INGEST's
+// The Worker requires this site's Origin and accepts at most one error per
+// request (or an empty verifier diagnostic), with at most 64 KiB read from the body.
+// It passes those reports only to SENTRY_INGEST's
 // project SENTRY_PROJECT, which ops/verify-production.sh also expects
 // (EXPECTED_SENTRY_PROJECT_ID; tests/edge-worker.test.ts holds them equal).
 // Anything else is answered here and never leaves.
@@ -231,23 +232,25 @@ const ERROR_REPORT_MAX_BYTES = 65536;
 // What Sentry's answer may tell the SDK: back off (429 with these) or carry on.
 const SENTRY_ANSWER_HEADERS = ['Content-Type', 'Retry-After', 'X-Sentry-Rate-Limits'];
 
-// What a page may report: error events, and the SDK's counts of what it dropped
-// (also what ops/verify-production.sh posts to prove the Worker's key works).
-const ERROR_REPORT_ITEMS = new Set(['event', 'client_report']);
 const RATE_LIMITED_FOR_SECS = 60;
 
-/**
- * The envelope's header (its first line), parsed, when it names this site's project, or null.
- * The DSN's key is not read: whatever a page sends, the Worker signs with SENTRY_KEY.
- */
-function envelopeHeader(bytes) {
-  const end = bytes.indexOf(10);
-  let header;
+const ENVELOPE_DSN = `${SENTRY_INGEST}/${SENTRY_PROJECT}`;
+const UTF8 = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true });
+
+function envelopeObject(bytes) {
   try {
-    header = JSON.parse(new TextDecoder().decode(bytes.subarray(0, end === -1 ? bytes.length : end)));
+    const value = JSON.parse(UTF8.decode(bytes));
+    return value && typeof value === 'object' && !Array.isArray(value) ? value : null;
   } catch {
     return null;
   }
+}
+
+/** Read one browser exception or the verifier's empty diagnostic. */
+function errorEnvelope(bytes) {
+  const headerEnd = bytes.indexOf(10);
+  if (headerEnd === -1) return null;
+  const header = envelopeObject(bytes.subarray(0, headerEnd));
   if (typeof header?.dsn !== 'string') return null;
   let dsn;
   try {
@@ -256,59 +259,77 @@ function envelopeHeader(bytes) {
     return null;
   }
   if (dsn.origin !== SENTRY_INGEST || dsn.pathname !== `/${SENTRY_PROJECT}` || !dsn.username) return null;
-  return { header, end: end === -1 ? bytes.length : end };
+
+  const itemEnd = bytes.indexOf(10, headerEnd + 1);
+  if (itemEnd === -1) return null;
+  const item = envelopeObject(bytes.subarray(headerEnd + 1, itemEnd));
+  if (item?.type !== 'event' && item?.type !== 'client_report') return null;
+  const start = itemEnd + 1;
+  let end = bytes.length;
+  if (item.length === undefined) {
+    const newline = bytes.indexOf(10, start);
+    if (newline !== -1 && newline !== end - 1) return null;
+    if (newline !== -1) end = newline;
+  } else {
+    if (!Number.isSafeInteger(item.length) || item.length <= 0 || item.length > end - start) return null;
+    const boundary = start + item.length;
+    if (boundary !== end && (boundary !== end - 1 || bytes[boundary] !== 10)) return null;
+    end = boundary;
+  }
+
+  const payload = envelopeObject(bytes.subarray(start, end));
+  if (!payload) return null;
+  if (item.type === 'event') {
+    if (!Array.isArray(payload.exception?.values) || payload.exception.values.length === 0) return null;
+  } else if (!Number.isFinite(payload.timestamp) || !Array.isArray(payload.discarded_events)
+    || payload.discarded_events.length !== 0 || Object.keys(payload).length !== 2) {
+    return null;
+  }
+  return { header, item: { type: item.type, length: item.length }, payload: bytes.subarray(start, end) };
 }
 
-/** The same envelope with its DSN carrying `key`, the Worker's own client key. */
-export function signedEnvelope(bytes, key) {
-  const { header, end } = envelopeHeader(bytes);
-  const dsn = new URL(header.dsn);
+/** Rebuild the headers of the one validated item using the Worker's own key. */
+function signedEnvelope({ header, item, payload }, key) {
+  const dsn = new URL(ENVELOPE_DSN);
   dsn.username = key;
-  dsn.password = '';
-  const line = new TextEncoder().encode(JSON.stringify({ ...header, dsn: dsn.toString() }));
-  const out = new Uint8Array(line.length + bytes.length - end);
-  out.set(line);
-  out.set(bytes.subarray(end), line.length);
+  const { event_id, sent_at, sdk } = header;
+  const envelopeHeader = {
+    event_id: typeof event_id === 'string' ? event_id : undefined,
+    sent_at: typeof sent_at === 'string' ? sent_at : undefined,
+    sdk: typeof sdk?.name === 'string' && typeof sdk.version === 'string' ? { name: sdk.name, version: sdk.version } : undefined,
+    dsn: dsn.toString(),
+  };
+  const headers = new TextEncoder().encode(`${JSON.stringify(envelopeHeader)}\n${JSON.stringify(item)}\n`);
+  const out = new Uint8Array(headers.length + payload.length);
+  out.set(headers);
+  out.set(payload, headers.length);
   return out;
 }
 
-/**
- * The item types of a Sentry envelope whose header names this site's project, or
- * null when it is not one (unparseable, another DSN). Items are a header line and
- * a payload, either one line or the header's `length` bytes (the envelope format).
- */
-export function envelopeItems(bytes) {
-  const decoder = new TextDecoder();
-  const lineEnd = (from) => {
-    const at = bytes.indexOf(10, from);
-    return at === -1 ? bytes.length : at;
-  };
-  const json = (from, to) => {
-    try {
-      const value = JSON.parse(decoder.decode(bytes.subarray(from, to)));
-      return value && typeof value === 'object' && !Array.isArray(value) ? value : null;
-    } catch {
-      return null;
-    }
-  };
-  if (!envelopeHeader(bytes)) return null;
-  let end = lineEnd(0);
-  const types = [];
-  let at = end + 1;
-  while (at < bytes.length) {
-    end = lineEnd(at);
-    if (end === at) { at += 1; continue; } // a blank line (a trailing newline)
-    const item = json(at, end);
-    if (typeof item?.type !== 'string') return null;
-    types.push(item.type);
-    if (item.length === undefined) {
-      at = lineEnd(end + 1) + 1;
-    } else {
-      if (!Number.isSafeInteger(item.length) || item.length < 0) return null;
-      at = end + 1 + item.length + 1;
-    }
+/** Null if the declared or streamed body is too large. Keep at most 64 KiB of it. */
+async function readErrorReport(request) {
+  if (!request.body) return new Uint8Array(0);
+  if (Number(request.headers.get('Content-Length')) > ERROR_REPORT_MAX_BYTES) {
+    request.body.cancel().catch(() => {});
+    return null;
   }
-  return types;
+  const buffer = new Uint8Array(ERROR_REPORT_MAX_BYTES);
+  const reader = request.body.getReader();
+  let size = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) return buffer.subarray(0, size);
+      if (size + value.byteLength > buffer.byteLength) {
+        reader.cancel().catch(() => {});
+        return null;
+      }
+      buffer.set(value, size);
+      size += value.byteLength;
+    }
+  } finally {
+    reader.releaseLock();
+  }
 }
 
 /** Pass a page's error report on to Sentry, signed with the Worker's key, or answer why it was refused (ERROR_TUNNEL). */
@@ -332,17 +353,18 @@ async function errorReport(request, env) {
       return res;
     }
   }
-  const declared = Number(request.headers.get('Content-Length') ?? 0);
-  if (declared > ERROR_REPORT_MAX_BYTES) {
+  let body;
+  try {
+    body = await readErrorReport(request);
+  } catch {
+    return problem(400, 'Bad Request', 'The error report upload did not complete.', ERROR_TUNNEL);
+  }
+  if (!body) {
     return problem(413, 'Content Too Large', `An error report is at most ${ERROR_REPORT_MAX_BYTES} bytes.`, ERROR_TUNNEL);
   }
-  const body = new Uint8Array(await request.arrayBuffer());
-  if (body.length > ERROR_REPORT_MAX_BYTES) {
-    return problem(413, 'Content Too Large', `An error report is at most ${ERROR_REPORT_MAX_BYTES} bytes.`, ERROR_TUNNEL);
-  }
-  const items = envelopeItems(body);
-  if (!items || items.length === 0 || items.some((type) => !ERROR_REPORT_ITEMS.has(type))) {
-    return problem(400, 'Bad Request', 'Only error events for this site’s Sentry project are passed on.', ERROR_TUNNEL);
+  const envelope = errorEnvelope(body);
+  if (!envelope) {
+    return problem(400, 'Bad Request', 'An upload must contain one error report for this site’s Sentry project.', ERROR_TUNNEL);
   }
   if (!env?.SENTRY_KEY) {
     return problem(503, 'Service Unavailable', 'Error reporting is not set up on this edge. The report was not kept.', ERROR_TUNNEL);
@@ -352,9 +374,15 @@ async function errorReport(request, env) {
   if (agent) headers.set('User-Agent', agent);
   let sentry;
   try {
-    sentry = await fetch(`${SENTRY_INGEST}/api/${SENTRY_PROJECT}/envelope/`, { method: 'POST', headers, body: signedEnvelope(body, env.SENTRY_KEY) });
+    sentry = await fetch(`${SENTRY_INGEST}/api/${SENTRY_PROJECT}/envelope/`, {
+      method: 'POST', headers, redirect: 'manual', body: signedEnvelope(envelope, env.SENTRY_KEY),
+    });
   } catch {
     return problem(502, 'Upstream error', 'The error monitor could not be reached. The report was not kept.', ERROR_TUNNEL);
+  }
+  if (sentry.status >= 300 && sentry.status < 400) {
+    sentry.body?.cancel().catch(() => {});
+    return problem(502, 'Upstream error', 'The error monitor redirected the report. The report was not kept.', ERROR_TUNNEL);
   }
   const answer = new Headers({ 'Cache-Control': 'no-store' });
   for (const name of SENTRY_ANSWER_HEADERS) {
