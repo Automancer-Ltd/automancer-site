@@ -152,6 +152,11 @@ BASE_URL=''
 HOST=''       # hostname only (for TLS SNI)
 HOST_PORT=''  # hostname[:port]
 EXPECTED_REVISION='' # seven-character revision served in the homepage proof strip
+# The edge Worker this revision ships (t25749). With --expected-revision on production,
+# check_edge_source requires the live Worker to name this file's SHA-256 (X-Edge-Source,
+# bound by ops/edge/deploy.sh). The deploy job's checkout is the revision it verifies.
+EDGE_WORKER_FILE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/edge/worker.js"
+readonly EDGE_SOURCE_HEADER='X-Edge-Source'
 PREVIEW_MODE=0         # --preview: invert the Sentry assertion for a non-production target
 DOH_URL='https://cloudflare-dns.com/dns-query'  # JSON DNS-over-HTTPS resolver; --self-test points it at its fixture
 
@@ -1464,6 +1469,44 @@ check_revision() {
   printf 'GET %s -> 200 and serves expected build revision %s\n' "$url" "$served"
 }
 
+# check_edge_source — production runs the edge Worker this revision ships (t25749).
+# The Worker is deployed by hand (ops/edge/deploy.sh), apart from the Pages merge, and it is
+# where the site's privacy and security live: it keeps visitors' IP addresses from GitHub and
+# Sentry, holds the Sentry key and sets every security header. Most of that cannot be seen
+# from outside, so a merged fix nobody deployed, or a Worker left running from an unmerged
+# branch or a working copy, would pass every other check. deploy.sh binds the SHA-256 of the
+# bytes it uploads and the Worker names it on every response; this compares it with the file.
+edge_source_of() {
+  python3 -I -c 'import hashlib, sys; print("sha256:" + hashlib.sha256(open(sys.argv[1], "rb").read()).hexdigest())' "$1"
+}
+
+check_edge_source() {
+  local url="${BASE_URL}/" dump err rc=0 served want
+  if [[ ! -r $EDGE_WORKER_FILE ]]; then
+    printf 'cannot read %s, the edge Worker this revision ships\n' "$EDGE_WORKER_FILE"
+    return 1
+  fi
+  want=$(edge_source_of "$EDGE_WORKER_FILE")
+  dump=$(need_tmp) err=$(need_tmp)
+  curl -sS --max-time "$HTTP_TIMEOUT_SECS" -o /dev/null -D "$dump" "$url" 2>"$err" || rc=$?
+  if (( rc != 0 )); then
+    printf 'GET %s did not complete: %s (%s)\n' "$url" "$(tr -d '\n' <"$err")" "$(curl_exit_hint "$rc")"
+    rm -f "$dump" "$err"
+    return 1
+  fi
+  served=$(tr -d '\r' <"$dump" | grep -i -m1 "^${EDGE_SOURCE_HEADER}:" | sed 's/^[^:]*:[[:space:]]*//' || true)
+  rm -f "$dump" "$err"
+  if [[ -z $served ]]; then
+    printf 'GET %s names no %s: the live edge Worker was not deployed with ops/edge/deploy.sh, so nothing shows it runs reviewed code (docs/DEPLOYMENT.md, which Worker is live)\n' "$url" "$EDGE_SOURCE_HEADER"
+    return 1
+  fi
+  if [[ $served != "$want" ]]; then
+    printf 'the live edge Worker runs %s, but ops/edge/worker.js at this revision is %s: deploy it with ops/edge/deploy.sh, or find which branch or working copy is live (docs/DEPLOYMENT.md, which Worker is live)\n' "$served" "$want"
+    return 1
+  fi
+  printf 'GET %s -> the live edge Worker runs ops/edge/worker.js at this revision (%s)\n' "$url" "$served"
+}
+
 # Error monitoring is a SETUP condition, and setup conditions must be loud.
 #
 # src/scripts/sentry.ts initialises only when `PROD && dsn`. The DSN comes from
@@ -2430,6 +2473,20 @@ Canonical: ${canonical_url}
   self_test_route_scenario "/" 200 "<span>build:</span><b>abc1234</b>"
   self_test_expect pass "served build revision matches the expected deploy" check_revision
 
+  # The live edge Worker names its source, and it is this revision's worker.js (t25749).
+  local edge_source edge_worker_file=$EDGE_WORKER_FILE
+  edge_source=$(edge_source_of "$EDGE_WORKER_FILE")
+  self_test_route_scenario "/" 200 "ok"
+  self_test_expect fail "the live edge Worker names the source it was deployed from" check_edge_source
+  self_test_scenario "{\"routes\":{\"/\":{\"status\":200,\"body\":\"ok\",\"headers\":{\"X-Edge-Source\":\"sha256:$(printf '0%.0s' {1..64})\"}}},\"default\":{\"status\":404,\"body\":\"\"}}"
+  self_test_expect fail "the live edge Worker is this revision's ops/edge/worker.js" check_edge_source
+  self_test_scenario "{\"routes\":{\"/\":{\"status\":200,\"body\":\"ok\",\"headers\":{\"x-edge-source\":\"${edge_source}\"}}},\"default\":{\"status\":404,\"body\":\"\"}}"
+  EDGE_WORKER_FILE=$RUN_TMP_DIR/no-such-worker.js
+  self_test_expect fail "the live edge Worker is this revision's ops/edge/worker.js" check_edge_source
+  EDGE_WORKER_FILE=$edge_worker_file
+  self_test_expect pass "the live edge Worker names the source it was deployed from" check_edge_source
+  self_test_expect pass "the live edge Worker is this revision's ops/edge/worker.js" check_edge_source
+
   # Sentry fixtures carry an ingest HOST + project path, never a key. A full
   # DSN is credential-shaped even when semi-public; these strings are not.
   # The pass-direction project id MUST equal EXPECTED_SENTRY_PROJECT_ID —
@@ -2569,6 +2626,9 @@ main() {
   if ! poll_check "homepage contains structural anchor \"${HOMEPAGE_ANCHOR}\"" check_homepage_anchor; then :; fi
   if [[ -n $EXPECTED_REVISION ]]; then
     if ! poll_check "homepage serves expected build revision ${EXPECTED_REVISION}" check_revision; then :; fi
+    if (( ! PREVIEW_MODE )); then
+      if ! poll_check "the live edge Worker is ops/edge/worker.js at this revision (${EDGE_SOURCE_HEADER})" check_edge_source; then :; fi
+    fi
   fi
   if (( PREVIEW_MODE )); then
     if ! poll_check "error monitoring is deliberately INERT on this non-production target (bundle carries no Sentry DSN)" check_sentry_inert; then :; fi

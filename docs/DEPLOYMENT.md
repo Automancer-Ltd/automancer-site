@@ -59,7 +59,7 @@ never a working checkout:
 
 | Signal | What it proves | How an agent reads it |
 |---|---|---|
-| `ops/verify-production.sh` | every page in the sitemap and `/api/pages.json` and every Markdown twin (200, no redirect, right content type), a real 404, machine surfaces, legal anchor, served revision, served page CSP (`default-src 'none'`, Trusted Types, `connect-src` matching the served DSN origin), SVG/XML active-document CSP and legacy `.html` edge 301s, Sentry project id in the bundle, TLS > 21 days, `automancer.co.uk` refuses forged mail (null MX, SPF `-all`, DMARC reject) | run it; also the hosted schedule below |
+| `ops/verify-production.sh` | every page in the sitemap and `/api/pages.json` and every Markdown twin (200, no redirect, right content type), a real 404, machine surfaces, legal anchor, served revision, served page CSP (`default-src 'none'`, Trusted Types, `connect-src` matching the served DSN origin), SVG/XML active-document CSP and legacy `.html` edge 301s, Sentry project id in the bundle, the live edge Worker is this revision's `worker.js` (with `--expected-revision`), TLS > 21 days, `automancer.co.uk` refuses forged mail (null MX, SPF `-all`, DMARC reject) | run it; also the hosted schedule below |
 | estate-watch schedule `siteVerify` (Executor, :04 and :34 UTC) | the same checks between deploys (pages: only the `ROUTES` list so far; it does not yet read the sitemap and `/api/pages.json`, nor run the forged-mail check), read from this script at the revision production serves; a failure files one Gandalf task in automancer/site | Executor `estate-watch` `scheduleRuns {name:"siteVerify"}`; run one now with `siteVerify.run {}` |
 | UptimeRobot monitor `803613943` "site automancer.uk" | the public URL answers, independent of auto-vps | Executor `uptimerobot-guarded` `list-monitors` |
 | Sentry project `automancer-site` (id `4511769898647632`, org `automancer`), events tagged with the release SHA | browser errors on the live site | Executor `sentry-guarded.events.listAProjectSIssues` |
@@ -330,9 +330,25 @@ Undo via Executor `sentry-guarded` (`projects.updateProject` and `projects.updat
   probe, and diff it against production. Roll back by deploying the previous version
   (`api.workerVersions.workerVersionsListVersions` lists them; every upload names its commit in
   `workers/message`), or run the previous commit's `deploy.sh`.
-- **Changing `SECURITY_HEADERS`:** deploy the Worker from the pull request's branch before you
-  merge it. The merge's `deploy` job runs the verifier, which reads the new values back, so a
-  Worker deployed after the merge turns that release red.
+- **Which Worker is live (t25749, 24 Nov 2026):** every response names the source the live
+  Worker was deployed from, `X-Edge-Source: sha256:<hex>`. `deploy.sh` hashes the bytes it
+  uploads and binds the hash as the plain-text `EDGE_SOURCE` (the module itself is uploaded
+  unchanged), reads the binding back, and then waits up to a minute for `https://automancer.uk/`
+  to name it. The verifier's `check_edge_source`, run by the `deploy` job with
+  `--expected-revision`, compares it with `ops/edge/worker.js` at the merged commit and fails the
+  release when they differ: a merged Worker change nobody deployed, a Worker left running from an
+  unmerged branch or a working copy, or a version uploaded some other way (no binding, so no
+  header). Check it by hand with
+  `curl -sI https://automancer.uk/ | grep -i x-edge-source` against
+  `shasum -a 256 ops/edge/worker.js`. It is what the Worker says of itself: it catches mistakes,
+  not someone who can already deploy a Worker. Cloudflare's own copy is the final word
+  (`api.workerScript.workerScriptGetContent`, the module part of the multipart body).
+- **Changing `worker.js` at all, `SECURITY_HEADERS` included:** deploy the Worker from the pull
+  request's branch before you merge it, and merge nothing else that touches `worker.js` in
+  between. The merge's `deploy` job reads the Worker back (its source and its headers), so a
+  Worker deployed after the merge turns that release red. A Worker change that needs files Pages
+  does not serve yet goes in a later pull request than those files. If a pull request whose
+  Worker you deployed is closed without merging, deploy `main`'s `worker.js` again at once.
 - **Zone settings it relies on:** `email_obfuscation` off (it rewrites mailto links),
   `browser_check` off (it challenges agents), `browser_cache_ttl` 0 (respect GitHub's
   `max-age=600`), `security_header` HSTS `max-age=15552000` with `include_subdomains` off and

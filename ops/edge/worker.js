@@ -27,6 +27,8 @@
 //   - A page's error report is posted here (ERROR_TUNNEL) and passed on to the
 //     one Sentry project, without the visitor's IP address, signed with a key
 //     only this Worker holds (errorReport).
+//   - Every response names the source this Worker was deployed from
+//     (EDGE_SOURCE_HEADER), so a release can prove it is the reviewed file.
 // Everything else passes through untouched. Deploy and undo: docs/DEPLOYMENT.md.
 //
 // The files come from the GitHub Pages project address (PAGES), not from
@@ -79,6 +81,17 @@ const SECURITY_HEADERS = {
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
   'Cross-Origin-Opener-Policy': 'same-origin',
 };
+// The exact source this Worker runs from, so anyone can tell whether production
+// is the reviewed ops/edge/worker.js (t25749). ops/edge/deploy.sh hashes the
+// bytes it uploads and binds the result as the plain-text EDGE_SOURCE, so the
+// module itself stays byte for byte as committed. Every response names it in
+// EDGE_SOURCE_HEADER; the release verifier (check_edge_source) compares it with
+// the file at the revision it checks and fails when they differ: a merged
+// change nobody deployed, a Worker left running from an unmerged branch or a
+// working copy, or one uploaded some other way (no binding, so no header).
+export const EDGE_SOURCE_HEADER = 'X-Edge-Source';
+const EDGE_SOURCE = /^sha256:[0-9a-f]{64}$/;
+
 // The lock every built page carries in its <head> (BaseLayout.astro, t23484):
 // it hides the page and says where the site lives. The Worker takes it out of
 // every HTML response (unlocked()), so automancer.uk is drawn as built, while
@@ -678,7 +691,9 @@ async function brotliCopy(request, pathname, file, policy) {
 
 export default {
   async fetch(request, env) {
-    return secured(await respond(request, env));
+    const out = secured(await respond(request, env));
+    if (EDGE_SOURCE.test(env?.EDGE_SOURCE ?? '')) out.headers.set(EDGE_SOURCE_HEADER, env.EDGE_SOURCE);
+    return out;
   },
 };
 
