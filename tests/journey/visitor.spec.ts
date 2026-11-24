@@ -542,8 +542,25 @@ test('the phone menu follows keyboard focus and dismisses without covering the w
   await expect(contact).toHaveAttribute('aria-current', 'page');
 });
 
-test.describe('phone navigation without JavaScript', () => {
+test.describe('navigation without JavaScript', () => {
   test.use({ javaScriptEnabled: false });
+
+  test('Work lets visitors open any case study by sector from the first screen', async ({ page }, info) => {
+    if (info.project.name === 'mobile') await page.setViewportSize({ width: 320, height: 640 });
+    await page.goto('/work/');
+    await page.evaluate(() => document.fonts.ready);
+    const directory = page.getByRole('navigation', { name: 'Case studies by sector' });
+    await expect(directory).toBeInViewport({ ratio: 1 });
+
+    const cards = page.locator('main .case-card__link');
+    const links = directory.getByRole('link');
+    await expect(links).toHaveCount(await cards.count());
+    const targets = await cards.evaluateAll((anchors) => anchors.map((a) => a.getAttribute('href')));
+    expect(await links.evaluateAll((anchors) => anchors.map((a) => a.getAttribute('href')))).toEqual(expect.arrayContaining(targets));
+
+    await directory.getByRole('link', { name: /^Manufacturing/ }).click();
+    await expect(page).toHaveURL(/\/work\/manufacturer-trade-portal\/$/);
+  });
 
   test('the phone header still reaches Services and Contact at 320px with enlarged text', async ({ page }, info) => {
     test.skip(info.project.name !== 'mobile', 'the menu button shows only on small screens');
