@@ -25,6 +25,8 @@
 .case-card__title { font-family: var(--font-display); font-weight: 700; font-size: var(--t-2); letter-spacing: -0.03em; }
 .case-card__title.tlink { font-weight: 700; }
 .case-card--feature .case-card__title { font-size: var(--t-3); max-width: 26ch; }
+/* A phone has no room to feature a title by size: at --t-3 the lead study's ran to six lines. */
+@media (max-width: 35.99rem) { .case-card--feature .case-card__title { font-size: var(--t-2); } }
 .case-card__blurb { color: var(--muted); font-size: var(--t-0); max-width: 60ch; }
 .case-card__blurb b, .case-card__blurb strong { color: var(--ink); font-weight: 600; }
 .case-card__foot { margin-top: auto; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-4); padding-top: var(--sp-2); }

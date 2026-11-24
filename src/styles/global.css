@@ -476,8 +476,13 @@ strong { font-weight: 600; color: inherit; }
 .section-head { margin-bottom: clamp(2.5rem, 5vw, 4rem); }
 .section-head__top { display: flex; justify-content: space-between; align-items: baseline; gap: var(--sp-8); flex-wrap: wrap; }
 .section-head__top .eyebrow { margin-bottom: var(--sp-6); }
-.section-head__log { font-family: var(--font-mono); font-size: 0.68rem; letter-spacing: 0.08em; color: var(--faint); }
+.section-head__log { font-family: var(--font-mono); font-size: 0.6875rem; letter-spacing: 0.08em; color: var(--faint); }
 .on-paper .section-head__log, .on-paper-2 .section-head__log { color: var(--faint-dark); }
+/* When a long eyebrow pushes the log onto its own line, keep it with the heading it labels. */
+@media (max-width: 35.99rem) {
+  .section-head__top { row-gap: 0; }
+  .section-head__log { margin-bottom: var(--sp-4); }
+}
 .section-head h2 { font-size: var(--t-section); line-height: 1.05; letter-spacing: -0.035em; }
 .section-head p:not(.eyebrow) { margin-top: var(--sp-5); font-size: var(--t-1); color: var(--muted); max-width: 60ch; }
 .on-paper .section-head p, .on-paper-2 .section-head p { color: var(--muted-dark); }

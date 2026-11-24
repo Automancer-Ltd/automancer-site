@@ -247,8 +247,13 @@ const caps = [
 
 <style is:global>
 /* ─────────────────────── Proof grid (home meta-story) ─────────────────────── */
-.proof-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1px;
+/* Four cells: one column, then two, then four. Never three: the 1px gaps are the grid's own
+   background, so a 3 + 1 layout (auto-fit at about 820-1090 px, an iPad held sideways) painted the
+   two empty cells as one grey block. */
+.proof-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1px;
   background: var(--border); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+@media (min-width: 36rem) { .proof-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 68.75rem) { .proof-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 .proof-cell {
   background: radial-gradient(480px circle at var(--mx) var(--my), rgba(255,255,255,0.05), transparent 45%), var(--near);
   padding: clamp(1.5rem, 3vw, 2.25rem); display: flex; flex-direction: column; gap: var(--sp-3);
@@ -260,6 +265,15 @@ const caps = [
 .proof-cell__n { font-family: var(--font-mono); font-size: 0.72rem; color: var(--faint); letter-spacing: 0.1em; }
 .proof-cell h3 { font-family: var(--font-display); font-size: var(--t-1); font-weight: 700; }
 .proof-cell p { color: var(--muted); font-size: var(--t-0); }
+/* One column on a phone: the numeral sits beside its tag rather than on a row of its own, so the
+   four cells take about two thirds of the height and read as one list. */
+@media (max-width: 35.99rem) {
+  .proof-cell { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: baseline;
+    gap: var(--sp-2) var(--sp-3); padding: var(--sp-5); }
+  .proof-cell .ghost-num { font-size: 1.75rem; }
+  .proof-cell h3, .proof-cell p { grid-column: 1 / -1; }
+  .proof-cell h3 { margin-top: var(--sp-1); }
+}
 
 /* ─────────────────────── Capability rows ─────────────────────── */
 .cap-list { border-top: 1px solid var(--border-dark); }
@@ -277,6 +291,15 @@ const caps = [
   flex: 0 1 22ch; min-width: min(100%, 16rem); }
 .cap-row__desc { color: var(--muted-dark); font-size: var(--t-0); flex: 1 1 20rem; line-height: 1.6; }
 .on-dark .cap-row__desc, .on-near .cap-row__desc { color: var(--muted); }
+/* On a phone the numeral leads its name on one line, and the description runs the full width
+   beneath, instead of three stacked rows. */
+@media (max-width: 35.99rem) {
+  .cap-row { display: grid; grid-template-columns: 3.25em minmax(0, 1fr); column-gap: var(--sp-3); padding-block: var(--sp-6); }
+  .cap-row__n { font-size: 1.4rem; flex: none; }
+  .cap-row__n, .cap-row__name { line-height: 1.15; }
+  .cap-row__name { min-width: 0; font-size: 1.4rem; }
+  .cap-row__desc { grid-column: 1 / -1; }
+}
 
 /* Starting prices are available on the first scroll, even without a reveal script. */
 .pricing {
