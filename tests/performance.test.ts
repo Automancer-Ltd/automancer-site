@@ -56,7 +56,7 @@ const GROWS_WITH_CONTENT: Record<string, string> = {
 };
 
 /** JS measured 2026-11-24. Identical on every layout page. */
-const MEASURED_JS = 13803; // main.js (7,894 B; opens the FAQ for a print, t23850; the phone contents bar, t25430) + the one page-load module (5,823 B): the Sentry bootstrap (src/scripts/sentry.ts) and the Firefox/Safari prefetch (src/scripts/prefetch.ts: hover ~1,160 B, t23288; touch screens +737 B, t24026)
+const MEASURED_JS = 14150; // main.js (8,241 B; opens the FAQ for a print, t23850; the phone contents bar, t25430; +347 B so only what is below the fold waits for a scroll, t25989) + the one page-load module (5,823 B): the Sentry bootstrap (src/scripts/sentry.ts) and the Firefox/Safari prefetch (src/scripts/prefetch.ts: hover ~1,160 B, t23288; touch screens +737 B, t24026)
 /**
  * The Sentry SDK chunk, fetched only when a visitor's page first throws. It
  * is the error path's whole cost, so it is pinned too: importing the SDK as a
@@ -111,7 +111,7 @@ describe('page-weight budgets', () => {
   });
 
   it('keeps JavaScript within budget on every layout page', () => {
-    const budget = MEASURED_JS + headroom(MEASURED_JS); // 14827 B from 13803 B @ 2026-11-24
+    const budget = MEASURED_JS + headroom(MEASURED_JS); // 15174 B from 14150 B @ 2026-11-24
     for (const p of layoutPages) {
       expect(
         p.jsBytes,

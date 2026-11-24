@@ -7,7 +7,7 @@ It does not outrank anything: `VISION.md` is authority 0 and `SPEC.md` describes
 When this file and `SPEC.md` disagree about what exists, `SPEC.md` and the code are right and this
 file is out of date.
 
-Last updated: 24 November 2026 (every release is held to the promises production publishes to machines, t25827).
+Last updated: 24 November 2026 (content never waits for main.js, t25989).
 
 ## Where the site stands against the vision
 
@@ -125,6 +125,28 @@ The former cache and release-note slices shipped in PRs #164 and #165 respective
 "gap above a field note's first paragraph on phones" slice is dropped from the list: t22126
 measured every note's opening line already on a 390×844 phone's first screen (17 of 17), so the
 gap is a spacing taste call, not lost content.
+
+## Frontend slice: content never waits for a script (24 November 2026, t25989)
+
+Every scroll reveal started at opacity 0 and only `public/assets/js/main.js` could show it. Two
+journeys were broken by that. A page whose script never ran (a failed request on a flaky phone
+connection, a blocked file) kept 6,567 characters invisible across 9 pages: 3,209 of 4,507 on
+/services/, three of its four prices among them, and 1,289 on the home page. And on a 1280×800
+laptop the headline figures at the foot of every case study's first screen (294 + 293, 588, 274,
+0 / 0) stayed blank until the visitor scrolled, because the observer's 10% threshold and -8%
+margin never saw enough of the band (5 of 5 slow-phone-profile loads: never visible).
+
+Now `global.css` fades every reveal in from first paint with CSS alone, and main.js, once it runs,
+leaves what is on screen as it is and hides only what is below the fold (`html.reveal-armed`) to
+fade in on scroll as before. Measured on a cold load (150 ms latency, 1.44 Mbit/s, CPU 4x, five
+runs, median): the care-provider figures start to show 67 ms after first contentful paint and are
+whole at 1,094 ms; /contact/'s promise starts with the first paint (583 ms against 774 ms before).
+With main.js blocked, 0 characters are hidden on all 31 pages. No words, layout or colours changed;
+compare matched every view (it holds animations still and scrolls through).
+
+- Proof: `tests/journey/reveal.spec.ts` (3 tests) failed on main's build (the /services/ prices,
+  the case-study figures, no `reveal-armed`) and passes on this one.
+- Undo: revert the PR. main.js and the CSS change together; neither needs a Worker deploy.
 
 ## Slice: every release keeps the promises production publishes to machines (24 November 2026, t25827)
 
