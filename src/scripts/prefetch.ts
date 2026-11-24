@@ -12,15 +12,14 @@
  *     fetches nothing). A visitor hovers a link for a few hundred milliseconds before clicking,
  *     which is longer than the fetch takes.
  *   - on a touch screen, which has no hover, when a link has stayed on screen for half a second:
- *     the visitor has stopped scrolling to read it. The site footer's links are left out, and a
- *     page view fetches at most TOUCH_BUDGET pages this way, so a phone pays for a few pages of
- *     HTML it may not open, never for every link it scrolls past.
+ *     the visitor has stopped scrolling to read it. The footer and header logo are left out and
+ *     reading can warm three pages per view. Opening the mobile menu can still warm its links.
  *
  * Nothing is fetched on a press or a tap itself. A tap lasts about 90 ms, shorter than the page
  * takes to arrive, and neither Firefox nor WebKit hands a fetch still under way to the click's own
  * request: measured, the click asked again and the page came down twice (ops/perf/click-wait.mjs).
  *
- * It fetches exactly what the Speculation Rules prefetch: this site's own pages, never a file
+ * It uses the same link eligibility as the Speculation Rules: this site's own pages, never a file
  * (anything with a dot in its path), never a link marked download, target=_blank or nofollow,
  * and never the page already open; each page once per page view, and nothing at all when the
  * visitor has asked their browser to save data. tests/speculation-rules.test.ts holds the two to
@@ -37,7 +36,8 @@
 const NAVIGATION_ACCEPT = 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8';
 const HOVER_MS = 65;
 const DWELL_MS = 500;
-const TOUCH_BUDGET = 5;
+const READING_BUDGET = 3;
+const MENU_BUDGET = 5;
 
 export interface LinkFlags {
   download: boolean;
@@ -103,10 +103,13 @@ function wire() {
     pending = null;
   }, { passive: true });
 
-  if (matchMedia('(hover: none)').matches && typeof IntersectionObserver === 'function') watchScreen();
+  if (matchMedia('(hover: none)').matches && typeof IntersectionObserver === 'function') {
+    watchScreen('a[href]:not(.footer a, .nav__brand, .mobile-menu a)', READING_BUDGET);
+    watchScreen('.mobile-menu a[href]', MENU_BUDGET);
+  }
 
   // Touch screens: a link that stays on screen for DWELL_MS while the page is in front.
-  function watchScreen() {
+  function watchScreen(selector: string, budget: number) {
     let spent = 0;
     const dwell = new Map<Element, ReturnType<typeof setTimeout>>();
     const seen = new IntersectionObserver((entries) => {
@@ -127,7 +130,7 @@ function wire() {
           dwell.delete(a);
           if (document.visibilityState !== 'visible') return;
           seen.unobserve(a);
-          if (get(urlOf(a)) && ++spent >= TOUCH_BUDGET) {
+          if (get(urlOf(a)) && ++spent >= budget) {
             seen.disconnect();
             for (const t of dwell.values()) clearTimeout(t);
             dwell.clear();
@@ -135,9 +138,8 @@ function wire() {
         }, DWELL_MS));
       }
     }, { threshold: [0, 0.5, 1] });
-    for (const a of document.querySelectorAll('a[href]')) {
-      if (a.closest('.footer') || !urlOf(a)) continue;
-      seen.observe(a);
+    for (const a of document.querySelectorAll(selector)) {
+      if (urlOf(a)) seen.observe(a);
     }
   }
 }

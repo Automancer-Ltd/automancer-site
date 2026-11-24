@@ -151,9 +151,10 @@ ops/contract/               what production promises machines, and the check a r
   Worker and fails on any difference from the file.
 - Pages are fetched ahead of a click only by Chromium's Speculation Rules (`BaseLayout.astro`) and,
   in browsers that cannot prerender, by `src/scripts/prefetch.ts`: on a mouse hover (t23288), and
-  on a touch screen for a link kept on screen half a second, footer left out, at most five pages a
-  page view (t24026); all same-origin pages only (`tests/speculation-rules.test.ts` holds them to
-  the same links). Keep the prefetch's `Accept` equal to the request the click makes, a
+  on a touch screen for a link kept on screen half a second (t24026). Reading warms up to three
+  destinations per view, excluding the footer and header logo. Opening the mobile menu has its
+  own budget of five. Only eligible same-origin pages are warmed (`tests/speculation-rules.test.ts`).
+  Keep the prefetch's `Accept` equal to the request the click makes, a
   navigation's, or `*/*` in a WebKit that acts on the rules (its press-time prefetch): the
   Worker's `Vary: Accept` otherwise stops the click from reusing it.
 - Every identifier `/api/stability.json` promises machines stays from one release to the next

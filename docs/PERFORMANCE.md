@@ -18,6 +18,32 @@ exact `dist/` it publishes, so a heavier production build fails the release inst
 
 ## Decisions behind the numbers
 
+- **Reading on touch screens uses fewer background downloads (t25962, 24 Nov 2026).**
+  Safari and Firefox's fallback prefetch warms up to three eligible destinations while a
+  visitor reads, down from five. The header logo no longer starts a download on its own.
+  Opening Menu can still warm its destinations after the reading budget is used. The two
+  budgets share a list of fetched URLs, so a page they both link to is warmed once.
+
+  Fresh 390 × 844 Firefox touch profiles scrolled in screenfuls, with pauses, through the
+  built site served by the local edge Worker. The table counts compressed HTML downloaded
+  in the background for pages the visitor never opened.
+
+  | Reading journey | Before | After |
+  | --- | ---: | ---: |
+  | Home | 79.0 KB | 46.9 KB |
+  | Field Notes index | 81.8 KB | 48.8 KB |
+  | Care provider case study | 62.9 KB | 46.9 KB |
+
+  In Firefox and Playwright WebKit with its speculation rules disabled, the browser's cache
+  still answered taps to Work, the home price comparison, the first field note, Contact
+  and Services from the menu. It also answered an About tap after reading all of Home.
+  Before the change, that last tap still reached the server and paid the probe's 200 ms
+  HTML response delay.
+
+  The reading budget can leave later in-page links cold. The menu can prefetch up to five
+  extra destinations when opened. Chromium's speculation rules and the mouse-hover path
+  keep their existing behaviour.
+
 - **A visitor's first page no longer waits for GitHub (t25774, 24 Nov 2026).**
   GitHub Pages' cache (Fastly) keeps a file ten minutes at most, and for a site this quiet it
   mostly keeps nothing: asked for `/services/` three minutes after the Worker had fetched it,
@@ -108,7 +134,7 @@ exact `dist/` it publishes, so a heavier production build fails the release inst
   | Safari 27 (Playwright's WebKit, `--rules-off`), phone | 287 (328) ms | 108 (130) ms | 10 → 60 of 60 |
 
   Cost: 737 B more page-load script on every page (`MEASURED_JS` re-pinned), and the pages it
-  fetches. A reader who scrolls through a whole page, pausing 2.5 s a screen, fetched the five
+  fetches. At launch, a reader who scrolled through a whole page, pausing 2.5 s a screen, fetched the five
   allowed on every page but `/contact/` (one): usually the header's home and Contact links and
   the first three links read in the page, about 20 KB each compressed, so up to about 100 KB a
   page view; a page already fetched in the last ten minutes costs nothing again. At the time,

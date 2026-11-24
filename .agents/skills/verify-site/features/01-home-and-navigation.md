@@ -15,11 +15,12 @@ gets a real 404 with a way back.
 - `the phone header still reaches Services and Contact at 320px with enlarged text` with JavaScript disabled.
 - `home actions are visible from the first frame and the headline holds its height while Syne loads`.
 - `homepage prices are one scroll away and link to the matching offer`.
+- `touch prefetch saves data while reading and still warms a link in the opened menu` (mobile).
 - `a missing page shows recovery links on arrival and leads back to the site`.
 - `every page keeps its words on screen at 320px and with text at 200%` (every sitemap page and the 404, in four parts that the name runs together). It also fails a bordered grid (cells drawn through 1px gaps) that leaves an empty cell at 320, 390, 768, 1024 or 1280px, as the home page's proof cells did at 1024px (t25865).
 - Vitest on `dist/`: `tests/speculation-rules.test.ts` (Chromium's hover prerender, and the
-  Firefox/Safari hover and touch-screen prefetch in `src/scripts/prefetch.ts`, fetch only this
-  site's pages, the same links). Click speed in Firefox and WebKit: `node ops/perf/click-wait.mjs
+  Firefox/Safari prefetch in `src/scripts/prefetch.ts` are limited to eligible same-origin pages).
+  Click speed in Firefox and WebKit: `node ops/perf/click-wait.mjs
   dist <label> --engine=firefox --persistent` (or a URL for production); a phone's taps with
   `--phone` (and `--rules-off` for WebKit as Safari 27 ships it); see `docs/PERFORMANCE.md`.
 - Vitest on `dist/`: `tests/pages.test.ts` (one `h1`, title, description, canonical, JSON-LD) and

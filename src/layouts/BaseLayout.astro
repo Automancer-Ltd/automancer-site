@@ -71,7 +71,7 @@ const jsonLdType = pageType ?? (listedType && SCHEMA_PAGE_TYPES.has(listedType) 
 // loaded (t21450), so rendering it in the background requests nothing from
 // another site. Files (.md, .json, .txt, .xml, images) are never speculated.
 // Browsers without support ignore it; src/scripts/prefetch.ts then fetches
-// the same links on hover or press (t23288).
+// eligible links on mouse hover or after they stay on a touch screen (t23288, t24026).
 const SPECULATION_RULES = {
   prerender: [
     {
@@ -178,7 +178,7 @@ const SPECULATION_RULES = {
 
     <!-- Production-only browser error monitoring. The module itself requires
          PUBLIC_AUT_SENTRY_WEB_DSN, so preview/dev builds never emit events.
-         Then the hover and press prefetch for browsers that ignore the
+         Then the hover and touch-screen prefetch for browsers that ignore the
          Speculation Rules above (Firefox, Safari; src/scripts/prefetch.ts). -->
     <script>
       import '../scripts/sentry';

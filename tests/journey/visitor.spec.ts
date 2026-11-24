@@ -65,6 +65,28 @@ async function expectNoSidewaysScroll(page: Page) {
   expect(overflow, 'page scrolls sideways').toBeLessThanOrEqual(0);
 }
 
+test('touch prefetch saves data while reading and still warms a link in the opened menu', async ({ page }, info) => {
+  test.skip(info.project.name !== 'mobile', 'the viewport prefetch runs on touch screens');
+  // Exercise the site's fallback in the Chromium-only journey.
+  await page.addInitScript(() => Reflect.deleteProperty(Document.prototype, 'prerendering'));
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const fetched = new Set<string>();
+  page.on('request', (request) => {
+    if (request.resourceType() === 'fetch') fetched.add(new URL(request.url()).pathname);
+  });
+  await page.goto('/');
+  await expect.poll(() => [...fetched].sort()).toEqual(['/contact/', '/work/']);
+
+  await page.locator('main a[href="/services/"]').first().scrollIntoViewIfNeeded();
+  await expect.poll(() => fetched.has('/services/')).toBe(true);
+  await page.locator('.case-card__link').first().scrollIntoViewIfNeeded();
+  await page.waitForTimeout(750); // Let the viewport dwell finish before opening the menu.
+  expect.soft([...fetched].sort(), 'reading more of the page stays within three downloads').toEqual(['/contact/', '/services/', '/work/']);
+
+  await page.locator('.nav__toggle').tap();
+  await expect.poll(() => fetched.has('/about/'), { message: 'the open menu can still prefetch' }).toBe(true);
+});
+
 test('decorative motion pauses while reading and resumes when scrolled back into view', async ({ page }) => {
   await page.goto('/field-notes/what-does-an-ai-agent-actually-cost/');
   const glow = page.locator('.page-hero__glow > span').first();
