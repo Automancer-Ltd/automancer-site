@@ -55,13 +55,19 @@ jobs:
     - name: Lint, typecheck, build and test
       run: pnpm run verify
     - name: Install the journey browser
-      # Guards a stalled download or apt mirror. Honest time is 30s to 5 min
-      # depending on the runner's apt mirror (measured 19 Nov), so this is 15 min.
-      timeout-minutes: 15
-      run: pnpm exec playwright install --with-deps chromium
+      # The browser alone, from Playwright's CDN (about 20 s). The hosted image
+      # already has every library Chromium needs. `--with-deps` added only apt
+      # fonts and mesa updates the journey never reads, and the runner's apt
+      # mirror often crawled at about 64 kB/s: over 2 minutes in 11 of the 19
+      # pull requests before t25593, up to 10. The cap guards a stalled download.
+      timeout-minutes: 5
+      run: pnpm exec playwright install chromium
     - name: Visitor journey (phone and desktop, against the built dist/)
       timeout-minutes: 10
+      # The dist/ verify just built and audited, not a second build of it.
       run: pnpm run journey
+      env:
+        SKIP_BUILD: "1"
     - name: Self-test the production checker
       run: ops/verify-production.sh --self-test
     - name: Self-test the preview target's deploy logic

@@ -21,7 +21,9 @@ The journeys are listed, with the tests that prove each one, in [`features/`](fe
   Playwright builds `dist/` with monitoring on (`tests/support/build-env.ts`), serves it as
   production does, through the edge Worker (`ops/edge/local.mjs`), on a free 127.0.0.1 port, and
   stops the server when the run ends. Two runs on one machine never collide, and the Worker's
-  headers, redirects and twins are tested before a deploy as well as after it.
+  headers, redirects and twins are tested before a deploy as well as after it. `SKIP_BUILD=1`
+  serves the `dist/` already there instead (after `pnpm run verify`, as CI does). Tests run fully
+  parallel across the workers, so each must open its own page and share no state with another.
 - **Journey, any served copy:** `JOURNEY_URL=<origin> pnpm run journey` runs the same tests
   read-only against that origin (`deploy.yml` does this on `https://automancer.uk` after
   publishing). The enquiry endpoint and Turnstile are stubbed in every run, so no run ever sends a
@@ -42,9 +44,9 @@ The journeys are listed, with the tests that prove each one, in [`features/`](fe
 
 ## Doctor
 
-- A machine under heavy load can miss Playwright's 60 s webServer start: `pnpm run build`, then
-  `pnpm run serve &`, then `JOURNEY_URL=<the address it printed> pnpm run journey`, then stop
-  that process by its PID.
+- On a heavily loaded machine, build first with `pnpm run verify` (a plain `pnpm run build` has no
+  monitoring, so the telemetry test fails on it), then `SKIP_BUILD=1 pnpm run journey`: the server
+  then starts in about a second (the start allows 180 s, build included).
 - `pnpm run compare origin/main` on an unchanged tree must print `none of 64 page views differ`.
   If it does not, the comparison is not trustworthy on this machine: read the first moved element
   it names before believing any other result.

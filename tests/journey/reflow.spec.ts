@@ -104,26 +104,44 @@ function brokenWords(): string[] {
   return failures;
 }
 
-test('every page keeps its words on screen at 320px and with text at 200%', async ({ page }, info) => {
-  test.setTimeout(180_000);
-  await page.emulateMedia({ reducedMotion: 'reduce' });
-  const paths = await sitemapPaths(page);
-  expect(paths.length, 'sitemap lists the pages').toBeGreaterThan(20);
-  paths.push('/no-such-page-journey/');
-  const clipped: string[] = [];
-  for (const { width, text } of CASES[info.project.name as keyof typeof CASES]) {
-    await page.setViewportSize({ width, height: 844 });
-    for (const path of paths) {
+/**
+ * The pages are checked in PARTS tests, each taking every PARTS-th page, so
+ * the journey's workers share them. Each page loads once per device and is
+ * then resized and its text enlarged in place, as a phone turned on its side
+ * or a reader zooming does: the layout and the scripts (ResizeObserver and
+ * matchMedia listeners in main.js) answer a resize, so this sees what a fresh
+ * load at each width would, for a third of the page loads.
+ */
+const PARTS = 4;
+
+for (let part = 0; part < PARTS; part++) {
+  test(`every page keeps its words on screen at 320px and with text at 200% (part ${part + 1} of ${PARTS})`, async ({ page }, info) => {
+    test.setTimeout(120_000);
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    const paths = await sitemapPaths(page);
+    expect(paths.length, 'sitemap lists the pages').toBeGreaterThan(20);
+    paths.push('/no-such-page-journey/');
+    const cases = CASES[info.project.name as keyof typeof CASES];
+    const clipped: string[] = [];
+    for (const path of paths.filter((_, i) => i % PARTS === part)) {
+      await page.setViewportSize({ width: cases[0].width, height: 844 });
       await page.goto(path);
-      await page.evaluate((size) => document.documentElement.style.setProperty('font-size', size), text);
       // Include the service names and prices that are behind the form's disclosure.
       if (path === '/contact/') {
         await page.locator('#optional-details').evaluate((details) => details.setAttribute('open', ''));
       }
-      await page.evaluate(() => document.fonts.ready);
-      for (const failure of await page.evaluate(clippedText)) clipped.push(`${path} at ${width}px, text ${text}: ${failure}`);
-      for (const failure of await page.evaluate(brokenWords)) clipped.push(`${path} at ${width}px, text ${text}: ${failure}`);
+      for (const { width, text } of cases) {
+        await page.setViewportSize({ width, height: 844 });
+        await page.evaluate(async (size) => {
+          document.documentElement.style.setProperty('font-size', size);
+          await document.fonts.ready;
+          // Let resize observers and media-query listeners run before measuring.
+          await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)));
+        }, text);
+        for (const failure of await page.evaluate(clippedText)) clipped.push(`${path} at ${width}px, text ${text}: ${failure}`);
+        for (const failure of await page.evaluate(brokenWords)) clipped.push(`${path} at ${width}px, text ${text}: ${failure}`);
+      }
     }
-  }
-  expect(clipped, 'words cut off at the edge of the screen or their panel, or broken between letters').toEqual([]);
-});
+    expect(clipped, 'words cut off at the edge of the screen or their panel, or broken between letters').toEqual([]);
+  });
+}
