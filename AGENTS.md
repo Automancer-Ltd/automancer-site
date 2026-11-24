@@ -132,6 +132,10 @@ ops/preview/                the non-production preview target
   release verifier (`check_edge_source`) fails unless it is `ops/edge/worker.js` at the merged
   commit. So deploy a `worker.js` change from its branch before merging it, and deploy only
   through `deploy.sh` (`docs/DEPLOYMENT.md` › Which Worker is live).
+- Pages are kept at the edge, one view behind Pages at most (t25774): `keptPage()` in
+  `ops/edge/worker.js` answers a browser's GET from the data centre's cache and fetches the page
+  again after answering. Keep only HTML pages there: twins, the API and feeds are read by machines
+  and by the build (`page-dates.ts`), which must never get an older copy (`tests/edge-worker.test.ts`).
 - The Worker sends GitHub Pages only the method, `If-None-Match`, `If-Modified-Since`, `Range` and
   `If-Range` (`pagesRequest()` in `ops/edge/worker.js`, t23955). Never pass the visitor's `Request`
   to `fetch()`: that forwards their IP address, cookies and Referer to GitHub

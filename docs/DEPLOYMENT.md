@@ -248,7 +248,8 @@ for `/.well-known/api-catalog`, HTTP → HTTPS, and one 301 from each legacy `*.
 (`cachePolicy`, t18923): `/_astro/*` (stylesheets, scripts and, since t19380, the web fonts) and
 `main.js?v=<commit>` for a year as `immutable`, unversioned files under `/assets/` (images) for a
 day with a week of `stale-while-revalidate`; pages, twins, JSON
-and unversioned scripts keep GitHub's ten minutes. Change a file under `/assets/` under a new name
+and unversioned scripts keep GitHub's ten minutes in browsers (a page is also kept at the edge,
+one view behind Pages at most: "Pages kept at the edge" below). Change a file under `/assets/` under a new name
 if visitors must see it at once. Every response it returns carries the same security
 headers (`SECURITY_HEADERS`: HSTS, `nosniff`, Referrer-Policy, a framing/base/object CSP,
 Permissions-Policy and `Cross-Origin-Opener-Policy: same-origin`) and no reporting header (`NEL`,
@@ -310,6 +311,26 @@ Undo via Executor `sentry-guarded` (`projects.updateProject` and `projects.updat
   `Content-Location: /services.md`. Repeat the first request with that `If-None-Match` and expect
   a bodyless `304` with `Content-Location`. The same revalidation works without Brotli. Roll back
   by deploying the preceding Worker version.
+- **Pages kept at the edge (t25774, 24 Nov 2026):** a GET for a page from a browser that takes
+  Brotli is answered from the data centre's cache (`keptPage()`, the Workers Cache API, kept under
+  `/.edge-cache/page/<path>`, an address no visitor's request reaches), and after answering the
+  Worker fetches the page from Pages again and keeps that copy. So a page is at most one view
+  behind Pages at each data centre: after a release, the first visitor to a page there can get it
+  as it was, and the next one gets the new page. Before, GitHub Pages' own cache was cold for
+  nearly every page asked for, so the first page waited for GitHub (median 169 ms after TLS from
+  London). `X-Edge-Cache` says how each page was answered: `hit`, `miss` (fetched, then kept) or
+  `reload` (`Cache-Control: no-cache`, as a hard reload sends: fetched from Pages, then kept). A
+  copy kept more than 7 days ago is never served (`PAGE_CACHE_SECONDS`). Twins, the API, feeds,
+  `HEAD`, ranges and clients without Brotli are never kept: they always come from Pages, and so
+  does everything `ops/verify-production.sh` reads with plain `curl`. Nothing needs purging on a
+  release: the deploy's production journey first runs
+  `ops/perf/edge-wait.sh https://automancer.uk --reload`, which takes the new release's pages at
+  its runner's data centre; to see a page as published anywhere, ask with `Cache-Control:
+  no-cache`. Verify: run `ops/perf/edge-wait.sh` twice, a few minutes apart; the second run
+  answers `hit` on every page, and each body matches the build's `.br` copy. `ops/edge/local.mjs`
+  passes the Worker no context, so local serving keeps no copies (the tests stand in a cache).
+  Roll back by deploying the preceding Worker version: kept copies are then never read, and the
+  cache drops them after 7 days.
 - **HTML byte ranges (t25022):** a range on HTML returns the whole page with `Accept-Ranges: none`.
   Removing the Pages lock changes byte offsets, so a partial copy from Pages can truncate the
   document or cause a Worker error. The local Pages stand-in supports single ranges and the
