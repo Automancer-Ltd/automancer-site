@@ -964,6 +964,35 @@ test('a case card opens its study from anywhere on it, and its Sources link open
   await expectNoSidewaysScroll(page);
 });
 
+test('the developer reference shows each whole command, copies it, and lists what comes back', async ({ page }) => {
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+  await page.goto('/developers/');
+  const row = page.locator('.ep').filter({ has: page.locator('a[href="/api/case-studies.json"]') });
+  const command = row.locator('.ep__cmd pre');
+  // The longest URL stays whole on a phone: it wraps, never scrolls out of sight.
+  expect(await command.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+
+  await row.getByRole('button', { name: 'Copy the command for /api/case-studies.json' }).click();
+  await expect(row.locator('.ep__copy')).toHaveText(/^Copied/);
+  await expect(page.locator('#copy-status')).toHaveText('Command copied.');
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(`curl -s ${business.url}/api/case-studies.json`);
+
+  const fields = row.locator('.ep__fields');
+  await expect(fields.locator('dl')).toBeHidden();
+  await fields.locator('summary').click();
+  await expect(fields.locator('dt code', { hasText: /^caseStudies$/ })).toBeVisible();
+});
+
+test('a developer whose clipboard is denied gets the command selected instead', async ({ page }) => {
+  await page.addInitScript(() => {
+    navigator.clipboard.writeText = () => Promise.reject(new DOMException('Denied', 'NotAllowedError'));
+  });
+  await page.goto('/developers/');
+  await page.getByRole('button', { name: 'Copy the command for /api/index.json' }).click();
+  await expect(page.locator('#copy-status')).toHaveText('Command selected. Copy it with your keyboard.');
+  expect(await page.evaluate(() => getSelection()?.toString())).toBe(`curl -s ${business.url}/api/index.json`);
+});
+
 test('a missing page shows recovery links on arrival and leads back to the site', async ({ page }) => {
   const res = await page.goto('/no-such-page-journey/');
   expect(res?.status()).toBe(404);

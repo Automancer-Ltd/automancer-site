@@ -274,6 +274,26 @@ describe('/developers — human-readable docs linked from the homepage', () => {
     }
   });
 
+  // A person reads each endpoint's fields on the page; a machine reads them in
+  // the spec. Both come from src/data/openapi.ts, and this holds the built pair
+  // to the same names, in the same order, with the same command per endpoint.
+  it('lists, for every endpoint, the response fields /openapi.json declares and a command for its URL', () => {
+    const api = JSON.parse(openApiRaw!) as Spec;
+    const rows = page!.doc.querySelectorAll('.endpoints > .ep');
+    expect(rows.map((row) => row.querySelector('.ep__path a')?.getAttribute('href'))).toEqual(listedPaths);
+    for (const row of rows) {
+      const path = row.querySelector('.ep__path a')!.getAttribute('href')!;
+      const paths = api.paths as Record<string, { get: { responses: Record<string, Spec> } }>;
+      const response = paths[path].get.responses['200'].content as Record<string, { schema: unknown }>;
+      const schema = deref(response['application/json'].schema, api);
+      const declared = Object.keys((schema.properties ?? {}) as Spec);
+      const shown = row.querySelectorAll('.ep__fields dt code').map((c) => c.text);
+      expect(shown, `/developers lists other fields for ${path} than /openapi.json declares`).toEqual(declared);
+      expect(row.querySelector('.ep__fields summary')!.text).toBe(`Response: ${declared.length} fields`);
+      expect(row.querySelector('.ep__cmd pre')!.text.replace(/<[^>]*>/g, '')).toBe(`curl -s ${SITE_URL}${path}`);
+    }
+  });
+
   it('links the OpenAPI spec, llms.txt and documents twins + feeds + manifest + sitemap', () => {
     const html = page!.html;
     for (const needle of [
