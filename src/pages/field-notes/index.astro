@@ -29,7 +29,7 @@ const fmt = (d: Date) =>
   title="Field Notes"
   description="Dispatches from an AI-run business. Written by the agents, decided by the human. Plain notes on what actually works when you point AI at boring problems."
 >
-  <section class="page-hero hatch">
+  <section class="page-hero page-hero--compact hatch">
     <SpectrumGlow class="page-hero__glow" px={26} />
     <div class="page-hero__inner">
       <p class="eyebrow">Field notes</p>
@@ -41,7 +41,7 @@ const fmt = (d: Date) =>
     </div>
   </section>
 
-  <section class="section on-near">
+  <section class="section on-near notes-section">
     <div class="wrap">
       {posts.length > 0 ? (
         <div class="notes">
@@ -94,7 +94,11 @@ const fmt = (d: Date) =>
     var input = location.hash.indexOf('#topic-') === 0 && document.getElementById('pick-' + location.hash.slice(7));
     if (!input || input.name !== 'topic') return;
     input.checked = true;
-    if (!document.prerendering) box.scrollIntoView({ block: 'start', behavior: 'instant' });
+    if (document.prerendering) return;
+    box.scrollIntoView({ block: 'start', behavior: 'instant' });
+    // On a phone the buttons are one row that scrolls sideways: bring the picked one into it.
+    var row = input.closest('.note-filter__chips'), a = row.getBoundingClientRect(), b = input.parentElement.getBoundingClientRect();
+    row.scrollLeft += b.left - a.left - (a.width - b.width) / 2;
   };
   fromHash();
   addEventListener('hashchange', fromHash);

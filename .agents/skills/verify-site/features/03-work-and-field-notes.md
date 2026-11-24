@@ -10,6 +10,7 @@ file in `src/content/`; the sitemap lists them all).
 **Proved by:**
 
 - `Work lets visitors open any case study by sector from the first screen`, with JavaScript off.
+- `with JavaScript off, the field notes › open on the newest note, with every subject still within reach`.
 - `a note's subject leads to every note on it, and the index narrows to one subject` and
   `with JavaScript off, the field notes › still narrow to one subject`.
 - `a field note's contents jump to each section and mark the one being read`.
