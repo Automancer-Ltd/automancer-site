@@ -190,7 +190,10 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Install the journey browser
-        run: pnpm exec playwright install --with-deps chromium
+        # The browser alone: the hosted image has its libraries, and apt's
+        # mirror could add 8 minutes (ci.yml, t25593).
+        timeout-minutes: 5
+        run: pnpm exec playwright install chromium
 
       - name: Visitor journey against production
         run: pnpm run journey
