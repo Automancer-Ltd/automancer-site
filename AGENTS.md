@@ -127,6 +127,11 @@ ops/preview/                the non-production preview target
   `tests/edge-worker.test.ts`, `check_homepage_anchor`). Anything that serves a built page without
   the Worker must take it out too (`ops/perf/nav-journey.mjs`). Deploy
   the Worker before merging a change to the lock, or every page is blank.
+- Production must run the reviewed Worker (t25749): `ops/edge/deploy.sh` binds the SHA-256 of
+  the bytes it uploads as `EDGE_SOURCE`, every response names it in `X-Edge-Source`, and the
+  release verifier (`check_edge_source`) fails unless it is `ops/edge/worker.js` at the merged
+  commit. So deploy a `worker.js` change from its branch before merging it, and deploy only
+  through `deploy.sh` (`docs/DEPLOYMENT.md` › Which Worker is live).
 - The Worker sends GitHub Pages only the method, `If-None-Match`, `If-Modified-Since`, `Range` and
   `If-Range` (`pagesRequest()` in `ops/edge/worker.js`, t23955). Never pass the visitor's `Request`
   to `fetch()`: that forwards their IP address, cookies and Referer to GitHub

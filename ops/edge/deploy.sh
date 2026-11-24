@@ -29,11 +29,17 @@ worker=${2:-$here/worker.js}
 revision=$(git -C "$here" rev-parse --short=12 HEAD 2>/dev/null || echo unknown)
 dirty=$(git -C "$here" status --porcelain -- "$worker" 2>/dev/null || echo outside)
 message="$(basename "$worker") at ${revision}${dirty:+ (not as committed)}"
+# What this version runs, named on every response it sends (EDGE_SOURCE_HEADER in worker.js,
+# t25749). Hashed from the bytes uploaded below, so it is true of a branch or a working copy too,
+# and the release verifier (check_edge_source) tells either apart from the file it checks.
+edge_source="sha256:$(python3 -I -c 'import hashlib, sys; print(hashlib.sha256(open(sys.argv[1], "rb").read()).hexdigest())' "$worker")"
 
 python3 -I -c '
-import base64, json, sys
-account, cf_account, script, date, path, message = sys.argv[1:7]
+import base64, hashlib, json, sys
+account, cf_account, script, date, path, message, source = sys.argv[1:8]
 code = open(path, "rb").read()
+if source != "sha256:" + hashlib.sha256(code).hexdigest():
+    sys.exit("worker file changed while deploying; run again")
 print(json.dumps({"accountId": account, "input": {
   "path": {"account_id": cf_account, "worker_id": script},
   "query": {"deploy": True},
@@ -50,12 +56,13 @@ print(json.dumps({"accountId": account, "input": {
       {"type": "inherit", "name": "SENTRY_KEY"},
       {"type": "ratelimit", "name": "ERROR_REPORTS", "namespace_id": "24883",
        "simple": {"limit": 10, "period": 60}},
+      {"type": "plain_text", "name": "EDGE_SOURCE", "text": source},
     ],
     # Executor checks this body against the response schema, which requires these read-only
     # fields; Cloudflare sets them itself and ignores what is sent.
     "id": "", "number": 0, "urls": [], "created_on": "",
   }}}))
-' "$EXECUTOR_ACCOUNT" "$CF_ACCOUNT" "$script" "$COMPATIBILITY_DATE" "$worker" "$message" |
+' "$EXECUTOR_ACCOUNT" "$CF_ACCOUNT" "$script" "$COMPATIBILITY_DATE" "$worker" "$message" "$edge_source" |
   executor-tool call 'tools["cloudflare-full-access"].api.versions.createWorkerVersion' - |
   python3 -I -c '
 import json, sys
@@ -82,5 +89,24 @@ if s.get("compatibility_date") != want:
 bound = {b.get("name"): b.get("type") for b in s.get("bindings") or []}
 if bound.get("SENTRY_KEY") != "secret_text" or bound.get("ERROR_REPORTS") != "ratelimit":
     print("read back bindings", bound, "expected SENTRY_KEY secret_text and ERROR_REPORTS ratelimit (docs/DEPLOYMENT.md, error reports)"); sys.exit(1)
-print("read back: compatibility_date", want, "flags", s.get("compatibility_flags"), "bindings", sorted(bound))
-' "$COMPATIBILITY_DATE"
+source = {b.get("name"): b.get("text") for b in s.get("bindings") or []}.get("EDGE_SOURCE")
+if bound.get("EDGE_SOURCE") != "plain_text" or source != sys.argv[2]:
+    print("read back EDGE_SOURCE", repr(source), "expected", sys.argv[2], "(docs/DEPLOYMENT.md, which Worker is live)"); sys.exit(1)
+print("read back: compatibility_date", want, "flags", s.get("compatibility_flags"), "bindings", sorted(bound), "EDGE_SOURCE", source)
+' "$COMPATIBILITY_DATE" "$edge_source"
+
+# Read back what visitors are served: production names the source just uploaded (t25749). A new
+# version reaches every location within seconds; a minute without it means it is not live.
+if [[ $script == automancer-site-edge ]]; then
+  for _ in $(seq 1 12); do
+    served=$(curl -sS --max-time 10 -o /dev/null -D - https://automancer.uk/ |
+      python3 -I -c 'import sys; print(next((l.split(":", 1)[1].strip() for l in sys.stdin if l.lower().startswith("x-edge-source:")), ""))')
+    if [[ $served == "$edge_source" ]]; then
+      echo "read back: https://automancer.uk/ is served by $edge_source"
+      exit 0
+    fi
+    sleep 5
+  done
+  echo "https://automancer.uk/ names X-Edge-Source '${served:-none}', expected $edge_source" >&2
+  exit 1
+fi

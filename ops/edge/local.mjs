@@ -28,6 +28,8 @@
 //                                 from dist/ (opens no port)
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { createServer } from 'node:http';
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -145,11 +147,17 @@ function installFetch() {
   };
 }
 
+// The binding ops/edge/deploy.sh gives the deployed Worker: the hash of the source it runs (t25749),
+// here of the worker.js this module imports, so a local copy names its source as production does.
+const EDGE_ENV = {
+  EDGE_SOURCE: `sha256:${createHash('sha256').update(readFileSync(new URL('./worker.js', import.meta.url))).digest('hex')}`,
+};
+
 /** The site as automancer.uk serves it, from `dist`: give it Requests to https://automancer.uk. */
 export function siteFromDist(dist) {
   installFetch();
   const pages = pagesFromDist(dist);
-  return (request) => servingFrom.run(pages, () => worker.fetch(request));
+  return (request) => servingFrom.run(pages, () => worker.fetch(request, EDGE_ENV));
 }
 
 /** A copy of `response`'s headers with Location moved from automancer.uk to `local`. */

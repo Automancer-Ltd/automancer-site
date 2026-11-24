@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { createHash } from 'node:crypto';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import worker, { ERROR_TUNNEL, OFFSITE_LOCK, SENTRY_INGEST, SENTRY_PROJECT, acceptsBrotli, atOrigin, atPages, brotliFile, cachePolicy, fromPages, legacyRedirect, unlocked } from '../ops/edge/worker.js';
+import worker, { EDGE_SOURCE_HEADER, ERROR_TUNNEL, OFFSITE_LOCK, SENTRY_INGEST, SENTRY_PROJECT, acceptsBrotli, atOrigin, atPages, brotliFile, cachePolicy, fromPages, legacyRedirect, unlocked } from '../ops/edge/worker.js';
 import { DIST, allHtmlFiles, contentPages } from './support/dist';
 
 // The Pages project the Worker reads (t22925): the site has no custom domain on GitHub.
@@ -331,6 +332,32 @@ describe('edge Worker in front of GitHub Pages', () => {
       expect(csp, path).toContain("form-action 'none'");
       expect(csp, path).toContain("require-trusted-types-for 'script'");
       expect(res.headers.get('X-Content-Type-Options'), path).toBe('nosniff');
+    }
+  });
+
+  // The release verifier proves production runs the reviewed worker.js by this header (t25749):
+  // ops/edge/deploy.sh binds the uploaded bytes' SHA-256 as EDGE_SOURCE, and every answer names it.
+  it('names the source it was deployed from on every response, and nothing it was not given', async () => {
+    vi.stubGlobal('fetch', vi.fn(serve));
+    const source = `sha256:${createHash('sha256').update(readFileSync('ops/edge/worker.js')).digest('hex')}`;
+    const env = { EDGE_SOURCE: source };
+    const ask = (url: string, accept = 'text/html') => worker.fetch(new Request(url, { headers: { Accept: accept } }), env) as Promise<Response>;
+    const responses: [string, Response][] = [
+      ['HTML page', await ask('https://automancer.uk/')],
+      ['Markdown twin', await ask('https://automancer.uk/', 'text/markdown')],
+      ['HTML 404', await ask('https://automancer.uk/nope')],
+      ['API success', await ask('https://automancer.uk/api/services.json', 'application/json')],
+      ['legacy 301', await ask('https://automancer.uk/about.html')],
+      ['HTTPS 301', await ask('http://automancer.uk/about/')],
+      ['www 301', await ask('https://www.automancer.uk/about/')],
+      ['error tunnel', await ask(`https://automancer.uk${ERROR_TUNNEL}`)],
+    ];
+    for (const [label, res] of responses) expect(res.headers.get(EDGE_SOURCE_HEADER), label).toBe(source);
+    // Without the binding (a Worker uploaded some other way), or with anything but a hash in it,
+    // it names nothing, so the verifier cannot mistake it for a reviewed deploy.
+    for (const bindings of [undefined, {}, { EDGE_SOURCE: 'main' }, { EDGE_SOURCE: `${source}\nX-Other: 1` }]) {
+      const res = (await worker.fetch(new Request('https://automancer.uk/'), bindings)) as Response;
+      expect(res.headers.get(EDGE_SOURCE_HEADER), JSON.stringify(bindings)).toBeNull();
     }
   });
 
