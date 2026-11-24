@@ -856,6 +856,26 @@ test.describe('with JavaScript off, the field notes', () => {
     await page.getByRole('radio', { name: /^Social care, / }).click();
     expect(await shownSubjects(page)).toEqual(['Social care', 'Social care']);
   });
+
+  test('open on the newest note, with every subject still within reach', async ({ page }, info) => {
+    await page.goto('/field-notes/');
+    await page.evaluate(() => document.fonts.ready);
+    // The first screen holds the subjects and the newest note's title and summary, not only the
+    // hero (its title started 926px down on a 390 × 844 phone, t25360).
+    const first = page.locator('.note-list > a.note-row').first();
+    await expect(first.locator('.note-row__title')).toBeInViewport({ ratio: 1 });
+    if (info.project.name === 'mobile') await expect(first.locator('.note-row__sum')).toBeInViewport({ ratio: 1 });
+    const group = page.getByRole('group', { name: 'Browse by subject' });
+    await expect(group.getByRole('radio', { name: /^All, / })).toBeInViewport({ ratio: 1 });
+
+    // On a phone the subjects are one row that scrolls sideways; the page itself never does.
+    // The last subject is still there to pick, and picking it narrows the list.
+    const last = group.getByRole('radio').last();
+    const subject = (await last.getAttribute('aria-label'))!.split(',')[0]!;
+    await last.click();
+    expect(new Set(await shownSubjects(page))).toEqual(new Set([subject]));
+    await expectNoSidewaysScroll(page);
+  });
 });
 
 test("a case study's contents list its sections and their parts, and follow the reader into a part", async ({ page }, info) => {

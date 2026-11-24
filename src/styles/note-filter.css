@@ -21,6 +21,26 @@
 .note-chip:has(input:checked) .note-chip__n { color: var(--g-600); }
 .note-chip:has(input:focus-visible) { outline: 2px solid var(--white); outline-offset: 3px; }
 
+/* The list starts close under the hero, so the first notes share the first screen with it. */
+.section.notes-section { padding-block-start: clamp(2rem, 4vw, 3rem); }
+.notes-section .note-filter { margin-block-end: var(--sp-6); }
+
+/* On a phone every subject wraps into five rows that push the first note off the first screen:
+   there they are one row that scrolls sideways, edge to edge, fading out where more follow.
+   The page never scrolls sideways; the row does. Its padding keeps the focus ring unclipped. */
+@media (max-width: 47.99rem) {
+  .note-filter__chips {
+    flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain;
+    margin-inline: calc(-1 * var(--pad-x)); padding: 0.3rem var(--pad-x);
+    scroll-padding-inline: var(--pad-x); scroll-snap-type: x proximity;
+    scrollbar-width: none;
+    mask-image: linear-gradient(to right, transparent, #000 calc(var(--pad-x) - 0.5rem), #000 calc(100% - 2.5rem), transparent);
+  }
+  .note-filter__chips::-webkit-scrollbar { display: none; }
+  @media (pointer: fine) { .note-filter__chips { scrollbar-width: thin; } .note-filter__chips::-webkit-scrollbar { display: initial; } }
+  .note-chip { flex: none; max-width: none; white-space: nowrap; scroll-snap-align: start; }
+}
+
 .notes:has([data-topic-pick="1"]:checked) .note-row:not([data-topic-slot="1"]),
 .notes:has([data-topic-pick="2"]:checked) .note-row:not([data-topic-slot="2"]),
 .notes:has([data-topic-pick="3"]:checked) .note-row:not([data-topic-slot="3"]),

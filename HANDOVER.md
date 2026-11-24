@@ -7,7 +7,7 @@ It does not outrank anything: `VISION.md` is authority 0 and `SPEC.md` describes
 When this file and `SPEC.md` disagree about what exists, `SPEC.md` and the code are right and this
 file is out of date.
 
-Last updated: 24 November 2026 (no unbacked number on a case study, t25118).
+Last updated: 24 November 2026 (Field Notes opens on its newest note, t25360).
 
 ## Where the site stands against the vision
 
@@ -146,6 +146,22 @@ and 293 service users" with nothing behind it.
 - Undo: revert this slice's merge commit.
 
 Next for this thread: shipped in t25118, below.
+
+## Frontend slice: Field Notes opens on its newest note (24 November 2026, t25360)
+
+A visitor opening `/field-notes/` saw only the hero and the subject buttons: the newest note's title
+started 926 px down on a 390 × 844 phone (1,084 px at 320 × 640) and 922 px down on a 1280 × 800
+laptop, so the page's first screen held no note at all.
+
+- The hero uses Work's compact size, now one shared class (`.page-hero--compact`), so both pages
+  read alike; Work is unchanged pixel for pixel. No words changed.
+- The list starts closer under the hero, and below 48rem the 11 buttons ("All" and each subject) are one row that
+  scrolls sideways instead of five wrapped rows. Arrival at `#topic-<slug>` centres the picked one.
+- Now: the newest note's title is at 602 px on the phone (title and summary on the first screen),
+  606 px at 320 × 640 and 700 px on the laptop. The journey test
+  `open on the newest note, with every subject still within reach` (scripts off, both widths)
+  failed on the previous production build and passes on this one.
+- Undo: revert the merge.
 
 ## Slice: no unbacked number on a case study (24 November 2026, t25118)
 

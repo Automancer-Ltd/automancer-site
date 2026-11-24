@@ -27,7 +27,7 @@ const sourcesHref = (e: (typeof studies)[number]) => (evidenceRows(e.data).lengt
   title="Work"
   description="Real systems, live in production. Case studies from a care provider, a manufacturer, a diversity & inclusion consultancy and small firms — all real work."
 >
-  <section class="page-hero work-hero hatch">
+  <section class="page-hero page-hero--compact work-hero hatch">
     <SpectrumGlow class="page-hero__glow" px={26} />
     <div class="page-hero__inner">
       <div>
@@ -128,15 +128,12 @@ const sourcesHref = (e: (typeof studies)[number]) => (evidenceRows(e.data).lengt
 </BaseLayout>
 
 <style>
-  .page-hero.work-hero { padding-block: clamp(6.5rem, 10vw, 9rem) clamp(2rem, 5vw, 4rem); }
   .work-hero .page-hero__inner {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 26rem), 1fr));
     align-items: start;
     gap: clamp(1.5rem, 5vw, 4rem);
   }
-  .work-hero .page-hero__title { font-size: clamp(1.75rem, 10vw - .25rem, 3.125rem); margin-block-start: 0; }
-  .work-hero .page-hero__sub { font-size: var(--t-0); margin-block-start: var(--sp-4); }
   .work-directory h2 {
     font-size: var(--t-0);
     letter-spacing: 0;

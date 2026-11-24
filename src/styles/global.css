@@ -492,6 +492,12 @@ strong { font-weight: 600; color: inherit; }
 .page-hero__title { font-size: var(--t-display); line-height: 1.02; letter-spacing: -0.04em;
   max-width: 26ch; margin-top: var(--sp-5); text-wrap: balance; }
 .page-hero__sub { margin-top: var(--sp-6); max-width: 54ch; font-size: var(--t-1); color: var(--muted); }
+/* A hero that leaves the page's own content (Work's case studies, the Field Notes list) on the
+   first screen of a phone and a laptop: less air above and below, a smaller title and lede. */
+.page-hero.page-hero--compact { padding-block: clamp(6.5rem, 10vw, 9rem) clamp(2rem, 5vw, 4rem); }
+.page-hero--compact .page-hero__title { font-size: clamp(1.75rem, 10vw - .25rem, 3.125rem); }
+.page-hero--compact .page-hero__title:first-child { margin-block-start: 0; }
+.page-hero--compact .page-hero__sub { font-size: var(--t-0); margin-block-start: var(--sp-4); }
 .page-hero__glow { position: absolute; z-index: 1; pointer-events: none;
   width: 40vw; height: 40vw; max-width: 500px; max-height: 500px; top: -10%; right: -5%;
   border-radius: 50%; mix-blend-mode: screen; filter: blur(10px); opacity: .12;
