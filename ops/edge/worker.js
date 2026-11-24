@@ -253,6 +253,70 @@ const RATE_LIMITED_FOR_SECS = 60;
 
 const ENVELOPE_DSN = `${SENTRY_INGEST}/${SENTRY_PROJECT}`;
 const UTF8 = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true });
+const ENCODE = new TextEncoder();
+const ERROR_TYPES = new Set([
+  'Error', 'AggregateError', 'EvalError', 'RangeError', 'ReferenceError',
+  'SyntaxError', 'TypeError', 'URIError',
+]);
+const EVENT_ID = /^[0-9a-f]{32}$/;
+const RELEASE_ID = /^[0-9a-f]{40}$/;
+const REPORT_PAGE = /^\/(?:[a-z0-9-]+\/|(?:field-notes|work)\/[a-z0-9-]+\/|404\.html)?$/;
+const REPORT_SCRIPT = /^\/(?:assets\/js\/main\.js|_astro\/[\w.-]+\.js)$/;
+
+function reportPath(url) {
+  if (typeof url !== 'string' || !url.startsWith(ORIGIN + '/')) return;
+  const path = url.split(/[?#]/, 1)[0].slice(ORIGIN.length);
+  if (path.length <= 160) return path;
+}
+
+function reportNumber(value) {
+  return Number.isSafeInteger(value) && value >= 0 ? value : undefined;
+}
+
+/** Rebuild the report at the egress boundary, even if browser-side filtering changes. */
+function reportEvent(event, eventId) {
+  if (!Array.isArray(event.exception?.values)) return null;
+  const path = reportPath(event.request?.url);
+  const page = path && REPORT_PAGE.test(path) ? path : undefined;
+  const values = [];
+  for (const exception of event.exception.values) {
+    if (!exception || typeof exception !== 'object' || Array.isArray(exception)) continue;
+    const frames = [];
+    if (Array.isArray(exception.stacktrace?.frames)) {
+      for (const frame of exception.stacktrace.frames) {
+        const file = reportPath(frame?.filename);
+        if (!file || (file !== page && !REPORT_SCRIPT.test(file))) continue;
+        const lineno = reportNumber(frame.lineno);
+        const colno = reportNumber(frame.colno);
+        if (lineno === undefined && colno === undefined) continue;
+        frames.push({ filename: ORIGIN + file, lineno, colno, in_app: true });
+      }
+    }
+    const mechanism = exception.mechanism;
+    values.push({
+      type: ERROR_TYPES.has(exception.type) ? exception.type : 'Error',
+      value: 'Browser script error',
+      mechanism: mechanism && typeof mechanism === 'object' ? {
+        type: 'generic',
+        handled: typeof mechanism.handled === 'boolean' ? mechanism.handled : undefined,
+        exception_id: reportNumber(mechanism.exception_id),
+        parent_id: reportNumber(mechanism.parent_id),
+        is_exception_group: typeof mechanism.is_exception_group === 'boolean' ? mechanism.is_exception_group : undefined,
+      } : undefined,
+      stacktrace: { frames },
+    });
+  }
+  if (!values.some(({ stacktrace }) => stacktrace.frames.length > 0)) return null;
+  return {
+    event_id: eventId,
+    timestamp: Number.isFinite(event.timestamp) ? event.timestamp : undefined,
+    platform: 'javascript',
+    environment: 'production',
+    release: typeof event.release === 'string' && RELEASE_ID.test(event.release) ? event.release : undefined,
+    request: page ? { url: ORIGIN + page } : undefined,
+    exception: { values },
+  };
+}
 
 function envelopeObject(bytes) {
   try {
@@ -294,29 +358,28 @@ function errorEnvelope(bytes) {
     end = boundary;
   }
 
-  const payload = envelopeObject(bytes.subarray(start, end));
+  let payload = envelopeObject(bytes.subarray(start, end));
   if (!payload) return null;
+  const eventId = [payload.event_id, header.event_id].find((id) => typeof id === 'string' && EVENT_ID.test(id));
   if (item.type === 'event') {
-    if (!Array.isArray(payload.exception?.values) || payload.exception.values.length === 0) return null;
+    payload = reportEvent(payload, eventId);
+    if (!payload) return null;
   } else if (!Number.isFinite(payload.timestamp) || !Array.isArray(payload.discarded_events)
     || payload.discarded_events.length !== 0 || Object.keys(payload).length !== 2) {
     return null;
   }
-  return { header, item: { type: item.type, length: item.length }, payload: bytes.subarray(start, end) };
+  const encoded = ENCODE.encode(JSON.stringify(payload));
+  if (encoded.length > ERROR_REPORT_MAX_BYTES) return null;
+  return { eventId, type: item.type, payload: encoded };
 }
 
-/** Rebuild the headers of the one validated item using the Worker's own key. */
-function signedEnvelope({ header, item, payload }, key) {
+/** Sign the scrubbed item using the Worker's own key. */
+function signedEnvelope({ eventId, type, payload }, key) {
   const dsn = new URL(ENVELOPE_DSN);
   dsn.username = key;
-  const { event_id, sent_at, sdk } = header;
-  const envelopeHeader = {
-    event_id: typeof event_id === 'string' ? event_id : undefined,
-    sent_at: typeof sent_at === 'string' ? sent_at : undefined,
-    sdk: typeof sdk?.name === 'string' && typeof sdk.version === 'string' ? { name: sdk.name, version: sdk.version } : undefined,
-    dsn: dsn.toString(),
-  };
-  const headers = new TextEncoder().encode(`${JSON.stringify(envelopeHeader)}\n${JSON.stringify(item)}\n`);
+  const envelopeHeader = { event_id: eventId, dsn: dsn.toString() };
+  const item = { type, length: payload.length };
+  const headers = ENCODE.encode(`${JSON.stringify(envelopeHeader)}\n${JSON.stringify(item)}\n`);
   const out = new Uint8Array(headers.length + payload.length);
   out.set(headers);
   out.set(payload, headers.length);

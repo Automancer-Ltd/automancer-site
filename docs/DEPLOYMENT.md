@@ -204,6 +204,17 @@ diagnostic still returns 200. Rehearse on the probe Worker, then deploy the Work
 so this live check can pass. To undo, revert the merge through a pull request before redeploying
 the preceding Worker version.
 
+**The Worker limits what error reports send to Sentry (t25916).** It builds a fresh event
+before signing. It keeps standard error types, the release and event IDs, and source locations
+on this site. It drops raw messages, user and request details, breadcrumbs, stack function
+names, URL queries and fragments, and free-text envelope metadata. Reports without a usable
+source location are refused. The browser still restricts locations to scripts on the page.
+The Worker's check recognises the site's page and script path formats without fetching Pages.
+The existing browser User-Agent still goes to Sentry for diagnosis. The edge test inspects the
+outbound envelope, and the browser journey checks that the real SDK still sends a format the
+Worker accepts. Roll back by restoring the preceding Worker version and reverting the pull
+request.
+
 Rotate the Worker's key: create a key on the project (`sentry-guarded`
 `projects.createProjectKey`, the `de.sentry.io` account), put it with `workerPutScriptSecret`
 inside the same Executor program so the value never leaves it, check `check_error_tunnel_signs`,
