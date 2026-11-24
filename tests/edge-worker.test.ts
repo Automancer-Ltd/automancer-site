@@ -1,8 +1,9 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createHash } from 'node:crypto';
+import { brotliCompressSync, brotliDecompressSync } from 'node:zlib';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import worker, { EDGE_SOURCE_HEADER, ERROR_TUNNEL, OFFSITE_LOCK, SENTRY_INGEST, SENTRY_PROJECT, acceptsBrotli, atOrigin, atPages, brotliFile, cachePolicy, fromPages, legacyRedirect, unlocked } from '../ops/edge/worker.js';
+import worker, { EDGE_SOURCE_HEADER, ERROR_TUNNEL, OFFSITE_LOCK, PAGE_CACHE_HEADER, PAGE_CACHE_SECONDS, SENTRY_INGEST, SENTRY_PROJECT, acceptsBrotli, atOrigin, atPages, brotliFile, cachePolicy, fromPages, legacyRedirect, namesTag, pageCacheKey, unlocked } from '../ops/edge/worker.js';
 import { DIST, allHtmlFiles, contentPages } from './support/dist';
 
 // The Pages project the Worker reads (t22925): the site has no custom domain on GitHub.
@@ -452,6 +453,145 @@ describe('edge Worker in front of GitHub Pages', () => {
     expect(await read(Array.from(bytes, (b) => Uint8Array.of(b))), 'one byte at a time').toBe(want);
     const body = `<html><head></head><body>${OFFSITE_LOCK}</body></html>`;
     expect(await read([new TextEncoder().encode(body)]), 'a lock after </head> is page text').toBe(body);
+  });
+});
+
+// Pages kept at the edge (t25774): a page is served from the data centre's cache at once and
+// fetched again from Pages after each answer, so it is at most one view behind.
+describe('pages kept at the edge', () => {
+  // Pages as it stands: each page's HTML and its Brotli copy, changed by the test between views.
+  let pages: Record<string, string>;
+  let calls: Request[];
+  let pending: Promise<unknown>[];
+  let kept: Map<string, Response>;
+  const ctx = { waitUntil: (p: Promise<unknown>) => void pending.push(p) };
+  const etag = (html: string) => `W/"${createHash('sha256').update(html).digest('hex').slice(0, 8)}"`;
+
+  beforeEach(() => {
+    pages = { '/kept/': '<html>first</html>', '/services/': '<html>services</html>' };
+    calls = [];
+    pending = [];
+    kept = new Map();
+    vi.stubGlobal('caches', {
+      default: {
+        match: async (req: Request) => kept.get(req.url)?.clone(),
+        put: async (req: Request, res: Response) => void kept.set(req.url, new Response(await res.arrayBuffer(), res)),
+        delete: async (req: Request) => kept.delete(req.url),
+      },
+    });
+    vi.stubGlobal('fetch', (input: RequestInfo | URL, init?: RequestInit) => {
+      const request = new Request(input, init);
+      calls.push(request);
+      const path = new URL(request.url).pathname.slice('/automancer-site'.length);
+      const page = path.replace(/\.br$/, '').replace(/index\.html$/, '');
+      const html = pages[page];
+      if (html === undefined) return Promise.resolve(new Response('<html>404</html>', { status: 404, headers: { 'Content-Type': 'text/html; charset=utf-8' } }));
+      if (request.headers.get('If-None-Match') === etag(html)) return Promise.resolve(new Response(null, { status: 304, headers: { ETag: etag(html) } }));
+      const headers = { ETag: etag(html), 'Cache-Control': 'max-age=600', Age: '179', Expires: 'Thu, 01 Jan 2026 00:00:00 GMT', Vary: 'Accept-Encoding' };
+      return Promise.resolve(path.endsWith('.br')
+        ? new Response(brotliCompressSync(html), { headers: { ...headers, 'Content-Type': 'application/octet-stream' } })
+        : new Response(html, { headers: { ...headers, 'Content-Type': 'text/html; charset=utf-8' } }));
+    });
+  });
+  afterEach(() => vi.useRealTimers());
+
+  const view = async (path: string, headers: Record<string, string> = {}, method = 'GET') => {
+    const res = (await worker.fetch(new Request(`https://automancer.uk${path}`, {
+      method, headers: { Accept: 'text/html', 'Accept-Encoding': 'gzip, br', ...headers },
+    }), {}, ctx)) as Response;
+    const bytes = res.body ? Buffer.from(await res.arrayBuffer()) : null;
+    await Promise.all(pending.splice(0));
+    const br = res.headers.get('Content-Encoding') === 'br';
+    return { res, text: bytes && bytes.length ? (br ? brotliDecompressSync(bytes) : bytes).toString() : null };
+  };
+
+  it('serves a page from the edge at once, one view behind Pages at most', async () => {
+    const first = await view('/kept/');
+    expect(first.res.headers.get(PAGE_CACHE_HEADER)).toBe('miss');
+    expect(first.text).toBe('<html>first</html>');
+    expect(first.res.headers.get('Content-Encoding')).toBe('br');
+    expect(kept.has(pageCacheKey('/kept/').url)).toBe(true);
+
+    // A release changes the page: the next view gets the kept copy and the Worker fetches the
+    // new one after answering, so the view after that gets the new page.
+    pages['/kept/'] = '<html>second</html>';
+    calls = [];
+    const stale = await view('/kept/?service=audit');
+    expect(stale.res.headers.get(PAGE_CACHE_HEADER)).toBe('hit');
+    expect(stale.text).toBe('<html>first</html>');
+    expect(calls.map((r) => r.url)).toContain(`${PAGES}/kept/index.html.br`);
+    const fresh = await view('/kept/');
+    expect(fresh.res.headers.get(PAGE_CACHE_HEADER)).toBe('hit');
+    expect(fresh.text).toBe('<html>second</html>');
+  });
+
+  it("answers a kept page with the page's own headers, dated now, and asks Pages with none of the visitor's", async () => {
+    await view('/kept/');
+    calls = [];
+    const { res } = await view('/kept/', { Cookie: 'session=visitor-secret', 'CF-Connecting-IP': '203.0.113.7', Referer: 'https://automancer.uk/' });
+    expect(res.status).toBe(200);
+    expect(res.headers.get('Content-Type')).toBe('text/html; charset=utf-8');
+    expect(res.headers.get('Cache-Control')).toBe('max-age=600, no-transform');
+    expect(res.headers.get('ETag')).toBe(etag('<html>first</html>'));
+    expect(res.headers.get('Link')).toContain('rel="sitemap"');
+    expect(varies(res)).toBe(true);
+    expect(res.headers.get('Strict-Transport-Security')).toBe('max-age=15552000');
+    // A browser counts the page's ten minutes from now, not from when it was kept.
+    expect(Math.abs(Date.parse(res.headers.get('Date') ?? '') - Date.now())).toBeLessThan(2000);
+    expect(res.headers.get('Age')).toBeNull();
+    expect(res.headers.get('Expires')).toBeNull();
+    expect(calls.length).toBeGreaterThan(0);
+    for (const request of calls) expect([...request.headers.keys()], request.url).toEqual([]);
+  });
+
+  it('answers a browser that holds this copy with 304, from the edge too', async () => {
+    await view('/kept/');
+    const tag = etag('<html>first</html>');
+    expect(namesTag(tag, tag)).toBe(true);
+    expect(namesTag(`"other", ${tag.slice(2)}`, tag)).toBe(true);
+    expect(namesTag('"other"', tag)).toBe(false);
+    const { res, text } = await view('/kept/', { 'If-None-Match': tag });
+    expect([res.status, res.headers.get(PAGE_CACHE_HEADER), text]).toEqual([304, 'hit', null]);
+    expect(res.headers.get('ETag')).toBe(tag);
+    const changed = await view('/kept/', { 'If-None-Match': '"older"' });
+    expect([changed.res.status, changed.text]).toEqual([200, '<html>first</html>']);
+  });
+
+  it('waits for Pages on a hard reload, and never serves a copy older than its limit', async () => {
+    await view('/kept/');
+    pages['/kept/'] = '<html>second</html>';
+    const reload = await view('/kept/', { 'Cache-Control': 'no-cache', Pragma: 'no-cache' });
+    expect([reload.res.headers.get(PAGE_CACHE_HEADER), reload.text]).toEqual(['reload', '<html>second</html>']);
+
+    pages['/kept/'] = '<html>third</html>';
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(Date.now() + PAGE_CACHE_SECONDS * 1000 + 1000);
+    const old = await view('/kept/');
+    expect([old.res.headers.get(PAGE_CACHE_HEADER), old.text]).toEqual(['miss', '<html>third</html>']);
+  });
+
+  it('drops a page Pages no longer has, after one more view at most', async () => {
+    await view('/kept/');
+    delete pages['/kept/'];
+    expect((await view('/kept/')).res.headers.get(PAGE_CACHE_HEADER)).toBe('hit');
+    expect(kept.size).toBe(0);
+    const gone = await view('/kept/');
+    expect(gone.res.status).toBe(404);
+    expect(gone.res.headers.get(PAGE_CACHE_HEADER)).toBeNull();
+  });
+
+  it('keeps only pages: twins, the API, HEAD, ranges and clients without Brotli always go to Pages', async () => {
+    pages['/index.md'] = '# Home';
+    const twin = await view('/', { Accept: 'text/markdown' });
+    expect(twin.text).toBe('# Home');
+    await view('/api/services.json', { Accept: 'application/json' });
+    await view('/kept/', {}, 'HEAD');
+    await view('/kept/', { Range: 'bytes=0-1' });
+    await view('/kept/', { 'Accept-Encoding': 'gzip' });
+    expect([...kept.keys()]).toEqual([]);
+    // Without the Cache API (ops/edge/local.mjs, Node) a page is served as before.
+    vi.stubGlobal('caches', undefined);
+    expect((await view('/kept/')).res.headers.get(PAGE_CACHE_HEADER)).toBeNull();
   });
 });
 

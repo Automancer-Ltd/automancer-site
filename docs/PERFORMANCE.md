@@ -18,6 +18,32 @@ exact `dist/` it publishes, so a heavier production build fails the release inst
 
 ## Decisions behind the numbers
 
+- **A visitor's first page no longer waits for GitHub (t25774, 24 Nov 2026).**
+  GitHub Pages' cache (Fastly) keeps a file ten minutes at most, and for a site this quiet it
+  mostly keeps nothing: asked for `/services/` three minutes after the Worker had fetched it,
+  Fastly in Vienna answered `MISS` and went back to GitHub. Cloudflare kept no page either (pages
+  carry no edge lifetime). So nearly every page a visitor opened first waited 150-550 ms for
+  GitHub before its first byte, where a copy at the edge answers in 20-60 ms. The edge Worker now
+  keeps each page a browser asks for in the data centre's cache and serves it from there at once,
+  fetching it from Pages again after every answer (`keptPage()` in `ops/edge/worker.js`), so a
+  page is at most one view behind Pages (docs/DEPLOYMENT.md › Pages kept at the edge). Twins, the
+  API and feeds still come from Pages every time.
+
+  Measured on production with `ops/perf/edge-wait.sh` (every sitemap page once, as a browser asks,
+  wait from the end of TLS to the first byte) and `ops/perf/first-page.mjs` (every sitemap page once
+  in a fresh Chromium phone context): each run comes 11-15 minutes after the previous visit to the
+  same pages, the gap a visitor arriving after the last one sees.
+
+@@TABLE@@
+
+  Cost: none for visitors. The Worker asks Pages for a page as often as before (once per view),
+  only after answering instead of before. A browser with a cached copy still gets 304 from the
+  edge. After a release, the first view of a page at each data centre can be the page as it was;
+  the deploy's production journey reloads every page first (`edge-wait.sh --reload`), and a hard
+  reload always waits for Pages. Chromium's emulated latency (`first-page.mjs` with its Slow 4G
+  default) hides a server wait shorter than the emulated round trip, so the browser figures here
+  are on the real network (`0 0`).
+
 - **The service offers share one prefetched Contact page (t24957, 23 Nov 2026).**
   Each offer used to spend a separate prefetch slot on the same HTML under a different
   `?service=` address. Links from other pages now carry the choice in `#service=`, leaving

@@ -180,6 +180,12 @@ jobs:
         timeout-minutes: 5
         run: pnpm exec playwright install chromium
 
+      # The edge Worker serves each page from the data centre's cache and fetches it again after
+      # answering, so a page is at most one view behind Pages (t25774). Here that one view could be
+      # the release before this one: reload every page once, so the journey reads this release.
+      - name: Take this release's pages at this runner's edge
+        run: ops/perf/edge-wait.sh https://automancer.uk --reload --label=release
+
       - name: Visitor journey against production
         run: pnpm run journey
         env:
