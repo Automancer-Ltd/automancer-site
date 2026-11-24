@@ -27,6 +27,14 @@
 .rel__version:hover, .rel:target .rel__version { color: var(--ink); }
 
 .rel__notes { margin-top: var(--sp-2); font-size: var(--t-0); line-height: 1.7; }
+/* Lay out the newest note immediately and defer older bodies until they approach
+   the viewport. Fragment jumps need the real height of the preceding notes. */
+@media screen {
+  .releases:not(:has(:target)) :is(.rel-month + .rel-month, .rel-day + .rel-day, .rel + .rel) .rel__notes {
+    content-visibility: auto;
+    contain-intrinsic-block-size: auto clamp(16rem, 45rem - 100vw, 26rem);
+  }
+}
 .rel__notes > p:first-child { font-size: var(--t-1); line-height: 1.55; color: var(--ink); }
 /* A release's parts ("Improvements", "Fixes") are labels, not headlines. */
 .rel__notes h4 { margin-top: 1.9em; font-family: var(--font-mono); font-size: .72rem; font-weight: 500;

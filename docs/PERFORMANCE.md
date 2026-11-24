@@ -18,6 +18,17 @@ exact `dist/` it publishes, so a heavier production build fails the release inst
 
 ## Decisions behind the numbers
 
+- **Older release notes are laid out as readers approach them (t25326, 24 Nov 2026).**
+  The full timeline stays in the HTML. Screen CSS keeps the newest note ready and defers
+  the bodies of older notes with `content-visibility: auto`. The browser remembers each
+  body's height once laid out. A fragment link lays out the timeline up front so the target
+  stays at its reading position. Print lays out the whole page.
+
+  On nine interleaved cold visits per build through the local edge Worker (Chromium at
+  390 × 844, 6× CPU slowdown, 150 ms latency and 1,600 kbps), median first contentful paint
+  moved from 856 ms to 704 ms and cumulative style and layout work through font load from
+  540 ms to 305 ms. All nine direct visits to an October release still landed at 96 px.
+
 - **The service offers share one prefetched Contact page (t24957, 23 Nov 2026).**
   Each offer used to spend a separate prefetch slot on the same HTML under a different
   `?service=` address. Links from other pages now carry the choice in `#service=`, leaving

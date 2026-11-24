@@ -68,6 +68,7 @@ Provide a truthful public front door for Automancer. Give people and machines th
 ### Published releases
 
 - What it does: Publishes every release from `CHANGELOG.md` at `/releases/` (HTML: a timeline grouped by month and day, one anchor per version, with the months and days listed beside it on wide screens and in a fold-out on phones; linked from every page's footer), `/releases.md` and `/api/releases.json`, newest first. The three are built from the one file, so they cannot disagree, and a `## ` heading that is not a release heading, or a release still carrying the release tool's "notes are not written yet" placeholder, fails the build rather than publishing it.
+- Screen rendering defers the bodies of older notes until they near the viewport. Fragment links lay out the whole timeline so that a month, day or release stays in view after the jump. The browser journey checks a shared link to an older release with JavaScript disabled. Printing lays out every note.
 - State: built
 - Shaped by: `CHANGELOG.md`, `src/data/releases.ts`, `src/pages/releases.astro`, `src/styles/releases.css`, `tests/releases.test.ts`, `src/pages/api/releases.json.ts`, `src/data/static-markdown.ts`, `src/data/api.ts` and `src/data/openapi.ts`.
 
