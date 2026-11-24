@@ -1,5 +1,21 @@
 # Release notes
 
+## v2026.11.24.1 — 24 November 2026
+
+The Work page brings case studies into clearer view, and Field Notes is easier to browse on phones.
+
+### Improvements
+
+- Field Notes opens on its newest note, with a shorter introduction and subject filters in one row on phones.
+- Case studies are easier to find from the Work page.
+- Contact details load once and are reused across service offers.
+- The site now filters out error reports from its own scripts when they have no frame.
+- Site responses to requests for part of a page include the complete HTML.
+- Figures in case studies link to their supporting evidence.
+
+### Internal
+
+
 ## v2026.11.23.1 — 23 November 2026
 
 This release makes it easier to get in touch and receive text versions of site pages.
