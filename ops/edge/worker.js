@@ -29,6 +29,10 @@
 //     only this Worker holds (errorReport).
 //   - Every response names the source this Worker was deployed from
 //     (EDGE_SOURCE_HEADER), so a release can prove it is the reviewed file.
+//   - A page a browser asks for is served from this data centre's cache at
+//     once and fetched again from Pages after each answer, so it is at most
+//     one view behind and a visitor never waits for GitHub's cold cache
+//     (keptPage, PAGE_CACHE_HEADER; t25774).
 // Everything else passes through untouched. Deploy and undo: docs/DEPLOYMENT.md.
 //
 // The files come from the GitHub Pages project address (PAGES), not from
@@ -689,15 +693,142 @@ async function brotliCopy(request, pathname, file, policy) {
   return out;
 }
 
+// Pages kept at the edge (t25774). GitHub Pages' own cache (Fastly) keeps a file
+// ten minutes at most and, for a site as quiet as this one, mostly not at all:
+// asked for a page minutes after the Worker last fetched it, it answered MISS
+// and went back to GitHub. Cloudflare kept nothing either, since a page carries
+// no edge lifetime (cachePolicy). So a visitor's first page waited for GitHub
+// before its first byte: a median of 169 ms after TLS from London and 182 ms
+// from Vienna across the 32 sitemap pages, up to 540 ms, where a copy already at
+// the edge answers in 20-60 ms (ops/perf/edge-wait.sh, docs/PERFORMANCE.md).
+//
+// So a page asked for as Brotli by GET is kept in this data centre's cache (the
+// Workers Cache API) and served from it at once. Every time one is served, the
+// Worker fetches the page from Pages again once the visitor has their answer
+// (ctx.waitUntil) and keeps that copy instead. A kept page is therefore at most
+// one view behind Pages: after a release, the first visitor to a page at a data
+// centre can get it as it was, and the next one gets the new page, the same lag
+// a browser's own ten-minute copy already allows. A copy kept longer than
+// PAGE_CACHE_SECONDS is never served, and a hard reload (`Cache-Control:
+// no-cache`) waits for Pages, as every request did before. Only pages are kept:
+// Markdown twins, the API and the feeds are read by machines, and the build
+// reads /api/pages.json from production (src/integrations/page-dates.ts), so
+// those always come from Pages. Each answer says which way it came in
+// PAGE_CACHE_HEADER: hit, miss (fetched and kept) or reload.
+export const PAGE_CACHE_HEADER = 'X-Edge-Cache';
+export const PAGE_CACHE_SECONDS = 7 * 24 * 60 * 60;
+// The address a page is kept under. No visitor's request reaches the cache under
+// it: the Worker answers every request on the route before any cache does.
+const PAGE_CACHE_PATH = '/.edge-cache/page';
+// What the kept copy holds besides the Brotli bytes: the page's own headers, and when it was kept.
+const KEPT_HEADERS = 'X-Edge-Page-Headers';
+const KEPT_AT = 'X-Edge-Kept-At';
+// Per-response headers that are not true of a copy served later.
+const NOT_KEPT = new Set(['date', 'age', 'expires']);
+
+/** The cache key a page is kept under, by path alone: Pages serves a page whatever the query. */
+export const pageCacheKey = (pathname) => new Request(atOrigin(`${PAGE_CACHE_PATH}${pathname}`));
+
+/** Whether an If-None-Match header names `etag` (weak comparison, RFC 9110 13.1.2). */
+export function namesTag(ifNoneMatch, etag) {
+  if (!ifNoneMatch || !etag) return false;
+  const strip = (tag) => tag.trim().replace(/^W\//, '');
+  return ifNoneMatch.split(',').some((tag) => tag.trim() === '*' || strip(tag) === strip(etag));
+}
+
+/**
+ * The page at `pathname` for a browser that takes Brotli, from this data centre's cache when it
+ * holds one (PAGE_CACHE_HEADER), or null to serve the file as before. Without the Cache API or a
+ * context to finish work in (ops/edge/local.mjs, the tests), it is brotliCopy() unchanged.
+ */
+async function keptPage(request, pathname, file, policy, ctx) {
+  const cache = globalThis.caches?.default;
+  if (!cache || typeof ctx?.waitUntil !== 'function') return brotliCopy(request, pathname, file, policy);
+  const key = pageCacheKey(pathname);
+  const reload = /no-cache/i.test(`${request.headers.get('Cache-Control') ?? ''},${request.headers.get('Pragma') ?? ''}`);
+  const kept = reload ? null : await cache.match(key).catch(() => null);
+  if (kept) {
+    const headers = keptHeaders(kept);
+    if (headers && kept.body) {
+      ctx.waitUntil(keepPage(cache, key, pathname, file, policy).catch(() => {}));
+      return pageAnswer(request, headers, kept.body, 'hit');
+    }
+    kept.body?.cancel().catch(() => {});
+  }
+  const fresh = await brotliCopy(new Request(atOrigin(pathname)), pathname, file, policy);
+  if (!fresh?.body || fresh.status !== 200) {
+    fresh?.body?.cancel().catch(() => {});
+    ctx.waitUntil(cache.delete(key).catch(() => {}));
+    return null;
+  }
+  const [visitor, keep] = fresh.body.tee();
+  ctx.waitUntil(putPage(cache, key, fresh.headers, keep).catch(() => {}));
+  return pageAnswer(request, [...fresh.headers], visitor, reload ? 'reload' : 'miss');
+}
+
+/** The page's own headers from a kept copy, or null when the copy is too old or unreadable. */
+function keptHeaders(kept) {
+  const at = Number(kept.headers.get(KEPT_AT));
+  if (!(Date.now() - at < PAGE_CACHE_SECONDS * 1000)) return null;
+  try {
+    const headers = JSON.parse(kept.headers.get(KEPT_HEADERS) ?? '');
+    return Array.isArray(headers) ? headers : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Fetch the page from Pages again and keep it; a page Pages no longer has is dropped. */
+async function keepPage(cache, key, pathname, file, policy) {
+  const fresh = await brotliCopy(new Request(atOrigin(pathname)), pathname, file, policy);
+  if (!fresh?.body || fresh.status !== 200) {
+    fresh?.body?.cancel().catch(() => {});
+    return cache.delete(key);
+  }
+  return putPage(cache, key, fresh.headers, fresh.body);
+}
+
+// Kept as plain bytes with no Content-Encoding, as Pages serves the .br file, so the cache hands
+// back exactly the bytes it was given; the page's headers ride along and are restored on the way out.
+function putPage(cache, key, headers, body) {
+  const own = [...headers].filter(([name]) => !NOT_KEPT.has(name.toLowerCase()));
+  return cache.put(key, new Response(body, {
+    headers: {
+      'Content-Type': 'application/octet-stream',
+      'Cache-Control': `max-age=${PAGE_CACHE_SECONDS}`,
+      [KEPT_HEADERS]: JSON.stringify(own),
+      [KEPT_AT]: String(Date.now()),
+    },
+  }));
+}
+
+/** A page's Brotli bytes as the visitor's request needs them: 200, or 304 when they hold this copy. */
+function pageAnswer(request, headerList, body, state) {
+  const headers = new Headers(headerList);
+  for (const name of NOT_KEPT) headers.delete(name);
+  headers.set('Date', new Date().toUTCString());
+  headers.set(PAGE_CACHE_HEADER, state);
+  let status = 200;
+  if (namesTag(request.headers.get('If-None-Match'), headers.get('ETag'))) {
+    body.cancel().catch(() => {});
+    body = null;
+    status = 304;
+    headers.delete('Content-Length');
+  }
+  const out = new Response(body, { status, headers, encodeBody: 'manual' });
+  ENCODED.add(out);
+  return out;
+}
+
 export default {
-  async fetch(request, env) {
-    const out = secured(await respond(request, env));
+  async fetch(request, env, ctx) {
+    const out = secured(await respond(request, env, ctx));
     if (EDGE_SOURCE.test(env?.EDGE_SOURCE ?? '')) out.headers.set(EDGE_SOURCE_HEADER, env.EDGE_SOURCE);
     return out;
   },
 };
 
-async function respond(request, env) {
+async function respond(request, env, ctx) {
   const url = new URL(request.url);
   if (ALIASES.has(url.hostname)) return Response.redirect(atOrigin(url.pathname, url.search).toString(), 301);
   if (url.protocol === 'http:') {
@@ -750,7 +881,8 @@ async function respond(request, env) {
   const policy = readOnly ? cachePolicy(url.pathname, url.search) : null;
   const brotli = useBrotli ? brotliFile(url.pathname) : null;
   if (brotli) {
-    const copy = await brotliCopy(request, url.pathname, brotli, policy);
+    const page = request.method === 'GET' && brotli.type.startsWith('text/html');
+    const copy = page ? await keptPage(request, url.pathname, brotli, policy, ctx) : await brotliCopy(request, url.pathname, brotli, policy);
     if (copy) return copy;
   }
   const res = await fetchPageFile(url, request, policy);
