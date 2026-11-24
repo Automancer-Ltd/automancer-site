@@ -472,6 +472,42 @@ the expression without `and ssl` and no `preserve_query_string`, and
 include_subdomains: false`; then revert the verifier change. Browsers that already stored the
 year-long policy keep using HTTPS for it, which is harmless while the zone serves HTTPS.
 
+## Only the CAs in use may issue the site's certificates (t25293)
+
+Until 24 Nov 2026 neither `automancer.uk` nor `automancer.co.uk` published CAA, so every publicly
+trusted certificate authority could issue a certificate for either domain or any name under it,
+and one mis-issuance anywhere could impersonate the site or any estate service on `*.automancer.uk`.
+Each now publishes CAA `issue` for exactly the CAs Cloudflare's certificate packs use (read on
+24 Nov 2026 with `certificatePacks.certificatePacksListCertificatePacks`): Universal SSL is
+Let's Encrypt with an SSL.com backup, and the per-host advanced certificates (`factory.`, `portal.`,
+`vault.` and the rest) are Google Trust Services. Every web name in the zone is proxied by
+Cloudflare; the only DNS-only names serve mail and no HTTPS.
+
+| Zone | Record | Cloudflare record id |
+|---|---|---|
+| `automancer.uk` (`4574254c3155f93a8f02aabcf19e00af`) | `0 issue "letsencrypt.org"` | `6cc623d466a99914bf063332ccb42651` |
+| | `0 issue "pki.goog"` | `8ad7a6ea11b34269412468b47f8929d3` |
+| | `0 issue "ssl.com"` | `3d80861a539681ee7aa00e4af2da79a3` |
+| `automancer.co.uk` (`4d8f72d51dbdbf945ae9f6b15db0ac44`) | `0 issue "letsencrypt.org"` | `03cef4be71d6bcdcd9cee1a9a09bb4c7` |
+| | `0 issue "pki.goog"` | `5051a84f5ad154fcfbe861764c60402f` |
+| | `0 issue "ssl.com"` | `15916d70308d76985d5726a066ad35ed` |
+
+Once a zone has any CAA record, Cloudflare's DNS adds the issuers it may itself use to the answer
+(`comodoca.com` and `digicert.com`, with `issuewild` copies), so the published set is five CA
+operators, all Cloudflare's. No `issuewild` of our own: `issue` governs wildcards too. Both zones
+are DNSSEC-signed, so a CA's resolver cannot be fed a forged answer.
+
+`ops/verify-production.sh` reads both back over DNS over HTTPS after every deploy (`CAA_DOMAINS`,
+`check_caa`): it fails if an answer is unsigned or missing, names a CA outside `CAA_ALLOWED`,
+drops one in `CAA_REQUIRED`, or carries a critical property CAs refuse.
+
+- **A new service needs a certificate from another CA** (a host served outside Cloudflare, or a
+  provider that issues for a CNAME under `automancer.uk`): add `0 issue "<ca-domain>"` on the
+  zone apex first, then add the domain to `CAA_ALLOWED`. Without the record the CA refuses to issue.
+- **Undo:** delete the six records above (Executor `cloudflare-full-access`
+  `dnsRecordsForAZone.dnsRecordsForAZoneDeleteDnsRecord`; resolvers keep them for at most the
+  3,600-second TTL), then revert the verifier change.
+
 ## Rollback
 
 Revert the commit and merge the revert: it deploys and verifies like any change. This path was
