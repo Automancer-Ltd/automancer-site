@@ -781,12 +781,25 @@ test("a field note's contents jump to each section and mark the one being read",
   expect(await links.evaluateAll((as) => as.map((a) => (a as HTMLAnchorElement).hash.slice(1)))).toEqual(ids);
 
   for (const n of [2, ids.length - 1]) {
+    // On a phone the contents close after a jump, and stay within reach for the next one (t25430).
+    if (phone && !(await contents.getAttribute('open'))) await contents.locator('summary').click();
     await links.nth(n).click();
     const heading = page.locator(`[id="${ids[n]}"]`);
+    const title = (await heading.textContent())!.trim();
     // It scrolls (smoothly) to just below the fixed nav, not under it, and is marked as being read.
     await expect.poll(async () => (await heading.boundingBox())!.y).toBeLessThan(200);
     expect((await heading.boundingBox())!.y).toBeGreaterThan(40);
-    await expect(contents.locator('a[aria-current="location"]')).toHaveText((await heading.textContent())!.trim());
+    await expect(contents.locator('a[aria-current="location"]')).toHaveText(title);
+    if (!phone) continue;
+    // The contents are a bar under the nav that names the section being read and where it falls,
+    // and the heading lands below the bar, not under it.
+    await expect(contents).not.toHaveAttribute('open');
+    const bar = (await contents.boundingBox())!;
+    const nav = (await page.locator('.nav').boundingBox())!;
+    expect(Math.abs(bar.y - (nav.y + nav.height))).toBeLessThan(2);
+    await expect(contents.locator('summary')).toContainText(title);
+    await expect(contents.locator('summary')).toContainText(`${n + 1}/${ids.length}`);
+    expect((await heading.boundingBox())!.y).toBeGreaterThanOrEqual(bar.y + bar.height);
   }
   await expect(contents).toBeVisible();
   await expectNoSidewaysScroll(page);
