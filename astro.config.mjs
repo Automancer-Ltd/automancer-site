@@ -107,6 +107,14 @@ export default defineConfig({
   output: 'static',
   // Avoid a stylesheet round trip on cold visits. Astro hashes the inline CSS.
   build: { inlineStylesheets: 'always' },
+  // A page's own script (a <script> in a .astro file, written in src/scripts/) goes in
+  // the page too, whatever its size, as long as it imports nothing at run time (Astro
+  // checks that first). The contact form is hidden until its script runs, so a
+  // separate file would show it one round trip later on a first visit. Everything
+  // else keeps Vite's 4 KiB default.
+  vite: {
+    build: { assetsInlineLimit: (file) => (/_astro_type_script_/.test(file) ? true : undefined) },
+  },
   // Astro and InlineScript authorize approved script bytes at build time. Unhashed
   // inline JavaScript and eval stay blocked; the external application script
   // and lazy Sentry modules load from our origin. Turnstile is the only

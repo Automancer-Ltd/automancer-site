@@ -14,8 +14,9 @@
     "serve": "node ops/edge/local.mjs dist",
     "astro": "astro",
     "lint": "oxlint --type-aware --deny-warnings src tests public/assets/js",
-    "typecheck": "test -f .astro/content.d.ts || astro sync; tsrs --noEmit",
-    "check": "pnpm run lint && pnpm run typecheck && if [ -f dist/index.html ]; then SKIP_BUILD=1 vitest run; else SKIP_BUILD=1 vitest run tests/storage-sentinel.test.ts; fi",
+    "typecheck:ts": "test -f .astro/content.d.ts || astro sync; tsrs --noEmit",
+    "typecheck": "pnpm run typecheck:ts && astro check",
+    "check": "pnpm run lint && pnpm run typecheck:ts && if [ -f dist/index.html ]; then SKIP_BUILD=1 vitest run; else SKIP_BUILD=1 vitest run tests/storage-sentinel.test.ts; fi",
     "test": "vitest run",
     "test:watch": "vitest",
     "journey": "playwright test",
@@ -31,12 +32,14 @@
     "sharp": "0.35.5"
   },
   "devDependencies": {
+    "@astrojs/check": "^0.9.12",
     "@playwright/test": "1.65.1",
     "axe-core": "^4.14.1",
     "happy-dom": "^21.0.4",
     "oxlint": "^1.94.0",
     "oxlint-tsgolint": "^7.0.2007",
     "tsrs": "7.1.0-beta.tsrs3",
+    "typescript": "^6.0.3",
     "vitest": "^5.1.1"
   }
 }

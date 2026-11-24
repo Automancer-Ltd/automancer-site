@@ -41,19 +41,10 @@ const LAYOUT_MEASURED = 164507;
 
 /**
  * Layout pages that genuinely need more than the default, each with its own
- * measured value and the reason.
+ * measured value and the reason. None today: /contact/ needed 172,392 B until
+ * its form script became a minified module (t25886) and fitted the default.
  */
-const LAYOUT_EXCEPTIONS: Record<string, { measured: number; reason: string }> = {
-  // Measured 2026-11-21 (t22871): 148,994 B + 4,887 B of HTML, CSS and script; + 3,518 B and
-  // 3,115 B of fallback font faces every page carries (t23013, t23067). Re-measured 2026-11-21
-  // (t23850): 166,982 B with the print styles and main.js every page now carries. Re-measured
-  // 2026-11-22 (t24026): 167,719 B with the phone prefetch every page carries. Re-measured
-  // 2026-11-24 (t25430): 172,392 B with the phone contents bar's 1,568 B of main.js.
-  '/contact/': {
-    measured: 172392,
-    reason: 'the "What are you interested in?" choice: five option cards, their styles, and the script that picks one from ?service=',
-  },
-};
+const LAYOUT_EXCEPTIONS: Record<string, { measured: number; reason: string }> = {};
 
 /**
  * Pages whose own HTML grows with the record they publish, so any fixed total

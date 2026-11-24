@@ -75,7 +75,7 @@ export function markHtml(html, stamp) {
       'font:600 11px/1.2 ui-sans-serif,system-ui,sans-serif;white-space:nowrap;pointer-events:none">' +
       `PREVIEW TARGET · <code>${escapeHtml(stamp.short)}</code>` +
       '</div>';
-    out = out.replace(/<body([^>]*)>/i, (m, attrs) => `<body${attrs}>${banner}`);
+    out = out.replace(/<body([^>]*)>/i, (_m, attrs) => `<body${attrs}>${banner}`);
     if (!out.includes(BANNER_ID)) {
       // No <body> at all (a redirect stub or a fragment): prefix instead.
       out = `${banner}${out}`;
@@ -85,7 +85,7 @@ export function markHtml(html, stamp) {
     const meta =
       `${ROBOTS_MARK}<meta name="robots" content="noindex, nofollow, noarchive">`;
     out = /<head([^>]*)>/i.test(out)
-      ? out.replace(/<head([^>]*)>/i, (m, attrs) => `<head${attrs}>${meta}`)
+      ? out.replace(/<head([^>]*)>/i, (_m, attrs) => `<head${attrs}>${meta}`)
       : `${meta}${out}`;
   }
   return out;
