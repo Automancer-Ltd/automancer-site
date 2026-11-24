@@ -45,10 +45,8 @@ test('error reports keep source locations without raw browser data', async ({ pa
   await page.goto('/contact/?campaign=FACTORY_TEST_QUERY#FACTORY_TEST_FRAGMENT');
   await page.getByLabel('Email', { exact: true }).fill('FACTORY_TEST_FORM@example.com');
   expect(envelopes, 'monitoring stays quiet before an error').toHaveLength(0);
-  await page.evaluate(() => {
-    window.dispatchEvent(new ErrorEvent('error', { error: new Error('FACTORY_TEST_BOOTSTRAP') }));
-  });
-  await expect.poll(() => reports.length).toBe(1);
+  // An error with a frame from one of the page's own scripts is reported, and only
+  // that frame is kept: the other frame's path is not one the page loaded.
   await page.evaluate(async () => {
     window.dispatchEvent(new Event('visibilitychange'));
     history.pushState({}, '', '/FACTORY_TEST_PATH?campaign=FACTORY_TEST_HISTORY#FACTORY_TEST_HASH');
@@ -64,25 +62,47 @@ test('error reports keep source locations without raw browser data', async ({ pa
     ].join('\n');
     window.dispatchEvent(new ErrorEvent('error', { error }));
   });
-  await expect.poll(() => reports.length).toBe(2);
+  await expect.poll(() => reports.length).toBe(1);
+  // An error with no frame from the page's own scripts names nothing the site can
+  // fix. The bootstrap drops it instead of filing another empty
+  // `Error: Browser script error` (AUTOMANCER-SITE-9).
+  await page.evaluate(() => {
+    const thrown = new Error('FACTORY_TEST_BOOTSTRAP');
+    thrown.stack = 'Error: FACTORY_TEST_BOOTSTRAP';
+    const outside = new Error('FACTORY_TEST_OUTSIDE');
+    outside.stack = [
+      'Error: FACTORY_TEST_OUTSIDE',
+      '    at FACTORY_TEST_EXTENSION (chrome-extension://FACTORY_TEST_EXTENSION/FACTORY_TEST_SCRIPT.js:1:2)',
+    ].join('\n');
+    window.dispatchEvent(new ErrorEvent('error', { error: thrown }));
+    window.dispatchEvent(new ErrorEvent('error', { error: outside }));
+  });
+  await page.waitForTimeout(750);
+  expect(reports, 'reports with no frame from the site are dropped').toHaveLength(1);
+  // A rejection whose reason is not an Error has no stack at all, so it is dropped too.
   await page.evaluate(() => {
     window.dispatchEvent(new PromiseRejectionEvent('unhandledrejection', {
       promise: Promise.resolve(),
       reason: { description: 'FACTORY_TEST_OBJECT' },
     }));
   });
-  await expect.poll(() => reports.length).toBe(3);
+  await page.waitForTimeout(750);
+  expect(reports, 'rejections with no frame from the site are dropped').toHaveLength(1);
 
   const markers = [...new Set(envelopes.join('\n').match(/FACTORY_TEST_[A-Z_]+/g))].sort();
   expect(markers, 'synthetic personal details in intercepted reports').toEqual([]);
-  expect(kinds, 'monitoring sends only error events').toEqual(['event', 'event', 'event']);
-  const report = reports[1];
+  expect(kinds, 'monitoring sends only error events').toEqual(['event']);
+  const report = reports[0];
   const exception = report.exception?.values?.find((value) => value.type === 'TypeError');
-  expect(exception?.stacktrace?.frames).toContainEqual(expect.objectContaining({
+  const frames = exception?.stacktrace?.frames ?? [];
+  expect(frames).toContainEqual(expect.objectContaining({
     filename: new URL('/assets/js/main.js', page.url()).href,
     lineno: 12,
     colno: 34,
   }));
+  expect(frames.map((frame) => frame.filename), 'frames the page did not load').not.toContain(
+    new URL('/FACTORY_TEST_FRAME_PATH', page.url()).href,
+  );
   expect(report.request?.url).toBe(new URL('/contact/', page.url()).href);
   expect(report.breadcrumbs ?? []).toHaveLength(0);
   if (process.env.JOURNEY_URL) expect(report.release).toMatch(/^[a-f0-9]{40}$/);
