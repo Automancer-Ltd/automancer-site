@@ -253,9 +253,9 @@ export function atOrigin(pathname, search = '') {
 // browser posted it to Sentry itself, so Sentry received their IP address,
 // User-Agent, language and Referer with every report, and each page's CSP had
 // to let it talk to a third party. Now a page talks only to automancer.uk, and
-// Sentry sees Cloudflare's address. The browser's User-Agent goes on, because
-// the privacy page says a report names the browser it happened in. Reports that
-// ad blockers used to stop at Sentry's address now arrive too.
+// Sentry sees Cloudflare's address. The Worker derives a browser family and major
+// version at the edge and sends no visitor User-Agent. Reports that ad blockers
+// used to stop at Sentry's address now arrive too.
 //
 // The Worker requires this site's Origin and accepts at most one error per
 // request (or an empty verifier diagnostic), with at most 64 KiB read from the body.
@@ -297,6 +297,25 @@ const EVENT_ID = /^[0-9a-f]{32}$/;
 const RELEASE_ID = /^[0-9a-f]{40}$/;
 const REPORT_PAGE = /^\/(?:[a-z0-9-]+\/|(?:field-notes|work)\/[a-z0-9-]+\/|404\.html)?$/;
 const REPORT_SCRIPT = /^\/(?:assets\/js\/main\.js|_astro\/[\w.-]+\.js)$/;
+// Chromium-based and iOS browsers can include other browsers' identifiers.
+// Prefer their own product tokens before checking Chrome and Safari.
+const BROWSER_PRODUCTS = [
+  ['Edge', /(?:^| )Edg(?:A|iOS)?\/([1-9]\d{0,2})(?=[. ]|$)/],
+  ['Opera', /(?:^| )OPR\/([1-9]\d{0,2})(?=[. ]|$)/],
+  ['Samsung Internet', /(?:^| )SamsungBrowser\/([1-9]\d{0,2})(?=[. ]|$)/],
+  ['Firefox', /(?:^| )(?:Firefox|FxiOS)\/([1-9]\d{0,2})(?=[. ]|$)/],
+  ['Chrome', /(?:^| )(?:Chrome|CriOS)\/([1-9]\d{0,2})(?=[. ]|$)/],
+  ['Chromium', /(?:^| )Chromium\/([1-9]\d{0,2})(?=[. ]|$)/],
+  ['Safari', /(?:^| )Version\/([1-9]\d{0,2})(?=[. ]|$).* Safari\/\d/],
+];
+
+function browserContext(userAgent) {
+  if (!userAgent) return;
+  for (const [name, pattern] of BROWSER_PRODUCTS) {
+    const version = pattern.exec(userAgent)?.[1];
+    if (version) return { browser: { type: 'browser', name, version } };
+  }
+}
 
 function reportPath(url) {
   if (typeof url !== 'string' || !url.startsWith(ORIGIN + '/')) return;
@@ -309,7 +328,7 @@ function reportNumber(value) {
 }
 
 /** Rebuild the report at the egress boundary, even if browser-side filtering changes. */
-function reportEvent(event, eventId) {
+function reportEvent(event, eventId, userAgent) {
   if (!Array.isArray(event.exception?.values)) return null;
   const path = reportPath(event.request?.url);
   const page = path && REPORT_PAGE.test(path) ? path : undefined;
@@ -349,6 +368,7 @@ function reportEvent(event, eventId) {
     environment: 'production',
     release: typeof event.release === 'string' && RELEASE_ID.test(event.release) ? event.release : undefined,
     request: page ? { url: ORIGIN + page } : undefined,
+    contexts: browserContext(userAgent),
     exception: { values },
   };
 }
@@ -363,7 +383,7 @@ function envelopeObject(bytes) {
 }
 
 /** Read one browser exception or the verifier's empty diagnostic. */
-function errorEnvelope(bytes) {
+function errorEnvelope(bytes, userAgent) {
   const headerEnd = bytes.indexOf(10);
   if (headerEnd === -1) return null;
   const header = envelopeObject(bytes.subarray(0, headerEnd));
@@ -397,7 +417,7 @@ function errorEnvelope(bytes) {
   if (!payload) return null;
   const eventId = [payload.event_id, header.event_id].find((id) => typeof id === 'string' && EVENT_ID.test(id));
   if (item.type === 'event') {
-    payload = reportEvent(payload, eventId);
+    payload = reportEvent(payload, eventId, userAgent);
     if (!payload) return null;
   } else if (!Number.isFinite(payload.timestamp) || !Array.isArray(payload.discarded_events)
     || payload.discarded_events.length !== 0 || Object.keys(payload).length !== 2) {
@@ -477,16 +497,16 @@ async function errorReport(request, env) {
   if (!body) {
     return problem(413, 'Content Too Large', `An error report is at most ${ERROR_REPORT_MAX_BYTES} bytes.`, ERROR_TUNNEL);
   }
-  const envelope = errorEnvelope(body);
+  const envelope = errorEnvelope(body, request.headers.get('User-Agent'));
   if (!envelope) {
     return problem(400, 'Bad Request', 'An upload must contain one error report for this site’s Sentry project.', ERROR_TUNNEL);
   }
   if (!env?.SENTRY_KEY) {
     return problem(503, 'Service Unavailable', 'Error reporting is not set up on this edge. The report was not kept.', ERROR_TUNNEL);
   }
-  const headers = new Headers({ 'Content-Type': 'application/x-sentry-envelope', Origin: ORIGIN });
-  const agent = request.headers.get('User-Agent');
-  if (agent) headers.set('User-Agent', agent);
+  const headers = new Headers({
+    'Content-Type': 'application/x-sentry-envelope', Origin: ORIGIN, 'User-Agent': 'automancer-site-edge',
+  });
   let sentry;
   try {
     sentry = await fetch(`${SENTRY_INGEST}/api/${SENTRY_PROJECT}/envelope/`, {
