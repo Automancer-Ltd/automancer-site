@@ -7,8 +7,8 @@
  * Locally the Worker has no edge cache, so the dictionary copy is always what comes back. Against
  * production (JOURNEY_URL) a page the data centre keeps only as Brotli is sent as Brotli at once
  * while the dictionary copy is kept for the next view, so there the browser must offer the
- * dictionary and the page must arrive whole either way; ops/verify-production.sh checks the live
- * dictionary copies themselves.
+ * dictionary and the page must arrive whole either way. The live check in docs/DEPLOYMENT.md
+ * bypasses the kept Brotli copy to check the dictionary response itself.
  */
 import { createHash } from 'node:crypto';
 import { expect, test } from '@playwright/test';

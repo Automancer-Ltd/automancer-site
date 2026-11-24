@@ -47,9 +47,11 @@ const PINNED: Record<string, { sha256: string; lastUpdated: string | null }> = {
   // visitors' IP addresses and requests; the form section no longer says there
   // is "no third-party in the middle", since Cloudflare carries form submissions
   // to api.automancer.uk. The date moves to the day the words changed.
+  // Moved 2026-11-24 when the notice began explaining the shared compression
+  // dictionary, using the wording Waseem approved on card t26155.
   '/privacy/': {
-    sha256: 'fda168d99d5f0ab9609566babbad24e3fe645978c8e3817e19e8e13aeff64450',
-    lastUpdated: '21 November 2026',
+    sha256: '790e89a7290044f10b20bfd72009c1377baad67c08a94e6294f4df5bf85df23e',
+    lastUpdated: '24 November 2026',
   },
   // Date derived 2026-08-30 for q-auto-acf7. `git log -1 --format=%cs --
   // src/pages/terms.astro` returns 2026-08-21, but that commit (d412e77) only
