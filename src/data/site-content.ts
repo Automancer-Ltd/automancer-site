@@ -8,7 +8,7 @@
 import { getCollection, type CollectionEntry } from 'astro:content';
 import { formatGBP, serviceById } from './business';
 import { noteTopics } from './note-topics';
-import { SOURCES_ANCHOR, SOURCES_INTRO, evidenceAnchor, evidenceRows, publishedClaims, type ClaimId } from './claims';
+import { CLAIM_MENTIONS, SOURCES_ANCHOR, SOURCES_INTRO, evidenceAnchor, evidenceRows, publishedClaims, type ClaimId } from './claims';
 import { abs, pagePath } from './urls';
 
 export { abs };
@@ -135,6 +135,21 @@ export async function claimEvidenceUrls(): Promise<Map<ClaimId, string>> {
     if (!urls.has(claim.id)) throw new Error(`Published claim "${claim.id}" is on no case study: name it in a study's stats or facts, or leave it out of src/data/claims.ts`);
   }
   return urls;
+}
+
+/**
+ * The truth-layer claims a field note states, in the order a reader meets them (title,
+ * description, then body), each with the line a person reads for it (t25645). Every one is linked
+ * from the note itself: tests/figure-sources.test.ts fails a page that states a figure without
+ * its evidence, so an agent quoting a note can cite the same line a reader can open.
+ */
+export function noteClaims(entry: FieldNote, urls: ReadonlyMap<ClaimId, string>): { id: ClaimId; evidenceUrl: string }[] {
+  const text = [entry.data.title, entry.data.description, entry.body ?? ''].join('\n');
+  return publishedClaims
+    .map((claim) => ({ id: claim.id, at: text.search(CLAIM_MENTIONS[claim.id]) }))
+    .filter((found) => found.at >= 0)
+    .sort((a, b) => a.at - b.at)
+    .map(({ id }) => ({ id, evidenceUrl: urls.get(id)! }));
 }
 
 /** Markdown twin of one field note: front matter + full body. */

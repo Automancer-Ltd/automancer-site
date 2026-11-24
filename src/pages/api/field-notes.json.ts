@@ -1,12 +1,13 @@
 // Every non-draft field note, with full body text (raw Markdown).
 // Same collection filter/order as the /field-notes pages.
 import type { APIRoute } from 'astro';
-import { getNotes, abs } from '../../data/site-content';
+import { getNotes, abs, claimEvidenceUrls, noteClaims } from '../../data/site-content';
 import { build } from '../../data/build';
 import { noteTopic, noteTopics } from '../../data/note-topics';
 
 export const GET: APIRoute = async () => {
   const notes = await getNotes();
+  const evidence = await claimEvidenceUrls();
   const payload = {
     schemaVersion: '1.0',
     generatedAt: build.time.toISOString(),
@@ -22,6 +23,8 @@ export const GET: APIRoute = async () => {
       author: e.data.author,
       category: noteTopic(e.data),
       tags: e.data.tags,
+      // The truth-layer claims the note states, each with where a person reads its evidence (t25645).
+      claims: noteClaims(e, evidence),
       body: e.body,
     })),
   };

@@ -68,7 +68,7 @@ export const API_ENDPOINTS: ApiEndpoint[] = [
     operationId: 'getFieldNotes',
     summary: 'All field notes with full text',
     description:
-      'Every published field note article: title, description, author, date, category, tags and the full body text as raw Markdown.',
+      'Every published field note article: title, description, author, date, category, tags, the truth-layer claims it states with the line of evidence behind each, and the full body text as raw Markdown.',
   },
   {
     path: '/api/pages.json',

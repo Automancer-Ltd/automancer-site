@@ -26,6 +26,32 @@ export const publishedClaims = [
 export type ClaimId = (typeof publishedClaims)[number]['id'];
 export type PublishedClaim = (typeof publishedClaims)[number];
 
+/**
+ * How each claim's figure reads in running text: every published claim needs one. The build uses
+ * it to name the claims a field note states (/api/field-notes.json `claims`), and the tests to
+ * find every place a figure is shown and hold it to its evidence (tests/figure-sources.test.ts).
+ */
+export const CLAIM_MENTIONS: Record<ClaimId, RegExp> = {
+  care_provider_size: /~?600-person|~600 people/,
+  governed_workstream_count: /~18\b|\beighteen staged/i,
+  carer_record_count: /(?<![\d,.])294(?![\d,])/,
+  service_user_record_count: /(?<![\d,.])293(?![\d,])/,
+  identity_matching_auto_resolved: /(?<![\d,.])274(?![\d,])(?:\s*(?:of|\/)\s*418(?![\d,]))?/,
+  care_provider_staff_split: /(?<![\d,.~])100 office staff|(?<![\d,.~])500 support workers|500-strong support-worker/,
+  supervision_schedule_count: /(?<![\d,.])588(?![\d,])/,
+  infrastructure_audit_result: /\b0 failures|(?<![\d])0 \/ 0(?![\d])/,
+  debiaser_hourly_rate_range: /£100–200/,
+  debiaser_per_engagement_cost: /£300–400/,
+  debiaser_self_service_cost: /£10–80/,
+  debiaser_live_since: /12 Jun(e)? 2026|since June 2026/,
+  manufacturer_portal_phase_status: /Phase 1 signed off/i,
+  manufacturer_portal_pricing_units: /\b5 units\b|\bfive units\b/,
+  reconciliation_visit_count: /(?<![\d,.])500 visits/,
+  reconciliation_medication_alert_count: /(?<![\d,.])175 medication alerts/,
+  reconciliation_names_routed_to_review: /(?<![\d,.])416 (?:ambiguous )?names/,
+  manufacturer_portal_demo_seed_data: /(?<![\d,.])74 customers|(?<![\d,.])888 products|(?<![\d,.])1,263 price rules/,
+};
+
 export const claimIds: readonly string[] = publishedClaims.map((c) => c.id);
 
 /** The registry entry for `id`; an id the registry does not hold stops the build. */

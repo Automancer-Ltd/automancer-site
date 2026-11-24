@@ -286,6 +286,17 @@ const schemas: Record<string, JsonSchema> = {
             author: str(),
             category: str('Editorial category; falls back to sector when uncategorised.'),
             tags: strArray(),
+            claims: {
+              type: 'array',
+              description: 'The truth-layer claims this note states, in the order a reader meets them, each with the line a person reads for its evidence. The note links every one of them. Empty when it states none.',
+              items: obj(
+                {
+                  id: str('Claim id, as in /api/claims.json.'),
+                  evidenceUrl: uri('The same line as the claim\'s evidenceUrl in /api/claims.json.'),
+                },
+                { required: ['id', 'evidenceUrl'] }
+              ),
+            },
             body: str('Full body text as raw Markdown.'),
           },
           {
@@ -298,6 +309,7 @@ const schemas: Record<string, JsonSchema> = {
               'datePublished',
               'author',
               'tags',
+              'claims',
               'body',
             ],
           }
