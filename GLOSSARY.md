@@ -34,7 +34,7 @@
 
 ## Intake Endpoint
 **Definition:** The first-party HTTP endpoint (`https://api.automancer.uk/api/lead`) that receives contact-form JSON `POST` submissions from `/contact/`.
-**In code:** `ENDPOINT_URL` and `FIELD_LIMITS` in `src/config/site.ts`; called by the inline submit handler in `src/pages/contact.astro`.
+**In code:** `ENDPOINT_URL` and `FIELD_LIMITS` in `src/config/site.ts`; called by the submit handler in `src/scripts/contact-form.ts`, which `src/pages/contact.astro` puts in the page.
 **Invariants:** Client-side validation runs before `fetch`; every request carries a 15-second `AbortSignal` timeout; any Turnstile load failure, HTTP error, or network timeout preserves the visitor's input and offers the direct `mailto:waseem@automancer.uk` fallback.
 
 ## Lead Error Copy
