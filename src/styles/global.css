@@ -586,8 +586,8 @@ strong { font-weight: 600; color: inherit; }
 @keyframes reveal-in { from { opacity: 0; transform: translateY(26px); } }
 @keyframes reveal-in-item { from { opacity: 0; transform: translateY(22px); } }
 @media (scripting: enabled) {
-  .reveal { animation: reveal-in var(--dur-reveal) var(--ease-out-expo) both; }
-  .reveal-stagger > * { animation: reveal-in-item var(--dur-reveal) var(--ease-out-expo) both; }
+  .reveal { animation: reveal-in var(--dur-reveal) var(--ease-out-expo) backwards; }
+  .reveal-stagger > * { animation: reveal-in-item var(--dur-reveal) var(--ease-out-expo) backwards; }
   .reveal-stagger > *:nth-child(2) { animation-delay: 70ms; }
   .reveal-stagger > *:nth-child(3) { animation-delay: 140ms; }
   .reveal-stagger > *:nth-child(4) { animation-delay: 210ms; }
