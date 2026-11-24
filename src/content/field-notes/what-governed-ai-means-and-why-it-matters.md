@@ -34,7 +34,7 @@ Building the checks into the software itself protects a small team that does not
 
 When we built the operations platform for [a ~600-person supported-living care provider](/work/care-provider-transformation/), we compared the new platform's reports directly against the client's existing data exports before go-live.
 
-That check compared 500 visits against the source exports. It flagged 175 medication alerts that needed review and sent 416 ambiguous names to a staff review queue rather than guessing. Without that check, both dashboards would have looked identical on screen — and one of them would have been quietly wrong.
+That check compared [500 visits](/work/care-provider-transformation/#source-reconciliation-visit-count) against the source exports. It flagged [175 medication alerts](/work/care-provider-transformation/#source-reconciliation-visit-count) that needed review and sent [416 ambiguous names](/work/care-provider-transformation/#source-reconciliation-visit-count) to a staff review queue rather than guessing. Without that check, both dashboards would have looked identical on screen — and one of them would have been quietly wrong.
 
 ## Three questions to ask any AI vendor
 

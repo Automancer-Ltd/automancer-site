@@ -32,7 +32,7 @@ During a live migration for [a ~600-person supported-living care provider](/work
 
 Staff only had to review the 144 genuinely ambiguous records instead of checking all 418 by hand.
 
-We then checked the platform's reports against the client's real exports — 500 visits, 175 medication alerts, and 416 names routed to review — before anyone relied on the new figures.
+We then checked the platform's reports against the client's real exports — [500 visits, 175 medication alerts, and 416 names routed to review](/work/care-provider-transformation/#source-reconciliation-visit-count) — before anyone relied on the new figures.
 
 ## Where this shows up outside social care
 
