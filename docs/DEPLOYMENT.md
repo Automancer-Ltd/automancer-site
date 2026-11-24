@@ -324,6 +324,20 @@ Undo via Executor `sentry-guarded` (`projects.updateProject` and `projects.updat
   Worker half by deploying the previous Worker version: every browser is back on Cloudflare's
   own compression at once, and the unused `.br` files are harmless. On the `github.io` copy they
   are only downloads, never a page.
+- **The compression dictionary (t26098, RFC 9842):** every page names `/_dictionary/<hash>.txt`
+  (the home page frame without its `<main>`), and the build writes `<page>.dcz` beside each `.br`.
+  The Worker serves the dictionary with `Use-As-Dictionary` and a year's `immutable` lifetime, and
+  sends a page's `.dcz` (`Content-Encoding: dcz`, `Vary: ..., Available-Dictionary`) only to a
+  browser whose `Available-Dictionary` is the hash in the copy's first 40 bytes; anything else gets
+  Brotli as before. Deploy the Worker first (with no `.dcz` on Pages it answers exactly as the old
+  one: the probe's 28 probe-matrix answers matched production, 24 Nov 2026), then merge. Cloudflare
+  passes `dcz`, `Available-Dictionary` and the bytes through (probed on workers.dev) but drops
+  `Dictionary-ID`, so the dictionary has no id. Verify live with
+  `curl -H 'Cache-Control: no-cache' -H 'Accept-Encoding: gzip, br, dcz' -H 'Available-Dictionary: :<base64 SHA-256 of the dictionary>:' https://automancer.uk/about/`:
+  `content-encoding: dcz`, and the body starts `5e2a4d1820000000` then the dictionary's hash (the
+  no-cache request skips the kept copies, so it reads the copy on Pages). Undo the page half by
+  reverting the PR (pages stop naming a dictionary, browsers stop offering it); undo the Worker half
+  by deploying the previous Worker version, which ignores `Available-Dictionary` and sends Brotli.
 - **Negotiated Markdown (t24736):** the Worker chooses the twin's `.md.br` for clients that
   accept Brotli and falls back to `.md` when the copy is missing. Both paths forward cache
   validators to the chosen file. Verify a GET to `/services/` with `Accept: text/markdown` and

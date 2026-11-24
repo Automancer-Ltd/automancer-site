@@ -10,8 +10,10 @@
 import { describe, expect, it } from 'vitest';
 import { readdirSync, readFileSync } from 'node:fs';
 import { extname, join } from 'node:path';
-import { brotliDecompressSync } from 'node:zlib';
-import { BROTLI_TYPES, legacyRedirect } from '../ops/edge/worker.js';
+import { createHash } from 'node:crypto';
+import { brotliDecompressSync, zstdDecompressSync } from 'node:zlib';
+import { BROTLI_TYPES, DICTIONARY_DIR, USE_AS_DICTIONARY, dczDictionary, legacyRedirect } from '../ops/edge/worker.js';
+import { namedDictionary } from '../src/integrations/compression-dictionary';
 import { siteFromDist } from '../ops/edge/local.mjs';
 import { DIST, allHtmlFiles } from './support/dist';
 
@@ -134,5 +136,64 @@ describe('Brotli copies the edge Worker sends', () => {
         expect(changed.body, path).toBeNull();
       }
     }
+  });
+});
+
+// The shared compression dictionary (t26098): a page names it, Chromium keeps it, and then asks
+// for each page as `dcz` with the dictionary's hash; the Worker sends `<page>.dcz` when it matches.
+describe('pages compressed against the compression dictionary', () => {
+  const dictionaryFiles = built.filter((file) => file.startsWith(`/${DICTIONARY_DIR}/`) && file.endsWith('.txt'));
+  const pages = allHtmlFiles().filter((p) => !p.isRedirectStub);
+  const dictionary = readFileSync(join(DIST, dictionaryFiles[0] ?? 'missing'));
+  const hash = createHash('sha256').update(dictionary).digest();
+  const holding = { 'Accept-Encoding': 'gzip, deflate, br, zstd, dcb, dcz', 'Available-Dictionary': `:${hash.toString('base64')}:` };
+
+  it('has one dictionary per release, named on every page, and a copy against it for each', () => {
+    expect(dictionaryFiles).toHaveLength(1);
+    for (const page of pages) expect(namedDictionary(page.html), page.route).toBe(dictionaryFiles[0]);
+    const copies = built.filter((file) => file.endsWith('.dcz'));
+    expect(copies.sort()).toEqual(pages.map((p) => `${p.is404 ? '/404.html' : `${p.route}index.html`}`).map((f) => `${f}.dcz`).sort());
+  });
+
+  it('serves the dictionary for browsers to keep for a year, for pages only', async () => {
+    const res = await ask(dictionaryFiles[0], { 'Accept-Encoding': CHROME });
+    expect(res.status).toBe(200);
+    expect(res.headers.get('Use-As-Dictionary')).toBe(USE_AS_DICTIONARY);
+    expect(res.headers.get('Cache-Control')).toBe('public, max-age=31536000, immutable, no-transform');
+    expect(brotliDecompressSync(Buffer.from(await res.arrayBuffer())).equals(dictionary)).toBe(true);
+    for (const path of ['/', '/about/', '/assets/js/main.js']) expect((await ask(path)).headers.get('Use-As-Dictionary'), path).toBeNull();
+  });
+
+  it('gives a browser holding it the same words and headers on every page, a third of the Brotli size', async () => {
+    let brotliBytes = 0;
+    let dczBytes = 0;
+    for (const page of pages.filter((p) => !p.is404)) {
+      const plain = await ask(page.route);
+      const brotli = await ask(page.route, { 'Accept-Encoding': CHROME });
+      const dcz = await ask(page.route, holding);
+      expect(dcz.headers.get('Content-Encoding'), page.route).toBe('dcz');
+      const bytes = Buffer.from(await dcz.arrayBuffer());
+      expect(dczDictionary(bytes), page.route).toBe(hash.toString('hex'));
+      const words = zstdDecompressSync(bytes.subarray(40), { dictionary });
+      expect(words.equals(Buffer.from(await plain.arrayBuffer())), `${page.route}: decoded body differs`).toBe(true);
+      const sent = contentHeaders(dcz);
+      expect(sent.vary, page.route).toBe(`${brotli.headers.get('Vary')}, Available-Dictionary`);
+      sent.vary = brotli.headers.get('Vary')!;
+      expect(sent, page.route).toEqual(contentHeaders(brotli));
+      const brotliSize = (await brotli.arrayBuffer()).byteLength;
+      brotliBytes += brotliSize;
+      dczBytes += bytes.length;
+      expect(bytes.length, page.route).toBeLessThan(brotliSize);
+    }
+    expect(dczBytes).toBeLessThan(brotliBytes * 0.4);
+  });
+
+  it('sends Brotli to a browser holding another dictionary, and to a twin, a range or a HEAD', async () => {
+    const other = { ...holding, 'Available-Dictionary': `:${createHash('sha256').update('an older frame').digest('base64')}:` };
+    expect((await ask('/about/', other)).headers.get('Content-Encoding')).toBe('br');
+    expect((await ask('/about/', { ...holding, 'Accept-Encoding': CHROME })).headers.get('Content-Encoding')).toBe('br');
+    expect((await ask('/about/', { ...holding, Accept: 'text/markdown' })).headers.get('Content-Encoding')).toBe('br');
+    expect((await ask('/about/', { ...holding, Range: 'bytes=0-99' })).headers.get('Content-Encoding')).toBeNull();
+    expect((await ask('/about/', holding, 'HEAD')).headers.get('Content-Encoding')).toBe('br');
   });
 });

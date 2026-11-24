@@ -144,13 +144,46 @@ export function brotliFile(pathname) {
   return type ? { path: `${file}.br`, type } : null;
 }
 
-/** Whether an Accept-Encoding header takes Brotli (`br` listed without q=0). */
-export function acceptsBrotli(acceptEncoding) {
+/** Whether an Accept-Encoding header takes `wanted` (listed without q=0). */
+export function acceptsCoding(acceptEncoding, wanted) {
   return (acceptEncoding ?? '').toLowerCase().split(',').some((part) => {
     const [coding, ...params] = part.split(';').map((x) => x.trim());
     const q = params.find((p) => p.startsWith('q='));
-    return coding === 'br' && (q === undefined || Number(q.slice(2)) > 0);
+    return coding === wanted && (q === undefined || Number(q.slice(2)) > 0);
   });
+}
+
+/** Whether an Accept-Encoding header takes Brotli (`br` listed without q=0). */
+export const acceptsBrotli = (acceptEncoding) => acceptsCoding(acceptEncoding, 'br');
+
+// The shared compression dictionary (t26098, RFC 9842). Every page repeats the same frame (about
+// 46 KB of inlined CSS, the header, the menu and the footer), so the build writes one dictionary
+// per release under DICTIONARY_DIR, the home page as served without its <main>, and every page
+// names it in a <link rel="compression-dictionary">. Chromium fetches it once while idle, keeps it
+// (USE_AS_DICTIONARY), and then asks for a page with `Available-Dictionary: :<its SHA-256>:` and
+// `dcz` in Accept-Encoding. The build's `<page>.dcz` is the page compressed with Zstandard against
+// the dictionary, and starts with DCZ_MAGIC and the SHA-256 it was made with; the Worker sends it
+// only when that is the hash the browser holds, and the Brotli copy otherwise (a dictionary from
+// an earlier release, a browser without one). A second page drops from about 17 KB to 5 KB.
+// Cloudflare passes `dcz`, Available-Dictionary and the bytes through untouched (probed on
+// workers.dev, 24 Nov 2026), but not Dictionary-ID, so the dictionary carries no id.
+export const DICTIONARY_DIR = '_dictionary';
+export const DICTIONARY_PATH = /^\/_dictionary\/[0-9a-f]{16}\.txt$/;
+export const USE_AS_DICTIONARY = 'match="/*", match-dest=("document")';
+export const DCZ_MAGIC = [0x5e, 0x2a, 0x4d, 0x18, 0x20, 0x00, 0x00, 0x00];
+const DCZ_HEADER_BYTES = DCZ_MAGIC.length + 32;
+
+/** The SHA-256 an Available-Dictionary header names (a structured-field byte sequence), as hex, or null. */
+export function availableDictionary(header) {
+  const match = /^:([A-Za-z0-9+/]{43}=):$/.exec((header ?? '').trim());
+  if (!match) return null;
+  return Array.from(atob(match[1]), (c) => c.charCodeAt(0).toString(16).padStart(2, '0')).join('');
+}
+
+/** The dictionary hash a `dcz` body starts with, as hex, or null when it does not start with DCZ_MAGIC. */
+export function dczDictionary(bytes) {
+  if (bytes.length < DCZ_HEADER_BYTES || DCZ_MAGIC.some((b, i) => bytes[i] !== b)) return null;
+  return Array.from(bytes.subarray(DCZ_MAGIC.length, DCZ_HEADER_BYTES), (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 // Headers that tell the visitor's browser to send reports to a server for days
@@ -196,6 +229,8 @@ const DAILY = { browser: `public, max-age=${DAY}, stale-while-revalidate=${7 * D
 export function cachePolicy(pathname, search) {
   if (pathname.startsWith('/_astro/')) return IMMUTABLE;
   if (pathname === '/assets/js/main.js' && /^\?v=[0-9a-f]{7,40}$/.test(search)) return IMMUTABLE;
+  // Named by its content, like /_astro/: a new release names a new file.
+  if (DICTIONARY_PATH.test(pathname)) return IMMUTABLE;
   if (/^\/assets\/(fonts|images|css)\//.test(pathname)) return DAILY;
   return null;
 }
@@ -704,13 +739,14 @@ async function displayFont(reader) {
 }
 
 /**
- * The build's Brotli copy of the file at `pathname`, ready to send (BROTLI_TYPES), or null to serve the
+ * The build's Brotli copy of the file at `pathname` (or, with `coding` dcz, its copy compressed
+ * against the dictionary, file.path naming it), ready to send (BROTLI_TYPES), or null to serve the
  * file as before: the copy is missing (a page that does not exist, or a build from before t24283)
  * or Pages answered anything but 200 or 304. A page's display font preload cannot be read from
  * Brotli here (Workers decompress only gzip and deflate), so for an HTML GET the page itself is
  * fetched alongside and only its early head read, as withDisplayFontPreload does.
  */
-async function brotliCopy(request, pathname, file, policy) {
+async function brotliCopy(request, pathname, file, policy, coding = 'br') {
   const html = file.type.startsWith('text/html');
   const [res, page] = await Promise.all([
     fetch(pagesRequest(atPages(file.path), request), {
@@ -733,12 +769,14 @@ async function brotliCopy(request, pathname, file, policy) {
   }
   const headers = new Headers(res.headers);
   headers.set('Content-Type', file.type);
-  headers.set('Content-Encoding', 'br');
+  headers.set('Content-Encoding', coding);
   if (html) headers.set('Accept-Ranges', 'none');
   // Caches keep one copy per encoding; Pages already names Accept-Encoding, withVary adds Accept.
   const vary = (headers.get('Vary') ?? '').split(',').map((t) => t.trim().toLowerCase());
   if (!vary.includes('accept-encoding')) headers.set('Vary', headers.get('Vary') ? `${headers.get('Vary')}, Accept-Encoding` : 'Accept-Encoding');
   if (!vary.includes('accept')) headers.set('Vary', `${headers.get('Vary')}, Accept`);
+  // A dictionary-compressed copy is only for a browser holding that dictionary (RFC 9842 section 6.2).
+  if (coding === 'dcz') headers.set('Vary', `${headers.get('Vary')}, Available-Dictionary`);
   if (policy) {
     headers.set('Cache-Control', policy.browser);
     headers.delete('Expires');
@@ -754,6 +792,51 @@ async function brotliCopy(request, pathname, file, policy) {
   const out = new Response(res.status === 304 ? null : res.body, { status: res.status, headers, encodeBody: 'manual' });
   ENCODED.add(out);
   return out;
+}
+
+/**
+ * The page's copy compressed against the release's dictionary (`<page>.dcz`, made by the build
+ * beside its `.br`), with the hash of the dictionary it was made with, read from its first bytes
+ * and kept in the body. Null when Pages has no such copy or it is not a `dcz` body.
+ */
+async function dictionaryCopy(request, pathname, file, policy) {
+  const copy = await brotliCopy(request, pathname, { path: file.path.replace(/\.br$/, '.dcz'), type: file.type }, policy, 'dcz');
+  if (!copy?.body || copy.status !== 200) {
+    copy?.body?.cancel().catch(() => {});
+    return null;
+  }
+  const reader = copy.body.getReader();
+  const chunks = [];
+  let size = 0;
+  while (size < DCZ_HEADER_BYTES) {
+    const next = await reader.read();
+    if (next.done) break;
+    chunks.push(next.value);
+    size += next.value.length;
+  }
+  const head = new Uint8Array(size);
+  chunks.reduce((at, chunk) => (head.set(chunk, at), at + chunk.length), 0);
+  const dictionary = dczDictionary(head);
+  if (!dictionary) {
+    reader.cancel().catch(() => {});
+    return null;
+  }
+  const body = new ReadableStream({
+    start(controller) {
+      controller.enqueue(head);
+    },
+    async pull(controller) {
+      const next = await reader.read();
+      if (next.done) controller.close();
+      else controller.enqueue(next.value);
+    },
+    cancel(reason) {
+      return reader.cancel(reason);
+    },
+  });
+  const response = new Response(body, { status: 200, headers: copy.headers, encodeBody: 'manual' });
+  ENCODED.add(response);
+  return { dictionary, response };
 }
 
 // Pages kept at the edge (t25774). GitHub Pages' own cache (Fastly) keeps a file
@@ -786,11 +869,16 @@ const PAGE_CACHE_PATH = '/.edge-cache/page';
 // What the kept copy holds besides the Brotli bytes: the page's own headers, and when it was kept.
 const KEPT_HEADERS = 'X-Edge-Page-Headers';
 const KEPT_AT = 'X-Edge-Kept-At';
+const KEPT_DICTIONARY = 'X-Edge-Kept-Dictionary';
 // Per-response headers that are not true of a copy served later.
 const NOT_KEPT = new Set(['date', 'age', 'expires']);
 
-/** The cache key a page is kept under, by path alone: Pages serves a page whatever the query. */
-export const pageCacheKey = (pathname) => new Request(atOrigin(`${PAGE_CACHE_PATH}${pathname}`));
+/**
+ * The cache key a page is kept under, by path alone: Pages serves a page whatever the query. Its
+ * copy compressed against the compression dictionary is kept apart (`coding` dcz).
+ */
+export const pageCacheKey = (pathname, coding = 'br') =>
+  new Request(atOrigin(`${PAGE_CACHE_PATH}${coding === 'br' ? '' : `-${coding}`}${pathname}`));
 
 /** Whether an If-None-Match header names `etag` (weak comparison, RFC 9110 13.1.2). */
 export function namesTag(ifNoneMatch, etag) {
@@ -802,21 +890,55 @@ export function namesTag(ifNoneMatch, etag) {
 /**
  * The page at `pathname` for a browser that takes Brotli, from this data centre's cache when it
  * holds one (PAGE_CACHE_HEADER), or null to serve the file as before. Without the Cache API or a
- * context to finish work in (ops/edge/local.mjs, the tests), it is brotliCopy() unchanged.
+ * context to finish work in (ops/edge/local.mjs, the tests), it is brotliCopy() unchanged, or the
+ * dictionary copy when the browser holds the dictionary it was made with.
+ *
+ * `dictionary` is the hash of the compression dictionary the browser holds (availableDictionary),
+ * or null. Its copy of the page is kept beside the Brotli one, with the hash it was made with: a
+ * kept copy for that hash is served at once. Otherwise a kept Brotli copy is served at once and
+ * the dictionary copy kept for next time, since waiting for GitHub (a median 160 ms from London)
+ * costs more than the 12 KB the dictionary saves on most connections. With neither kept, the page
+ * is fetched once either way, so the dictionary copy is fetched first and sent when it matches.
  */
-async function keptPage(request, pathname, file, policy, ctx) {
+async function keptPage(request, pathname, file, policy, ctx, dictionary = null) {
   const cache = globalThis.caches?.default;
-  if (!cache || typeof ctx?.waitUntil !== 'function') return brotliCopy(request, pathname, file, policy);
+  if (!cache || typeof ctx?.waitUntil !== 'function') {
+    const copy = dictionary ? await dictionaryCopy(request, pathname, file, policy) : null;
+    if (copy?.dictionary === dictionary) return copy.response;
+    copy?.response.body?.cancel().catch(() => {});
+    return brotliCopy(request, pathname, file, policy);
+  }
   const key = pageCacheKey(pathname);
+  const dczKey = pageCacheKey(pathname, 'dcz');
   const reload = /no-cache/i.test(`${request.headers.get('Cache-Control') ?? ''},${request.headers.get('Pragma') ?? ''}`);
+  const keepDcz = () => ctx.waitUntil(keepDictionaryPage(cache, dczKey, pathname, file, policy).catch(() => {}));
+  if (dictionary && !reload) {
+    const kept = await cache.match(dczKey).catch(() => null);
+    const headers = kept && keptHeaders(kept);
+    if (headers && kept.body && kept.headers.get(KEPT_DICTIONARY) === dictionary) {
+      keepDcz();
+      return pageAnswer(request, headers, kept.body, 'hit');
+    }
+    kept?.body?.cancel().catch(() => {});
+  }
   const kept = reload ? null : await cache.match(key).catch(() => null);
   if (kept) {
     const headers = keptHeaders(kept);
     if (headers && kept.body) {
       ctx.waitUntil(keepPage(cache, key, pathname, file, policy).catch(() => {}));
+      if (dictionary) keepDcz();
       return pageAnswer(request, headers, kept.body, 'hit');
     }
     kept.body?.cancel().catch(() => {});
+  }
+  if (dictionary) {
+    const copy = await dictionaryCopy(new Request(atOrigin(pathname)), pathname, file, policy);
+    if (copy) {
+      const [visitor, keep] = copy.response.body.tee();
+      ctx.waitUntil(putPage(cache, dczKey, copy.response.headers, keep, copy.dictionary).catch(() => {}));
+      if (copy.dictionary === dictionary) return pageAnswer(request, [...copy.response.headers], visitor, reload ? 'reload' : 'miss');
+      visitor.cancel().catch(() => {});
+    }
   }
   const fresh = await brotliCopy(new Request(atOrigin(pathname)), pathname, file, policy);
   if (!fresh?.body || fresh.status !== 200) {
@@ -851,9 +973,17 @@ async function keepPage(cache, key, pathname, file, policy) {
   return putPage(cache, key, fresh.headers, fresh.body);
 }
 
+/** Fetch the page's dictionary copy from Pages again and keep it with its hash; drop it when Pages has none. */
+async function keepDictionaryPage(cache, key, pathname, file, policy) {
+  const copy = await dictionaryCopy(new Request(atOrigin(pathname)), pathname, file, policy);
+  if (!copy) return cache.delete(key);
+  return putPage(cache, key, copy.response.headers, copy.response.body, copy.dictionary);
+}
+
 // Kept as plain bytes with no Content-Encoding, as Pages serves the .br file, so the cache hands
-// back exactly the bytes it was given; the page's headers ride along and are restored on the way out.
-function putPage(cache, key, headers, body) {
+// back exactly the bytes it was given; the page's headers ride along and are restored on the way
+// out, and a dictionary copy carries the hash of the dictionary it was made with.
+function putPage(cache, key, headers, body, dictionary = null) {
   const own = [...headers].filter(([name]) => !NOT_KEPT.has(name.toLowerCase()));
   return cache.put(key, new Response(body, {
     headers: {
@@ -861,6 +991,7 @@ function putPage(cache, key, headers, body) {
       'Cache-Control': `max-age=${PAGE_CACHE_SECONDS}`,
       [KEPT_HEADERS]: JSON.stringify(own),
       [KEPT_AT]: String(Date.now()),
+      ...(dictionary && { [KEPT_DICTIONARY]: dictionary }),
     },
   }));
 }
@@ -890,6 +1021,12 @@ export default {
     return out;
   },
 };
+
+/** `response`, marked for the browser to keep as the compression dictionary when it is one (DICTIONARY_PATH). */
+function asDictionary(pathname, response) {
+  if (DICTIONARY_PATH.test(pathname) && response.status === 200) response.headers.set('Use-As-Dictionary', USE_AS_DICTIONARY);
+  return response;
+}
 
 async function respond(request, env, ctx) {
   const url = new URL(request.url);
@@ -945,8 +1082,9 @@ async function respond(request, env, ctx) {
   const brotli = useBrotli ? brotliFile(url.pathname) : null;
   if (brotli) {
     const page = request.method === 'GET' && brotli.type.startsWith('text/html');
-    const copy = page ? await keptPage(request, url.pathname, brotli, policy, ctx) : await brotliCopy(request, url.pathname, brotli, policy);
-    if (copy) return copy;
+    const dictionary = page && acceptsCoding(clientEncoding, 'dcz') ? availableDictionary(request.headers.get('Available-Dictionary')) : null;
+    const copy = page ? await keptPage(request, url.pathname, brotli, policy, ctx, dictionary) : await brotliCopy(request, url.pathname, brotli, policy);
+    if (copy) return asDictionary(url.pathname, copy);
   }
   const res = await fetchPageFile(url, request, policy);
 
@@ -986,5 +1124,5 @@ async function respond(request, env, ctx) {
   if (url.pathname === '/.well-known/api-catalog') {
     out.headers.set('Content-Type', 'application/linkset+json; profile="https://www.rfc-editor.org/info/rfc9727"');
   }
-  return out;
+  return asDictionary(url.pathname, out);
 }

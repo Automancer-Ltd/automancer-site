@@ -18,6 +18,19 @@ exact `dist/` it publishes, so a heavier production build fails the release inst
 
 ## Decisions behind the numbers
 
+- **A second page arrives against a shared dictionary (t26098, 24 Nov 2026).** Every page
+  repeats the same frame (about 46 KB of inlined CSS, header, menu, footer), which Brotli cannot
+  share across pages. Chromium now keeps one dictionary per release (13,470 B as Brotli, fetched
+  once while idle) and gets each later page as `dcz`: the 33 built pages total 519,276 B as Brotli
+  and 171,413 B against it (33%); the median page goes from 15,932 to 5,574 B. A five-page visit
+  (home, services, work, a case study, contact) downloads 50,465 B instead of 79,940 B, dictionary
+  included; a one- or two-page visit downloads up to 13 KB more, after the page has loaded. On a
+  390 px phone at 1.6 Mbps, 150 ms and CPU 4× (local edge Worker, median of 5), the second page's
+  response ends 51-58 ms sooner and first paint comes 64-88 ms sooner (/services/ 516 → 428 ms,
+  a field note 492 → 404 ms, a case study 472 → 408 ms). A page that speculation rules prefetch
+  before the dictionary arrives (the home page's Contact) still comes as Brotli. Firefox 159 and
+  Safari (WebKit 27.2) do not offer `dcz` and are unchanged.
+
 - **Reading on touch screens uses fewer background downloads (t25962, 24 Nov 2026).**
   Safari and Firefox's fallback prefetch warms up to three eligible destinations while a
   visitor reads, down from five. The header logo no longer starts a download on its own.

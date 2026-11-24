@@ -5,6 +5,7 @@ import sitemap from '@astrojs/sitemap';
 import { pageDates } from './src/integrations/page-dates';
 import { earlyCsp } from './src/integrations/early-csp';
 import { precompress } from './src/integrations/precompress';
+import { compressionDictionary } from './src/integrations/compression-dictionary';
 
 /**
  * Sitemap <lastmod>, read from the built /api/pages.json so the two cannot
@@ -171,5 +172,5 @@ export default defineConfig({
   // dist/api/pages.json, which the sitemap's build:done hook then reads.
   // precompress must come last: it writes the Brotli copy of every file as the
   // hooks before it leave it (src/integrations/precompress.ts).
-  integrations: [pageDates(), sitemap({ serialize: withLastmod }), wellKnownRoutes, stubCsp, earlyCsp(), precompress()],
+  integrations: [pageDates(), sitemap({ serialize: withLastmod }), wellKnownRoutes, stubCsp, earlyCsp(), compressionDictionary(), precompress()],
 });

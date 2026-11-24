@@ -194,7 +194,11 @@ const lastUpdated = staticPages.find((p) => p.path === '/privacy/')!.lastUpdated
         <strong>We don't use tracking or analytics cookies</strong>, so there's no cookie banner —
         because none of the browser storage we use requires consent. We checked this empirically:
         outside the contact-page security check described below, loading the site sets no cookies
-        and stores nothing in your browser.
+        and nothing on the site writes to your browser's storage. Like any website, your browser
+        keeps copies of our pages so they load faster. In Chrome, Edge and similar browsers it also
+        keeps one shared file holding the parts every page has in common, so each page you open after
+        the first is about a third of the size. That file is identical for every visitor, so it cannot
+        identify you, and your browser deletes it when you clear its data.
       </p>
       <p>
         The one exception is the security check (Cloudflare Turnstile) on the contact page. When we

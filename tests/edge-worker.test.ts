@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createHash } from 'node:crypto';
-import { brotliCompressSync, brotliDecompressSync } from 'node:zlib';
+import { brotliCompressSync, brotliDecompressSync, zstdCompressSync, zstdDecompressSync } from 'node:zlib';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import worker, { EDGE_SOURCE_HEADER, ERROR_TUNNEL, OFFSITE_LOCK, PAGE_CACHE_HEADER, PAGE_CACHE_SECONDS, SENTRY_INGEST, SENTRY_PROJECT, acceptsBrotli, atOrigin, atPages, brotliFile, cachePolicy, fromPages, legacyRedirect, namesTag, pageCacheKey, unlocked } from '../ops/edge/worker.js';
+import worker, { DCZ_MAGIC, EDGE_SOURCE_HEADER, ERROR_TUNNEL, OFFSITE_LOCK, PAGE_CACHE_HEADER, PAGE_CACHE_SECONDS, SENTRY_INGEST, SENTRY_PROJECT, acceptsBrotli, acceptsCoding, atOrigin, availableDictionary, atPages, brotliFile, cachePolicy, dczDictionary, fromPages, legacyRedirect, namesTag, pageCacheKey, unlocked } from '../ops/edge/worker.js';
 import { DIST, allHtmlFiles, contentPages } from './support/dist';
 
 // The Pages project the Worker reads (t22925): the site has no custom domain on GitHub.
@@ -464,11 +464,16 @@ describe('pages kept at the edge', () => {
   let calls: Request[];
   let pending: Promise<unknown>[];
   let kept: Map<string, Response>;
+  // The release's compression dictionary (t26098), changed by the test as a release would.
+  let dictionary: Buffer;
   const ctx = { waitUntil: (p: Promise<unknown>) => void pending.push(p) };
   const etag = (html: string) => `W/"${createHash('sha256').update(html).digest('hex').slice(0, 8)}"`;
+  const sha = (bytes: Buffer) => createHash('sha256').update(bytes).digest();
+  const holding = (dict: Buffer) => ({ 'Accept-Encoding': 'gzip, br, zstd, dcb, dcz', 'Available-Dictionary': `:${sha(dict).toString('base64')}:` });
 
   beforeEach(() => {
     pages = { '/kept/': '<html>first</html>', '/services/': '<html>services</html>' };
+    dictionary = Buffer.from('<html><head><style>shared frame</style></head><body></body></html>');
     calls = [];
     pending = [];
     kept = new Map();
@@ -483,11 +488,15 @@ describe('pages kept at the edge', () => {
       const request = new Request(input, init);
       calls.push(request);
       const path = new URL(request.url).pathname.slice('/automancer-site'.length);
-      const page = path.replace(/\.br$/, '').replace(/index\.html$/, '');
+      const page = path.replace(/\.(br|dcz)$/, '').replace(/index\.html$/, '');
       const html = pages[page];
       if (html === undefined) return Promise.resolve(new Response('<html>404</html>', { status: 404, headers: { 'Content-Type': 'text/html; charset=utf-8' } }));
       if (request.headers.get('If-None-Match') === etag(html)) return Promise.resolve(new Response(null, { status: 304, headers: { ETag: etag(html) } }));
       const headers = { ETag: etag(html), 'Cache-Control': 'max-age=600', Age: '179', Expires: 'Thu, 01 Jan 2026 00:00:00 GMT', Vary: 'Accept-Encoding' };
+      if (path.endsWith('.dcz')) {
+        const dcz = Buffer.concat([Buffer.from(DCZ_MAGIC), sha(dictionary), zstdCompressSync(html, { dictionary })]);
+        return Promise.resolve(new Response(dcz, { headers: { ...headers, ETag: `W/"dcz-${etag(html).slice(3)}`, 'Content-Type': 'application/octet-stream' } }));
+      }
       return Promise.resolve(path.endsWith('.br')
         ? new Response(brotliCompressSync(html), { headers: { ...headers, 'Content-Type': 'application/octet-stream' } })
         : new Response(html, { headers: { ...headers, 'Content-Type': 'text/html; charset=utf-8' } }));
@@ -501,9 +510,22 @@ describe('pages kept at the edge', () => {
     }), {}, ctx)) as Response;
     const bytes = res.body ? Buffer.from(await res.arrayBuffer()) : null;
     await Promise.all(pending.splice(0));
-    const br = res.headers.get('Content-Encoding') === 'br';
-    return { res, text: bytes && bytes.length ? (br ? brotliDecompressSync(bytes) : bytes).toString() : null };
+    const coding = res.headers.get('Content-Encoding');
+    const decode = (b: Buffer) => {
+      if (coding === 'br') return brotliDecompressSync(b);
+      // A dcz body names the dictionary it needs; decode only with the one it names.
+      if (coding === 'dcz') return zstdDecompressSync(b.subarray(40), { dictionary: dictionaryFor(dczDictionary(b)) });
+      return b;
+    };
+    return { res, coding, text: bytes && bytes.length ? decode(bytes).toString() : null };
   };
+  const dictionaries = new Map<string, Buffer>();
+  const dictionaryFor = (hash: string | null) => {
+    const found = hash && dictionaries.get(hash);
+    if (!found) throw new Error(`no dictionary ${hash}`);
+    return found;
+  };
+  const remember = (dict: Buffer) => dictionaries.set(sha(dict).toString('hex'), dict);
 
   it('serves a page from the edge at once, one view behind Pages at most', async () => {
     const first = await view('/kept/');
@@ -578,6 +600,73 @@ describe('pages kept at the edge', () => {
     const gone = await view('/kept/');
     expect(gone.res.status).toBe(404);
     expect(gone.res.headers.get(PAGE_CACHE_HEADER)).toBeNull();
+  });
+
+  it("sends a browser holding the release's dictionary the page compressed against it, kept apart (t26098)", async () => {
+    remember(dictionary);
+    const first = await view('/kept/', holding(dictionary));
+    expect([first.res.status, first.coding, first.res.headers.get(PAGE_CACHE_HEADER), first.text]).toEqual([200, 'dcz', 'miss', '<html>first</html>']);
+    expect(first.res.headers.get('Vary')).toBe('Accept-Encoding, Accept, Available-Dictionary');
+    expect(first.res.headers.get('Cache-Control')).toBe('max-age=600, no-transform');
+    expect(first.res.headers.get('Link')).toContain('rel="sitemap"');
+    expect(kept.has(pageCacheKey('/kept/', 'dcz').url)).toBe(true);
+    expect(kept.has(pageCacheKey('/kept/').url)).toBe(false);
+    const again = await view('/kept/', holding(dictionary));
+    expect([again.coding, again.res.headers.get(PAGE_CACHE_HEADER), again.text]).toEqual(['dcz', 'hit', '<html>first</html>']);
+    const tag = again.res.headers.get('ETag')!;
+    const unchanged = await view('/kept/', { ...holding(dictionary), 'If-None-Match': tag });
+    expect([unchanged.res.status, unchanged.coding, unchanged.text]).toEqual([304, 'dcz', null]);
+
+    // A browser without dcz, or holding another dictionary (an earlier release's), gets Brotli,
+    // on a page the edge keeps nothing of too.
+    const cold = await view('/services/', holding(Buffer.from('an older frame')));
+    expect([cold.coding, cold.res.headers.get(PAGE_CACHE_HEADER), cold.text]).toEqual(['br', 'miss', '<html>services</html>']);
+    for (const headers of [{ 'Available-Dictionary': holding(dictionary)['Available-Dictionary'] }, holding(Buffer.from('an older frame'))]) {
+      const other = await view('/kept/', headers);
+      expect([other.coding, other.text], JSON.stringify(headers)).toEqual(['br', '<html>first</html>']);
+    }
+    // A hard reload waits for Pages, and still gets the dictionary copy.
+    pages['/kept/'] = '<html>second</html>';
+    const reload = await view('/kept/', { ...holding(dictionary), 'Cache-Control': 'no-cache' });
+    expect([reload.coding, reload.res.headers.get(PAGE_CACHE_HEADER), reload.text]).toEqual(['dcz', 'reload', '<html>second</html>']);
+  });
+
+  it('serves a kept Brotli page at once rather than wait for the dictionary copy, and keeps that for next time', async () => {
+    remember(dictionary);
+    await view('/kept/');
+    calls = [];
+    const first = await view('/kept/', holding(dictionary));
+    expect([first.coding, first.res.headers.get(PAGE_CACHE_HEADER), first.text]).toEqual(['br', 'hit', '<html>first</html>']);
+    expect(calls.map((r) => r.url)).toContain(`${PAGES}/kept/index.html.dcz`);
+    const next = await view('/kept/', holding(dictionary));
+    expect([next.coding, next.res.headers.get(PAGE_CACHE_HEADER)]).toEqual(['dcz', 'hit']);
+
+    // A release with a new dictionary: the old dictionary's kept copy is served once more at most,
+    // and the copy kept after that answers only the new dictionary.
+    const old = dictionary;
+    dictionary = Buffer.from('<html><head><style>the next release</style></head></html>');
+    remember(dictionary);
+    pages['/kept/'] = '<html>second</html>';
+    expect((await view('/kept/', holding(old))).coding).toBe('dcz');
+    const stale = await view('/kept/', holding(old));
+    expect(stale.coding).toBe('br');
+    const fresh = await view('/kept/', holding(dictionary));
+    expect([fresh.coding, fresh.text]).toEqual(['dcz', '<html>second</html>']);
+    for (const request of calls) expect([...request.headers.keys()], request.url).toEqual([]);
+  });
+
+  it('reads the dictionary a browser holds, and a dcz copy, only in their exact forms', () => {
+    const hash = createHash('sha256').update('x').digest();
+    expect(availableDictionary(`:${hash.toString('base64')}:`)).toBe(hash.toString('hex'));
+    for (const bad of [null, '', hash.toString('base64'), `:${hash.subarray(1).toString('base64')}:`, `"${hash.toString('base64')}"`, `:${hash.toString('base64')}:, :x:`]) {
+      expect(availableDictionary(bad), String(bad)).toBeNull();
+    }
+    expect(acceptsCoding('gzip, br, dcb, dcz', 'dcz')).toBe(true);
+    expect(acceptsCoding('gzip, br, dcz;q=0', 'dcz')).toBe(false);
+    expect(acceptsCoding('gzip, br, zstd', 'dcz')).toBe(false);
+    expect(dczDictionary(Buffer.concat([Buffer.from(DCZ_MAGIC), hash, Buffer.from('frame')]))).toBe(hash.toString('hex'));
+    expect(dczDictionary(Buffer.concat([Buffer.from([0xff, 0x44, 0x43, 0x42]), hash]))).toBeNull();
+    expect(dczDictionary(Buffer.from(DCZ_MAGIC))).toBeNull();
   });
 
   it('keeps only pages: twins, the API, HEAD, ranges and clients without Brotli always go to Pages', async () => {
