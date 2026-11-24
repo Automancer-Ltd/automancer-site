@@ -1,5 +1,18 @@
 # Release notes
 
+## v2026.11.24.4 — 24 November 2026
+
+Pages now arrive faster, and the developer reference is easier to use on a phone.
+
+### Improvements
+
+- Pages load from a nearby data centre, with refreshed content following each visit.
+- Long paths and field names fit on the Developers page at 200% text size on a 390px screen.
+- Each Developers endpoint shows its full command, a Copy button and the response fields it returns.
+- Pages load from the latest released version, and visits are checked against that release.
+- The site reports which edge version is serving your visit.
+
+
 ## v2026.11.24.2 — 24 November 2026
 
 The site is easier to follow on phones, and reported errors are sent in a single bounded report.
