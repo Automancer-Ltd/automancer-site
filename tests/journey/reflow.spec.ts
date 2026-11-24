@@ -21,6 +21,9 @@ const CASES = {
     // A portrait tablet: between the phone and laptop layouts, where a grid
     // can keep a span its narrower column count no longer has (t23850).
     { width: 768, text: '100%' },
+    // A landscape tablet or small laptop: auto-fit made the home page's four
+    // proof cells three across and one below here (t25865).
+    { width: 1024, text: '100%' },
     { width: 1280, text: '100%' },
     { width: 1280, text: '200%' },
   ],
@@ -105,6 +108,43 @@ function brokenWords(): string[] {
 }
 
 /**
+ * Grids that draw their cell borders as the grid's own background through 1px
+ * gaps (.proof-grid, .principles, .stat-band) paint any cell they leave empty
+ * in that colour, behind cells that paint their own. Four proof cells laid out three and one on the home page at
+ * 820-1090px showed a grey block two cells wide (t25865). A row of such a grid
+ * must reach its right edge.
+ */
+function emptyGridCells(): string[] {
+  const failures: string[] = [];
+  for (const grid of document.querySelectorAll('main *')) {
+    const style = getComputedStyle(grid);
+    if (style.display !== 'grid' || style.backgroundColor === 'rgba(0, 0, 0, 0)' || style.backgroundColor === 'transparent') continue;
+    const cells = [...grid.children].filter((c) => {
+      const s = getComputedStyle(c);
+      return s.display !== 'none' && s.position !== 'absolute' && s.position !== 'fixed';
+    });
+    // Only the borders-through-gaps pattern: each cell paints over the grid's colour.
+    const painted = (c: Element) => getComputedStyle(c).backgroundColor !== 'rgba(0, 0, 0, 0)';
+    if (cells.length < 2 || !cells.every(painted)) continue;
+    const box = grid.getBoundingClientRect();
+    const right = box.right - parseFloat(style.borderRightWidth) - parseFloat(style.paddingRight);
+    const rows = new Map<number, number>();
+    for (const cell of cells) {
+      const r = cell.getBoundingClientRect();
+      const top = Math.round(r.top);
+      rows.set(top, Math.max(rows.get(top) ?? -Infinity, r.right));
+    }
+    for (const [, rowRight] of rows) {
+      if (rowRight < right - 2) {
+        failures.push(`${grid.tagName.toLowerCase()}.${[...grid.classList].join('.')}: a row stops ${Math.round(right - rowRight)}px short of the edge`);
+        break;
+      }
+    }
+  }
+  return failures;
+}
+
+/**
  * The pages are checked in PARTS tests, each taking every PARTS-th page, so
  * the journey's workers share them. Each page loads once per device and is
  * then resized and its text enlarged in place, as a phone turned on its side
@@ -140,8 +180,9 @@ for (let part = 0; part < PARTS; part++) {
         }, text);
         for (const failure of await page.evaluate(clippedText)) clipped.push(`${path} at ${width}px, text ${text}: ${failure}`);
         for (const failure of await page.evaluate(brokenWords)) clipped.push(`${path} at ${width}px, text ${text}: ${failure}`);
+        for (const failure of await page.evaluate(emptyGridCells)) clipped.push(`${path} at ${width}px, text ${text}: ${failure}`);
       }
     }
-    expect(clipped, 'words cut off at the edge of the screen or their panel, or broken between letters').toEqual([]);
+    expect(clipped, 'words cut off at the edge of the screen or their panel, broken between letters, or a bordered grid with an empty cell').toEqual([]);
   });
 }
