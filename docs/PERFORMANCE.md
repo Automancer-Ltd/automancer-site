@@ -34,7 +34,18 @@ exact `dist/` it publishes, so a heavier production build fails the release inst
   in a fresh Chromium phone context): each run comes 11-15 minutes after the previous visit to the
   same pages, the gap a visitor arriving after the last one sees.
 
-@@TABLE@@
+  | Every sitemap page once, from London (auto-hst1) | before | after, page kept there | after, first view there |
+  | --- | ---: | ---: | ---: |
+  | Wait after TLS, `edge-wait.sh`, median (p75) | 160 (197) ms | 58 (69) ms, 15 pages | 193 (211) ms, 17 pages |
+  | Chromium, real network: server wait, median | 153 ms | 41 ms, 27 pages | 164 ms, 5 pages |
+  | Chromium, real network: first paint, median (p75) | 364 (404) ms | 296 (328) ms | 428 (468) ms |
+
+  From Vienna, all 32 pages were kept: median 22 ms after TLS, against 182 ms before.
+  A copy is kept per Cloudflare data centre, and a visitor in one city can reach more than one:
+  auto-hst1's requests alternate between LHR and MAN, so 15 minutes after one pass, the data
+  centre answering held 15 of the 32 pages. A page is fast for a visitor once anyone has opened
+  it at their data centre in the last 7 days (and Cloudflare has not dropped it for lack of use);
+  the first view there waits for GitHub as before. Chart: the t25774 FYI.
 
   Cost: none for visitors. The Worker asks Pages for a page as often as before (once per view),
   only after answering instead of before. A browser with a cached copy still gets 304 from the
