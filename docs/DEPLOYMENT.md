@@ -155,7 +155,7 @@ Sentry's `tunnel: '/_errors'`, so a page posts its error report to automancer.uk
 visitor's browser posted to Sentry itself, so Sentry received their IP address, language and
 Referer with each report, and each page's CSP named a third party. The Worker sends only the
 envelope, `Content-Type`, `Origin: https://automancer.uk` (so the project's `allowedDomains`
-still matches) and the browser's `User-Agent` (the privacy page says a report names the browser);
+still matches) and its own fixed `User-Agent`;
 Sentry sees Cloudflare's address. It is not an open relay: it refuses a post from another
 site's page (403), a body over 64 KiB (413), and an envelope for a different project (400),
 without passing anything on. Sentry's status and
@@ -210,10 +210,13 @@ on this site. It drops raw messages, user and request details, breadcrumbs, stac
 names, URL queries and fragments, and free-text envelope metadata. Reports without a usable
 source location are refused. The browser still restricts locations to scripts on the page.
 The Worker's check recognises the site's page and script path formats without fetching Pages.
-The existing browser User-Agent still goes to Sentry for diagnosis. The edge test inspects the
-outbound envelope, and the browser journey checks that the real SDK still sends a format the
-Worker accepts. Roll back by restoring the preceding Worker version and reverting the pull
-request.
+The Worker derives a recognised browser's family and major version from its User-Agent and
+adds those two fields to the Sentry browser context (t26213). Unknown or missing User-Agents
+leave the context empty. Sentry receives the Worker's fixed User-Agent, so the visitor's raw
+header, device and operating-system details and full browser build stay out of the report.
+The edge test inspects the outbound headers and envelope. The browser journey checks the SDK
+still sends a format the Worker accepts. Roll back by reverting the pull request through the
+normal release and restoring the preceding Worker version before the rollback merge.
 
 Rotate the Worker's key: create a key on the project (`sentry-guarded`
 `projects.createProjectKey`, the `de.sentry.io` account), put it with `workerPutScriptSecret`

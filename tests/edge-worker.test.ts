@@ -709,7 +709,8 @@ describe('error report tunnel', () => {
     Referer: 'https://automancer.uk/contact/?service=audit',
     'Accept-Language': 'en-GB',
     'Sec-CH-UA-Platform': '"Android"',
-    'User-Agent': 'Mozilla/5.0 (visitor)',
+    'Sec-CH-UA-Model': '"FACTORY_TEST_DEVICE"',
+    'User-Agent': 'Mozilla/5.0 (Linux; Android 18; FACTORY_TEST_DEVICE) Chrome/149.0.7843.86 Mobile Safari/537.36',
     'Content-Type': 'text/plain;charset=UTF-8',
   };
   // The Worker's own client key (the SENTRY_KEY secret, t24883); the page's DSN key is not it.
@@ -728,7 +729,7 @@ describe('error report tunnel', () => {
     expect(verifier).toContain(new URL(SENTRY_INGEST).host);
   });
 
-  it("passes a page's error report on to the one Sentry project, with none of the visitor's details but the browser", async () => {
+  it('sends only the source details and coarse browser context to Sentry', async () => {
     const fetchSpy = sentry();
     vi.stubGlobal('fetch', fetchSpy);
     const body = [
@@ -738,6 +739,7 @@ describe('error report tunnel', () => {
         ...cleanEvent,
         user: { email: 'FACTORY_TEST_DATA@example.invalid' },
         breadcrumbs: [{ message: 'FACTORY_TEST_DATA' }],
+        contexts: { browser: { name: 'FACTORY_TEST_DATA', version: '149.0.7843.86' }, device: { model: 'FACTORY_TEST_DEVICE' } },
         request: { url: pageUrl + '?detail=FACTORY_TEST_DATA#FACTORY_TEST_DATA', data: 'FACTORY_TEST_DATA' },
         exception: { values: [{
           ...cleanEvent.exception.values[0], value: 'FACTORY_TEST_DATA',
@@ -766,12 +768,43 @@ describe('error report tunnel', () => {
     const [header, item, payload] = (await sent.text()).split('\n');
     expect(JSON.parse(header)).toEqual({ event_id: cleanEvent.event_id, dsn: SIGNED });
     expect(JSON.parse(item)).toEqual({ type: 'event', length: new TextEncoder().encode(payload).length });
-    expect(JSON.parse(payload)).toEqual(cleanEvent);
+    expect(JSON.parse(payload)).toEqual({
+      ...cleanEvent,
+      contexts: { browser: { type: 'browser', name: 'Chrome', version: '149' } },
+    });
     expect(Object.fromEntries(sent.headers)).toEqual({
       'content-type': 'application/x-sentry-envelope',
       origin: 'https://automancer.uk',
-      'user-agent': 'Mozilla/5.0 (visitor)',
+      'user-agent': 'automancer-site-edge',
     });
+  });
+
+  it.each([
+    ['Chrome/149.0.0.0 Safari/537.36 Edg/149.0.1.2', 'Edge', '149'],
+    ['Version/26.1 CriOS/148.0.0.0 Mobile/15E148 Safari/604.1', 'Chrome', '148'],
+    ['Version/26.1 EdgiOS/148.0.1.2 Mobile/15E148 Safari/604.1', 'Edge', '148'],
+    ['Version/26.1 FxiOS/147.0 Mobile/15E148 Safari/604.1', 'Firefox', '147'],
+    ['Gecko/20100101 Firefox/151.0', 'Firefox', '151'],
+    ['Version/26.1 Mobile/15E148 Safari/604.1', 'Safari', '26'],
+    ['Chrome/149.0.0.0 Safari/537.36 OPR/134.2.1.3', 'Opera', '134'],
+    ['SamsungBrowser/31.1 Chrome/149.0.0.0 Mobile Safari/537.36', 'Samsung Internet', '31'],
+    ['Chrome/149.0.0.0 Mobile Safari/537.36 EdgA/149.0.1.2', 'Edge', '149'],
+    ['Chromium/149.1.2.3', 'Chromium', '149'],
+    ['OtherBrowser/23.4', undefined, undefined],
+    ['Chrome/123456.0', undefined, undefined],
+    [undefined, undefined, undefined],
+  ])('sends bounded browser context for User-Agent %s', async (agent, name, version) => {
+    const fetchSpy = sentry();
+    vi.stubGlobal('fetch', fetchSpy);
+    const { 'User-Agent': _agent, ...otherHeaders } = visitor;
+    const headers = agent === undefined ? otherHeaders : { ...otherHeaders, 'User-Agent': agent };
+    const response = await post(envelope(DSN, event()), headers);
+    expect(response.status).toBe(200);
+    const [input, init] = (fetchSpy.mock.calls as unknown as [string, RequestInit][])[0];
+    const sent = new Request(input, init);
+    expect(sent.headers.get('User-Agent')).toBe('automancer-site-edge');
+    const payload = JSON.parse((await sent.text()).split('\n')[2]);
+    expect(payload.contexts).toEqual(name ? { browser: { type: 'browser', name, version } } : undefined);
   });
 
   it('passes nothing on that is not an error report from this site for this project', async () => {
