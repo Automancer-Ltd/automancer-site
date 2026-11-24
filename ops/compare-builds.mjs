@@ -159,6 +159,15 @@ async function capture(context, route) {
     }
   });
   const layout = await page.evaluate(boxes);
+  // Full-page screenshots can omit content-visibility:auto boxes outside the
+  // viewport. After measuring the real layout, include them in the capture.
+  await page.evaluate(() => {
+    for (const el of document.querySelectorAll('main *')) {
+      if (el instanceof HTMLElement && getComputedStyle(el).contentVisibility === 'auto') {
+        el.style.contentVisibility = 'visible';
+      }
+    }
+  });
   const png = await page.screenshot({ fullPage: true, animations: 'disabled', caret: 'hide' });
   const result = { status: response?.status(), png, boxes: layout, errors, refused: await page.evaluate(() => window.__refused) };
   await page.close();
