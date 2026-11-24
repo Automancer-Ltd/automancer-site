@@ -108,6 +108,16 @@ function responseSchema(spec, path) {
   return spec.paths?.[path]?.get?.responses?.['200']?.content?.['application/json']?.schema;
 }
 
+/** Every <loc> in the sitemap index's sitemaps. @param {SiteReader} site */
+async function sitemapUrls(site) {
+  const locs = (xml) => [...(xml ?? '').matchAll(/<loc>\s*([^<\s]+)\s*<\/loc>/g)].map((m) => m[1]);
+  const urls = [];
+  for (const sitemap of locs(await site.read('/sitemap-index.xml'))) {
+    urls.push(...locs(await site.read(new URL(sitemap).pathname)));
+  }
+  return urls;
+}
+
 /**
  * Everything a copy of the site promises, keyed for comparison.
  * @param {SiteReader} site
@@ -144,6 +154,8 @@ export async function readSurface(site) {
   // (tests/developer-surface.test.ts holds `stableServiceIds` to the same list).
   for (const service of services.services ?? []) add({ kind: 'service', value: service.id });
   for (const page of pages.pages ?? []) add({ kind: 'page', value: new URL(page.url).pathname });
+  // The sitemap lists pages the inventory leaves out (/developers/).
+  for (const url of await sitemapUrls(site)) add({ kind: 'page', value: new URL(url).pathname });
 
   return {
     promises,

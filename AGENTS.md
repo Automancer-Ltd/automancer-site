@@ -78,6 +78,7 @@ tests/                      Vitest against the built dist/ (tests/README.md)
 ops/verify-production.sh    production verifier (deploy job; estate-watch siteVerify every 30 min)
 ops/edge/                   Cloudflare Worker in front of Pages; local.mjs serves dist/ through it
 ops/preview/                the non-production preview target
+ops/contract/               what production promises machines, and the check a release keeps it
 ```
 
 ## Adding a page
@@ -153,6 +154,14 @@ ops/preview/                the non-production preview target
   the same links). Keep the prefetch's `Accept` equal to the request the click makes, a
   navigation's, or `*/*` in a WebKit that acts on the rules (its press-time prefetch): the
   Worker's `Vary: Accept` otherwise stops the click from reusing it.
+- Every identifier `/api/stability.json` promises machines stays from one release to the next
+  (t25827): `ops/contract/check-surface.mjs` reads production's endpoint paths, operationIds,
+  response field names (payload or schema), service ids, page URLs (inventory and sitemap) and
+  enum values, and fails a build that drops one. CI runs it strictly; the deploy runs it on the
+  `dist/` it uploads. To remove or rename one, publish the replacement, list the old path (and
+  `field`, as a payload path like `releases[].notes`) in `DEPRECATIONS` in `src/data/stability.ts`,
+  release that, and remove it only after its sunset, at least 90 days later. A page that moves
+  leaves a redirect at its old URL. `tests/published-contract.test.ts` holds the check to the rules.
 - `/privacy/` and `/terms/` are `legalNoMirror` and hash-pinned (`tests/legal-integrity.test.ts`);
   their wording changes only on Waseem's instruction.
 - The contact form never shows a raw API error code (`tests/contact-errors.test.ts`).

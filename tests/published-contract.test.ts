@@ -60,6 +60,7 @@ describe('the published contract (ops/contract/surface.mjs)', () => {
       'enum /api/services.json services[].priceUnit month',
       'service automation-opportunity-audit',
       'page /contact/',
+      'page /developers/', // in the sitemap only
     ]) {
       expect(surface.promises.has(key), `${key} is not read as a promise`).toBe(true);
     }
