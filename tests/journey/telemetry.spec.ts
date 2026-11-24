@@ -1,4 +1,6 @@
 import { expect, test } from '@playwright/test';
+import worker, { SENTRY_INGEST, SENTRY_PROJECT } from '../../ops/edge/worker.js';
+import { TEST_SENTRY_DSN } from '../support/build-env';
 
 interface Report {
   exception?: { values?: { type?: string; stacktrace?: { frames?: { filename?: string; lineno?: number; colno?: number }[] } }[] };
@@ -19,6 +21,15 @@ test('error reports keep source locations without raw browser data', async ({ pa
     expect(new URL(route.request().url()).origin, 'reports go to the page’s own origin').toBe(new URL(page.url()).origin);
     const body = route.request().postData() ?? '';
     envelopes.push(body);
+    // Pass the real SDK envelope through the checked-in Worker. Test builds use an
+    // inert DSN, so replace only that fixture. Without bindings a valid report
+    // reaches the missing-key check, and no report can leave for Sentry.
+    const response = await worker.fetch(new Request('https://automancer.uk/_errors', {
+      method: 'POST',
+      headers: { Origin: 'https://automancer.uk' },
+      body: body.replace(TEST_SENTRY_DSN, `${SENTRY_INGEST.replace('https://', 'https://test@')}/${SENTRY_PROJECT}`),
+    }));
+    expect(response.status, 'the real SDK report reaches the Worker signing step').toBe(503);
     const [, ...items] = body.split('\n');
     for (const [index, line] of items.entries()) {
       if (!line) continue;

@@ -993,18 +993,24 @@ PY
 
 # check_error_tunnel — the pages post error reports to the edge Worker at
 # ERROR_TUNNEL_PATH, which passes them on to Sentry (t24432). Without it every
-# report is lost and nothing says so, so this asks the Worker two questions it
-# must refuse without passing anything on: a post from another site (403), and
-# one from this site for another Sentry project (400). Nothing reaches Sentry.
+# report is lost and nothing says so. The Worker must refuse another site (403),
+# another project (400), and more than one item in a request (400). The probes
+# contain only empty diagnostics, which create no issues even if sent upstream.
 readonly ERROR_TUNNEL_PATH='/_errors'
 check_error_tunnel() {
-  local probe origin dsn want out err body code type
-  for probe in "https://evil.example|${EXPECTED_SENTRY_PROJECT_ID}|403" "https://automancer.uk|1|400"; do
-    IFS='|' read -r origin dsn want <<<"$probe"
+  local probe origin project want batch out err body code type timestamp
+  timestamp=$(date +%s)
+  for probe in "https://evil.example|${EXPECTED_SENTRY_PROJECT_ID}|403|" "https://automancer.uk|1|400|" \
+    "https://automancer.uk|${EXPECTED_SENTRY_PROJECT_ID}|400|?verify=batch"; do
+    IFS='|' read -r origin project want batch <<<"$probe"
     body=$(need_tmp) out=$(need_tmp) err=$(need_tmp)
-    printf '{"dsn":"https://0123456789abcdef0123456789abcdef@o4511673494732800.ingest.de.sentry.io/%s"}\n{"type":"event"}\n{}\n' "$dsn" >"$body"
+    printf '{"dsn":"https://verify@%s/%s"}\n' "${SENTRY_INGEST_URL#https://}" "$project" >"$body"
+    printf '{"type":"client_report"}\n{"timestamp":%s,"discarded_events":[]}\n' "$timestamp" >>"$body"
+    if [[ -n $batch ]]; then
+      printf '{"type":"client_report"}\n{"timestamp":%s,"discarded_events":[]}\n' "$timestamp" >>"$body"
+    fi
     if ! curl -sS --max-time "$HTTP_TIMEOUT_SECS" -X POST -H "Origin: ${origin}" -H 'Content-Type: text/plain;charset=UTF-8' \
-      --data-binary "@${body}" -o /dev/null -w '%{http_code} %{content_type}' "${BASE_URL}${ERROR_TUNNEL_PATH}" >"$out" 2>"$err"; then
+      --data-binary "@${body}" -o /dev/null -w '%{http_code} %{content_type}' "${BASE_URL}${ERROR_TUNNEL_PATH}${batch}" >"$out" 2>"$err"; then
       printf 'POST %s did not complete: %s\n' "$ERROR_TUNNEL_PATH" "$(tr -d '\n' <"$err")"
       rm -f "$body" "$out" "$err"
       return 1
@@ -1012,12 +1018,12 @@ check_error_tunnel() {
     read -r code type <"$out"
     rm -f "$body" "$out" "$err"
     if [[ $code != "$want" || $type != application/problem+json* ]]; then
-      printf 'POST %s from %s for project %s answered HTTP %s (%s), expected %s problem+json: the Worker does not hold the error tunnel the pages post to\n' \
-        "$ERROR_TUNNEL_PATH" "$origin" "$dsn" "$code" "${type:-no type}" "$want"
+      printf 'POST %s%s from %s for project %s answered HTTP %s (%s), expected %s problem+json\n' \
+        "$ERROR_TUNNEL_PATH" "$batch" "$origin" "$project" "$code" "${type:-no type}" "$want"
       return 1
     fi
   done
-  printf 'POST %s refuses another site (403) and another project (400), as the tunnel must\n' "$ERROR_TUNNEL_PATH"
+  printf 'POST %s refuses another site (403), another project (400) and a batch (400)\n' "$ERROR_TUNNEL_PATH"
 }
 
 # A Sentry envelope with one empty client report: it names this site's project
@@ -2180,15 +2186,19 @@ PY
   self_test_expect pass "served pages carry <meta http-equiv=content-security-policy>" check_page_csp
   self_test_expect pass "served page connect-src keeps the bundled Sentry DSN origin out" check_page_csp
 
-  # The edge Worker's error tunnel refuses another site and another project.
+  # The edge Worker's error tunnel refuses another site, another project and batches.
   local problem='"headers":{"Content-Type":"application/problem+json"}'
   self_test_scenario '{"routes":{},"default":{"status":405,"body":"","headers":{"Content-Type":"text/html"}}}'
   self_test_expect fail "the edge Worker holds the error tunnel" check_error_tunnel
   self_test_scenario '{"routes":{"POST /_errors":{"status":200,"body":"{}","headers":{"Content-Type":"application/json"}}},"default":{"status":404,"body":""}}'
   self_test_expect fail "the error tunnel passes nothing on from another site or for another project" check_error_tunnel
-  self_test_scenario '{"routes":{"POST /_errors https://evil.example":{"status":403,"body":"{}",'"$problem"'},"POST /_errors https://automancer.uk":{"status":400,"body":"{}",'"$problem"'}},"default":{"status":404,"body":""}}'
+  local tunnel_refusals='"POST /_errors https://evil.example":{"status":403,"body":"{}",'"$problem"'},"POST /_errors https://automancer.uk":{"status":400,"body":"{}",'"$problem"'}'
+  self_test_scenario '{"routes":{'"$tunnel_refusals"',"POST /_errors?verify=batch https://automancer.uk":{"status":200,"body":"{}"}},"default":{"status":404,"body":""}}'
+  self_test_expect fail "the edge Worker refuses a batch of reports" check_error_tunnel
+  self_test_scenario '{"routes":{'"$tunnel_refusals"',"POST /_errors?verify=batch https://automancer.uk":{"status":400,"body":"{}",'"$problem"'}},"default":{"status":404,"body":""}}'
   self_test_expect pass "the edge Worker holds the error tunnel" check_error_tunnel
   self_test_expect pass "the error tunnel passes nothing on from another site or for another project" check_error_tunnel
+  self_test_expect pass "the edge Worker refuses a batch of reports" check_error_tunnel
 
   # The Worker signs reports with a key Sentry takes (t24883).
   local signed_route='POST /_errors?verify=signed https://automancer.uk'
