@@ -1,5 +1,10 @@
 # Release notes
 
+## v2026.11.25.5 — 25 November 2026
+
+The full enquiry form comes into view sooner when you visit the contact page.
+
+
 ## v2026.11.25.4 — 25 November 2026
 
 Visitors now see pages from the newest release, even when a nearby copy is out of date.
