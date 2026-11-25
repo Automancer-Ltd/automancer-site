@@ -143,8 +143,8 @@ off. A field note or case study reached from search is exactly that first view.
   runs it through the edge Worker against the built `dist/` (first release without a list, the
   list carried on, the 8-day cut-off, production unreachable).
 - Measured (Playwright, 390 px, production's live HTML for 5 pages opened on a newer build): before,
-  10 of 10 file requests that the old pages' scripts and dictionary need answered 404 and the menu stayed
-  open after a tap outside on all 5; after, 0 failed and the menu closed on all 5.
+  each page's module and dictionary answered 404 (10 failed requests) and the menu stayed open
+  after a tap outside on all 5; after, no request failed and the menu closed on all 5.
 - Not covered: kept copies from before t26489 name `/assets/js/main.js?v=`, outside the carried
   directories; they age out by 2 December 2026. Words on a kept page are still one view behind.
 - Undo: revert the PR. Nothing else reads `/_carried.json`; no Worker deploy either way.
