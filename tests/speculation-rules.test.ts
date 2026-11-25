@@ -95,6 +95,7 @@ describe('speculation rules', () => {
       const target = pages.find((p) => p.route === path);
       if (!target) continue;
       for (const el of target.doc.querySelectorAll('script[src], link[href], iframe[src], img[src], source[src], video[src], audio[src]')) {
+        if (el.closest('template')) continue; // Template contents are inert until activated.
         const ref = el.getAttribute('src') ?? el.getAttribute('href') ?? '';
         const rel = el.getAttribute('rel') ?? '';
         if (el.tagName === 'LINK' && !/stylesheet|preload|modulepreload|icon|manifest|prefetch|preconnect|dns-prefetch/.test(rel)) continue;

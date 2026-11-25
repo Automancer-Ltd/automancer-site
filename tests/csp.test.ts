@@ -12,8 +12,8 @@
  *   - the bundled SDK does not post to ERROR_TUNNEL, so the browser would
  *     refuse every error report;
  *   - any page but /contact/ may frame or script Turnstile;
- *   - a page lets plain strings into HTML or script sinks (Trusted Types), or
- *     may create a Trusted Types policy (only /contact/'s Turnstile loader);
+ *   - a page lets plain strings into HTML or script sinks or creates a
+ *     Trusted Types policy;
  *   - inline styles are blocked or allowed without a hash;
  *   - any source is a wildcard, plain http, or allows eval.
  *
@@ -24,11 +24,11 @@ import { createHash } from 'node:crypto';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { ENDPOINT_URL } from '../src/config/site';
+import { ENDPOINT_URL, TURNSTILE_SCRIPT_ENTRY } from '../src/config/site';
 import { ERROR_TUNNEL } from '../ops/edge/worker.js';
 import { DIST, allHtmlFiles } from './support/dist';
 
-const TURNSTILE = 'https://challenges.cloudflare.com';
+const TURNSTILE = new URL(TURNSTILE_SCRIPT_ENTRY).origin;
 const ENQUIRY_API = new URL(ENDPOINT_URL).origin;
 
 function policyOf(html: string): Map<string, string[]> | null {
@@ -80,13 +80,12 @@ describe('page Content Security Policy', () => {
     expect(policy.get('default-src')).toEqual(["'none'"]);
     expect(policy.get('base-uri')).toEqual(["'self'"]);
     expect(policy.get('script-src-attr')).toEqual(["'none'"]);
-    // Trusted Types: no string reaches an HTML or script sink; only /contact/
-    // may create one policy, its Turnstile loader.
+    // Trusted Types: no page can create a policy or write strings to script sinks.
     expect(policy.get('require-trusted-types-for')).toEqual(["'script'"]);
+    expect(policy.get('trusted-types')).toEqual(["'none'"]);
 
     if (page.isRedirectStub) {
       expect(policy.get('form-action')).toEqual(["'none'"]);
-      expect(policy.get('trusted-types')).toEqual(["'none'"]);
       expect(policy.get('connect-src') ?? null).toBeNull();
       expect(policy.get('frame-src') ?? null).toBeNull();
       expect(policy.get('script-src') ?? null).toBeNull();
@@ -95,7 +94,6 @@ describe('page Content Security Policy', () => {
       expect(policy.get('form-action')).toEqual(["'self'"]);
       expect(policy.get('img-src')).toEqual(["'self'", 'data:']);
       expect(policy.get('font-src')).toEqual(["'self'"]);
-      expect(policy.get('trusted-types')).toEqual(isContact ? ['turnstile'] : ["'none'"]);
 
       const connect = new Set(policy.get('connect-src'));
       const expected = new Set(["'self'", ...(isContact ? [ENQUIRY_API] : [])]);
@@ -103,7 +101,9 @@ describe('page Content Security Policy', () => {
       expect(connect.has(reportOrigin ?? ""), `${route} lets the browser post to Sentry itself`).toBe(false);
 
       expect(policy.get('frame-src') ?? null).toEqual(isContact ? [TURNSTILE] : null);
-      expect(policy.get('script-src')?.includes(TURNSTILE)).toBe(isContact);
+      expect(policy.get('script-src')?.filter((source) => source.startsWith('https://'))).toEqual(
+        isContact ? [TURNSTILE_SCRIPT_ENTRY] : [],
+      );
 
       const styleSources = policy.get('style-src-elem') ?? policy.get('style-src') ?? [];
       expect(styleSources).not.toContain("'unsafe-inline'");

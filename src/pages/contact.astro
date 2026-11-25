@@ -23,7 +23,7 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import Bead from '../components/Bead.astro';
 import SpectrumGlow from '../components/SpectrumGlow.astro';
-import { ENDPOINT_URL, TURNSTILE_SITE_KEY } from '../config/site';
+import { ENDPOINT_URL, TURNSTILE_SCRIPT_ENTRY, TURNSTILE_SCRIPT_URL, TURNSTILE_SITE_KEY } from '../config/site';
 import type { EnquiryPageData } from '../scripts/contact-form';
 import { business } from '../data/business';
 import { AFTER_SEND_STEPS, ENQUIRY_FIELDS, SERVICE_OPTIONS, SERVICE_PARAM, enquiryField } from '../data/enquiry';
@@ -38,18 +38,20 @@ const enquiry: EnquiryPageData = {
   fields: ENQUIRY_FIELDS.map(({ id, label }) => ({ id, label })),
   services: SERVICE_OPTIONS.map(({ value, label }) => ({ value, label })),
 };
-// This page alone may load Turnstile, show its challenge frame and send the
-// enquiry to the intake API; every other page's policy refuses all three.
-Astro.csp!.insertScriptResource('https://challenges.cloudflare.com');
-Astro.csp!.insertDirective('frame-src https://challenges.cloudflare.com');
+// Authorize the widget's entry point, including Cloudflare's version redirect.
+Astro.csp!.insertScriptResource(TURNSTILE_SCRIPT_ENTRY);
+Astro.csp!.insertDirective(`frame-src ${new URL(TURNSTILE_SCRIPT_ENTRY).origin}`);
 Astro.csp!.insertDirective(`connect-src ${new URL(ENDPOINT_URL).origin}`);
 ---
 
 <BaseLayout
-  trustedTypes={['turnstile']}
   title="Contact"
   description="Tell us what's eating your week. No calendar gauntlet, no chatbot. Waseem reads it himself, and we promise a meeting within one week of first contact."
 >
+  {/* The template keeps the script inert until the visitor uses the form. */}
+  <template slot="head" id="turnstile-loader">
+    <script is:inline async src={TURNSTILE_SCRIPT_URL}></script>
+  </template>
   <section class="page-hero contact-hero hatch">
     <SpectrumGlow class="page-hero__glow" px={26} />
     <div class="page-hero__inner">

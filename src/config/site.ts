@@ -81,3 +81,5 @@ export const FIELD_LIMITS = {
  * the AUTD Convex deployment.
  */
 export const TURNSTILE_SITE_KEY = '0x4AAAAAAFillry1PYXs0p-E';
+export const TURNSTILE_SCRIPT_ENTRY = 'https://challenges.cloudflare.com/turnstile/v0/api.js';
+export const TURNSTILE_SCRIPT_URL = `${TURNSTILE_SCRIPT_ENTRY}?render=explicit&onload=onTurnstileLoad`;

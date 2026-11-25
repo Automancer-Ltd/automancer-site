@@ -118,22 +118,24 @@ test('pages refuse unapproved scripts, event handlers, eval and HTML strings', a
   }
 });
 
-// /contact/'s one Trusted Types policy loads Turnstile's exact URL and
-// nothing else: a script that reaches it cannot load another script with it.
-// The probe waits for DOMContentLoaded, after every script in the page has run:
-// the page-load module itself runs before /contact/'s own script, which creates
-// the policy (t26489; the old main.js ran after it).
-test('the contact page can load only the Turnstile script', async ({ page }) => {
-  await compromisePageModule(page, `document.addEventListener('DOMContentLoaded', () => {
-    const created = (name) => { try { trustedTypes.createPolicy(name, { createScriptURL: (u) => u }); return 'allowed'; } catch (e) { return e.name; } };
-    document.documentElement.dataset.policyProbe = created('turnstile');
-  });`);
+// The shared module runs before the contact form starts, when its old policy
+// name was still free. No script may register it now.
+test('the contact page loads Turnstile without a Trusted Types policy', async ({ page }) => {
+  await compromisePageModule(page, `(() => {
+    try {
+      trustedTypes.createPolicy('turnstile', {});
+      document.documentElement.dataset.policyProbe = 'allowed';
+    } catch (error) { document.documentElement.dataset.policyProbe = error.name; }
+  })();`);
   const violations = await recordViolations(page);
   await page.goto('/contact/');
-  await page.locator('#contact-form input').first().focus();
-  await expect(page.locator('script[src^="https://challenges.cloudflare.com/turnstile/v0/api.js"]')).toHaveCount(1);
-  // The page created its policy first, so a second 'turnstile' policy is refused.
   await expect(page.locator('html')).toHaveAttribute('data-policy-probe', 'TypeError');
+  const script = page.locator('script[src^="https://challenges.cloudflare.com/turnstile/v0/api.js"]');
+  await expect(script).toHaveCount(0);
+  expect(await page.evaluate(() => typeof window.turnstile)).toBe('undefined');
+  await page.locator('#contact-form input').first().focus();
+  await expect(script).toHaveCount(1);
+  await expect.poll(() => page.evaluate(() => typeof window.turnstile)).toBe('object');
   expect((await violations()).filter((v) => v.startsWith('require-trusted-types-for'))).toEqual([]);
 });
 
