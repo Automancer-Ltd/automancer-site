@@ -84,6 +84,7 @@ ops/verify-production.sh    production verifier (deploy job; estate-watch siteVe
 ops/edge/                   Cloudflare Worker in front of Pages; local.mjs serves dist/ through it
 ops/preview/                the non-production preview target
 ops/contract/               what production promises machines, and the check a release keeps it
+ops/carry-forward.mjs       adds earlier releases' scripts and dictionary to a release (/_carried.json)
 ```
 
 ## Adding a page
@@ -162,6 +163,12 @@ ops/contract/               what production promises machines, and the check a r
   `.dcz` copies must come from the same build, and the Worker must be live before a build that names
   a dictionary (`tests/precompress.test.ts`, `tests/edge-worker.test.ts`,
   `tests/journey/dictionary.spec.ts`).
+- Each release also serves the files under `/_astro/` and `/_dictionary/` that releases from the
+  last 8 days built (t26531): a page kept at the edge, in a browser or in an open tab can be that
+  old and names them. The deploy adds them after the audit (`ops/carry-forward.mjs`, reading
+  production's `/_carried.json`), so the audit and budgets see only this build's own files; the
+  journey job checks every listed file answers (`tests/carry-forward.test.ts`). A new
+  content-named directory a page loads from belongs in `CARRIED_DIRS` there.
 - Pages are fetched ahead of a click only by Chromium's Speculation Rules (`BaseLayout.astro`) and,
   in browsers that cannot prerender, by `src/scripts/prefetch.ts`: on a mouse hover (t23288), and
   on a touch screen for a link kept on screen half a second (t24026). Reading warms up to three
