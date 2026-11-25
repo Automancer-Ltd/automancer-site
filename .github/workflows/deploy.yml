@@ -70,7 +70,8 @@ jobs:
         # AUT_SENTRY_WEB_DSN). Astro/Vite only exposes PUBLIC_* values to the
         # browser bundle, so this makes production Pages builds observable
         # without placing a DSN in the repository or local dotenv files.
-        # The release tags each Sentry event with the commit that served it.
+        # Each Sentry event names the commit that built its page (the page's
+        # build-revision meta, read by src/scripts/sentry.ts, t26545).
         #
         # SERVED_PAGES_URL is the page index production serves now: a page
         # whose words this build leaves unchanged keeps the date it publishes
@@ -78,7 +79,6 @@ jobs:
         # production cannot be read, pages keep their built dates.
         env:
           PUBLIC_AUT_SENTRY_WEB_DSN: ${{ vars.PUBLIC_AUT_SENTRY_WEB_DSN }}
-          PUBLIC_SENTRY_RELEASE: ${{ github.sha }}
           SERVED_PAGES_URL: https://automancer.uk/api/pages.json?for=${{ github.sha }}
 
       # The pull request's verdict, run on the bytes this job uploads (the

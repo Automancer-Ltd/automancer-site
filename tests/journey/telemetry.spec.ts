@@ -124,6 +124,9 @@ test('error reports keep source locations without raw browser data', async ({ pa
   );
   expect(report.request?.url).toBe(new URL('/contact/', page.url()).href);
   expect(report.breadcrumbs ?? []).toHaveLength(0);
-  if (process.env.JOURNEY_URL) expect(report.release).toMatch(/^[a-f0-9]{40}$/);
+  // The commit the page itself names, read when the report is made (t26545).
+  const builtFrom = await page.locator('meta[name="build-revision"]').getAttribute('content');
+  expect(builtFrom).toMatch(/^[a-f0-9]{40}$/);
+  expect(report.release).toBe(builtFrom);
   expect(await page.evaluate(() => (window as unknown as { __refused: string[] }).__refused), 'policy refusals while reporting').toEqual([]);
 });

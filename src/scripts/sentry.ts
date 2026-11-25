@@ -14,7 +14,11 @@
  * key Sentry takes: the edge Worker signs each report with its own (t24883).
  */
 const dsn = import.meta.env.PUBLIC_AUT_SENTRY_WEB_DSN;
-const release = import.meta.env.PUBLIC_SENTRY_RELEASE;
+// The commit that built this page, read from the page when a report is made (t26545). Bundling it
+// instead (PUBLIC_SENTRY_RELEASE) changed this module's content hash, so its name, on every
+// release, and every returning visitor downloaded it again even when no script had changed.
+const builtFrom = () =>
+  document.querySelector<HTMLMetaElement>('meta[name="build-revision"]')?.content || undefined;
 
 if (import.meta.env.PROD && dsn) {
   const pending: unknown[] = [];
@@ -46,6 +50,7 @@ if (import.meta.env.PROD && dsn) {
             .filter((url) => url.startsWith(location.origin + '/')),
         );
         if (pageUrl) sources.add(pageUrl);
+        const release = builtFrom();
 
         init({
           dsn,
