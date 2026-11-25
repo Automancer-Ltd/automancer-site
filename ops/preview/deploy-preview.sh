@@ -104,9 +104,8 @@ gate() {
 note "deploy-preview: installing dependencies (frozen lockfile)"
 ( cd "$BUILD" && gate pnpm install --frozen-lockfile >/dev/null )
 
-# Report the candidate revision in intercepted journey errors. The gate sets
-# the test DSN; an inherited production DSN must never reach a preview build.
-export PUBLIC_SENTRY_RELEASE="$sha"
+# The gate sets the test DSN; an inherited production DSN must never reach a
+# preview build. Reports name the candidate from its pages' build-revision.
 unset PUBLIC_AUT_SENTRY_WEB_DSN
 
 if (( run_gate == 1 )); then

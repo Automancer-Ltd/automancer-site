@@ -457,10 +457,18 @@ describe('edge Worker in front of GitHub Pages', () => {
 });
 
 // Pages kept at the edge (t25774): a page is served from the data centre's cache at once and
-// fetched again from Pages after each answer, so it is at most one view behind.
+// fetched again from Pages after each answer; a copy from before the newest release seen at the
+// data centre is fetched again instead (t26545).
 describe('pages kept at the edge', () => {
   // Pages as it stands: each page's HTML and its Brotli copy, changed by the test between views.
   let pages: Record<string, string>;
+  // When Pages published the release it serves: every file's Last-Modified, as GitHub Pages dates them.
+  let published: number;
+  // A release: new words for some pages, every file dated by the new publication.
+  const release = (changes: Record<string, string>) => {
+    published += 3_600_000;
+    Object.assign(pages, changes);
+  };
   let calls: Request[];
   let pending: Promise<unknown>[];
   let kept: Map<string, Response>;
@@ -473,6 +481,7 @@ describe('pages kept at the edge', () => {
 
   beforeEach(() => {
     pages = { '/kept/': '<html>first</html>', '/services/': '<html>services</html>' };
+    published = Date.parse('2026-11-24T18:57:32Z');
     dictionary = Buffer.from('<html><head><style>shared frame</style></head><body></body></html>');
     calls = [];
     pending = [];
@@ -492,7 +501,7 @@ describe('pages kept at the edge', () => {
       const html = pages[page];
       if (html === undefined) return Promise.resolve(new Response('<html>404</html>', { status: 404, headers: { 'Content-Type': 'text/html; charset=utf-8' } }));
       if (request.headers.get('If-None-Match') === etag(html)) return Promise.resolve(new Response(null, { status: 304, headers: { ETag: etag(html) } }));
-      const headers = { ETag: etag(html), 'Cache-Control': 'max-age=600', Age: '179', Expires: 'Thu, 01 Jan 2026 00:00:00 GMT', Vary: 'Accept-Encoding' };
+      const headers = { ETag: etag(html), 'Last-Modified': new Date(published).toUTCString(), 'Cache-Control': 'max-age=600', Age: '179', Expires: 'Thu, 01 Jan 2026 00:00:00 GMT', Vary: 'Accept-Encoding' };
       if (path.endsWith('.dcz')) {
         const dcz = Buffer.concat([Buffer.from(DCZ_MAGIC), sha(dictionary), zstdCompressSync(html, { dictionary })]);
         return Promise.resolve(new Response(dcz, { headers: { ...headers, ETag: `W/"dcz-${etag(html).slice(3)}`, 'Content-Type': 'application/octet-stream' } }));
@@ -547,6 +556,73 @@ describe('pages kept at the edge', () => {
     expect(fresh.text).toBe('<html>second</html>');
   });
 
+  it('after a release, serves a copy kept before it to one view at most per data centre (t26545)', async () => {
+    pages['/privacy/'] = '<html>privacy, first</html>';
+    for (const path of ['/kept/', '/services/', '/privacy/']) expect((await view(path)).res.headers.get(PAGE_CACHE_HEADER)).toBe('miss');
+    release({ '/kept/': '<html>second</html>', '/services/': '<html>services, second</html>', '/privacy/': '<html>privacy, second</html>' });
+
+    // The first view after the release gets the copy kept before it, and teaches the data centre
+    // the release from the page it fetches again after answering.
+    const first = await view('/kept/');
+    expect([first.res.headers.get(PAGE_CACHE_HEADER), first.text]).toEqual(['hit', '<html>first</html>']);
+    // Every other page kept before it is fetched again and waited for, not served.
+    calls = [];
+    const next = await view('/services/');
+    expect([next.res.headers.get(PAGE_CACHE_HEADER), next.text]).toEqual(['release', '<html>services, second</html>']);
+    expect(calls.map((r) => r.url)).toContain(`${PAGES}/services/index.html.br`);
+    expect(next.res.headers.get('Last-Modified')).toBe(new Date(published).toUTCString());
+    for (const request of calls) expect([...request.headers.keys()], request.url).toEqual([]);
+    // ...and kept again, so the view after that is answered at once.
+    expect((await view('/services/')).res.headers.get(PAGE_CACHE_HEADER)).toBe('hit');
+    const privacy = await view('/privacy/');
+    expect([privacy.res.headers.get(PAGE_CACHE_HEADER), privacy.text]).toEqual(['release', '<html>privacy, second</html>']);
+    // The page whose old copy taught the release was kept again then.
+    expect((await view('/kept/')).text).toBe('<html>second</html>');
+  });
+
+  it('never moves the release it knows back, and serves copies with no date as before', async () => {
+    await view('/kept/');
+    release({ '/kept/': '<html>second</html>' });
+    await view('/kept/');
+    const known = kept.get('https://automancer.uk/.edge-cache/release');
+    expect(Number(known?.headers.get('X-Edge-Release'))).toBe(published);
+
+    // Pages' own cache answering with the release before (GitHub's Fastly keeps a file ten
+    // minutes): that copy is served and kept, and the data centre still knows the newer release,
+    // so the next view fetches the page again rather than serving it.
+    const newest = published;
+    published -= 3_600_000;
+    pages['/services/'] = '<html>services, from the cache</html>';
+    expect((await view('/services/')).res.headers.get(PAGE_CACHE_HEADER)).toBe('miss');
+    const again = kept.get('https://automancer.uk/.edge-cache/release');
+    expect(Number(again?.headers.get('X-Edge-Release'))).toBe(newest);
+    published = newest;
+    pages['/services/'] = '<html>services, second</html>';
+    const caught = await view('/services/');
+    expect([caught.res.headers.get(PAGE_CACHE_HEADER), caught.text]).toEqual(['release', '<html>services, second</html>']);
+
+    // A copy that carries no Last-Modified cannot be dated, so it is served as before.
+    const [name] = [...kept.keys()].filter((url) => url.endsWith('/page/kept/'));
+    const old = kept.get(name)!;
+    const headers = JSON.parse(old.headers.get('X-Edge-Page-Headers')!).filter(([h]: [string]) => h.toLowerCase() !== 'last-modified');
+    const undated = new Headers(old.headers);
+    undated.set('X-Edge-Page-Headers', JSON.stringify(headers));
+    kept.set(name, new Response(await old.clone().arrayBuffer(), { headers: undated }));
+    release({});
+    await view('/services/');
+    expect((await view('/kept/')).res.headers.get(PAGE_CACHE_HEADER)).toBe('hit');
+  });
+
+  it('fetches the dictionary copy again too when it was kept before the release', async () => {
+    remember(dictionary);
+    await view('/kept/', holding(dictionary));
+    await view('/services/', holding(dictionary));
+    release({ '/kept/': '<html>second</html>', '/services/': '<html>services, second</html>' });
+    expect((await view('/kept/', holding(dictionary))).res.headers.get(PAGE_CACHE_HEADER)).toBe('hit');
+    const next = await view('/services/', holding(dictionary));
+    expect([next.coding, next.res.headers.get(PAGE_CACHE_HEADER), next.text]).toEqual(['dcz', 'release', '<html>services, second</html>']);
+  });
+
   it("answers a kept page with the page's own headers, dated now, and asks Pages with none of the visitor's", async () => {
     await view('/kept/');
     calls = [];
@@ -596,7 +672,7 @@ describe('pages kept at the edge', () => {
     await view('/kept/');
     delete pages['/kept/'];
     expect((await view('/kept/')).res.headers.get(PAGE_CACHE_HEADER)).toBe('hit');
-    expect(kept.size).toBe(0);
+    expect([...kept.keys()].filter((url) => url.includes('/.edge-cache/page'))).toEqual([]);
     const gone = await view('/kept/');
     expect(gone.res.status).toBe(404);
     expect(gone.res.headers.get(PAGE_CACHE_HEADER)).toBeNull();

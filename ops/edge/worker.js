@@ -30,9 +30,10 @@
 //   - Every response names the source this Worker was deployed from
 //     (EDGE_SOURCE_HEADER), so a release can prove it is the reviewed file.
 //   - A page a browser asks for is served from this data centre's cache at
-//     once and fetched again from Pages after each answer, so it is at most
-//     one view behind and a visitor never waits for GitHub's cold cache
-//     (keptPage, PAGE_CACHE_HEADER; t25774).
+//     once and fetched again from Pages after each answer, so a visitor never
+//     waits for GitHub's cold cache (keptPage, PAGE_CACHE_HEADER; t25774). A
+//     copy kept before the newest release seen here is fetched again instead
+//     of served (RELEASE_KEY, t26545).
 // Everything else passes through untouched. Deploy and undo: docs/DEPLOYMENT.md.
 //
 // The files come from the GitHub Pages project address (PAGES), not from
@@ -871,16 +872,26 @@ async function dictionaryCopy(request, pathname, file, policy) {
 // So a page asked for as Brotli by GET is kept in this data centre's cache (the
 // Workers Cache API) and served from it at once. Every time one is served, the
 // Worker fetches the page from Pages again once the visitor has their answer
-// (ctx.waitUntil) and keeps that copy instead. A kept page is therefore at most
-// one view behind Pages: after a release, the first visitor to a page at a data
-// centre can get it as it was, and the next one gets the new page, the same lag
-// a browser's own ten-minute copy already allows. A copy kept longer than
+// (ctx.waitUntil) and keeps that copy instead. A copy kept longer than
 // PAGE_CACHE_SECONDS is never served, and a hard reload (`Cache-Control:
 // no-cache`) waits for Pages, as every request did before. Only pages are kept:
 // Markdown twins, the API and the feeds are read by machines, and the build
 // reads /api/pages.json from production (src/integrations/page-dates.ts), so
 // those always come from Pages. Each answer says which way it came in
-// PAGE_CACHE_HEADER: hit, miss (fetched and kept) or reload.
+// PAGE_CACHE_HEADER: hit, miss (fetched and kept), reload or release (below).
+//
+// Kept copies and releases (t26545). That refresh alone left a page as it was
+// until someone viewed it, so after a release a quiet page kept its old words
+// for days: on 25 Nov 2026 all 32 pages read from Vienna were copies from up to
+// six releases before, /privacy/ among them, while the twins and the API (never
+// kept) were already new. GitHub Pages dates every file of a release with the
+// same Last-Modified, the moment the release was published, and a kept copy
+// carries the page's own headers. So the Worker keeps the newest release it has
+// fetched a page from in this data centre (RELEASE_KEY), and a kept copy
+// dated before it is not served: the page is fetched from Pages and waited for,
+// as on a miss (`release`). The first view at a data centre after a release can
+// still get the copy kept before it, and teaches the Worker the new release;
+// every page viewed there after that is the new release's.
 export const PAGE_CACHE_HEADER = 'X-Edge-Cache';
 export const PAGE_CACHE_SECONDS = 7 * 24 * 60 * 60;
 // The address a page is kept under. No visitor's request reaches the cache under
@@ -890,6 +901,9 @@ const PAGE_CACHE_PATH = '/.edge-cache/page';
 const KEPT_HEADERS = 'X-Edge-Page-Headers';
 const KEPT_AT = 'X-Edge-Kept-At';
 const KEPT_DICTIONARY = 'X-Edge-Kept-Dictionary';
+// The newest release this data centre has fetched a page from, as Pages dated it (milliseconds).
+const RELEASE_KEY = '/.edge-cache/release';
+const KEPT_RELEASE = 'X-Edge-Release';
 // Per-response headers that are not true of a copy served later.
 const NOT_KEPT = new Set(['date', 'age', 'expires']);
 
@@ -931,32 +945,51 @@ async function keptPage(request, pathname, file, policy, ctx, dictionary = null)
   const key = pageCacheKey(pathname);
   const dczKey = pageCacheKey(pathname, 'dcz');
   const reload = /no-cache/i.test(`${request.headers.get('Cache-Control') ?? ''},${request.headers.get('Pragma') ?? ''}`);
-  const keepDcz = () => ctx.waitUntil(keepDictionaryPage(cache, dczKey, pathname, file, policy).catch(() => {}));
-  if (dictionary && !reload) {
-    const kept = await cache.match(dczKey).catch(() => null);
+  // Read alongside the first copy, so a hit waits for one cache read as before.
+  const [release, firstKept] = await Promise.all([
+    reload ? 0 : knownRelease(cache),
+    reload ? null : cache.match(dictionary ? dczKey : key).catch(() => null),
+  ]);
+  // Teach this data centre the release of a page just fetched from Pages, when it is newer.
+  const learn = (headers) => noteRelease(cache, headers, release);
+  const keepDcz = () => ctx.waitUntil(keepDictionaryPage(cache, dczKey, pathname, file, policy, learn).catch(() => {}));
+  // A kept copy is served only while no newer release has been seen here.
+  let behind = false;
+  const usable = (kept) => {
     const headers = kept && keptHeaders(kept);
-    if (headers && kept.body && kept.headers.get(KEPT_DICTIONARY) === dictionary) {
-      keepDcz();
-      return pageAnswer(request, headers, kept.body, 'hit');
+    if (!headers || !kept.body) return null;
+    if (releaseOf(headers) < release) {
+      behind = true;
+      return null;
     }
-    kept?.body?.cancel().catch(() => {});
+    return headers;
+  };
+  if (dictionary && firstKept) {
+    const headers = usable(firstKept);
+    if (headers && firstKept.headers.get(KEPT_DICTIONARY) === dictionary) {
+      keepDcz();
+      return pageAnswer(request, headers, firstKept.body, 'hit');
+    }
+    firstKept.body?.cancel().catch(() => {});
   }
-  const kept = reload ? null : await cache.match(key).catch(() => null);
+  const kept = reload ? null : dictionary ? await cache.match(key).catch(() => null) : firstKept;
   if (kept) {
-    const headers = keptHeaders(kept);
-    if (headers && kept.body) {
-      ctx.waitUntil(keepPage(cache, key, pathname, file, policy).catch(() => {}));
+    const headers = usable(kept);
+    if (headers) {
+      ctx.waitUntil(keepPage(cache, key, pathname, file, policy, learn).catch(() => {}));
       if (dictionary) keepDcz();
       return pageAnswer(request, headers, kept.body, 'hit');
     }
     kept.body?.cancel().catch(() => {});
   }
+  const state = reload ? 'reload' : behind ? 'release' : 'miss';
   if (dictionary) {
     const copy = await dictionaryCopy(new Request(atOrigin(pathname)), pathname, file, policy);
     if (copy) {
       const [visitor, keep] = copy.response.body.tee();
       ctx.waitUntil(putPage(cache, dczKey, copy.response.headers, keep, copy.dictionary).catch(() => {}));
-      if (copy.dictionary === dictionary) return pageAnswer(request, [...copy.response.headers], visitor, reload ? 'reload' : 'miss');
+      ctx.waitUntil(learn(copy.response.headers).catch(() => {}));
+      if (copy.dictionary === dictionary) return pageAnswer(request, [...copy.response.headers], visitor, state);
       visitor.cancel().catch(() => {});
     }
   }
@@ -968,7 +1001,32 @@ async function keptPage(request, pathname, file, policy, ctx, dictionary = null)
   }
   const [visitor, keep] = fresh.body.tee();
   ctx.waitUntil(putPage(cache, key, fresh.headers, keep).catch(() => {}));
-  return pageAnswer(request, [...fresh.headers], visitor, reload ? 'reload' : 'miss');
+  ctx.waitUntil(learn(fresh.headers).catch(() => {}));
+  return pageAnswer(request, [...fresh.headers], visitor, state);
+}
+
+/** When Pages published the release a page's headers come from (its Last-Modified, ms), or NaN. */
+function releaseOf(headers) {
+  const list = Array.isArray(headers) ? headers : [...headers];
+  const found = list.find(([name]) => name.toLowerCase() === 'last-modified');
+  return found ? Date.parse(found[1]) : NaN;
+}
+
+/** The newest release this data centre has fetched a page from (RELEASE_KEY), or 0 when none is kept. */
+async function knownRelease(cache) {
+  const kept = await cache.match(new Request(atOrigin(RELEASE_KEY))).catch(() => null);
+  kept?.body?.cancel().catch(() => {});
+  const at = Number(kept?.headers.get(KEPT_RELEASE));
+  return Number.isFinite(at) && at > 0 ? at : 0;
+}
+
+/** Keep the release `headers` were published in as this data centre's newest, when it is newer than `known`. */
+function noteRelease(cache, headers, known) {
+  const at = releaseOf(headers);
+  if (!(at > known)) return Promise.resolve();
+  return cache.put(new Request(atOrigin(RELEASE_KEY)), new Response('', {
+    headers: { 'Cache-Control': `max-age=${PAGE_CACHE_SECONDS}`, [KEPT_RELEASE]: String(at) },
+  }));
 }
 
 /** The page's own headers from a kept copy, or null when the copy is too old or unreadable. */
@@ -984,19 +1042,21 @@ function keptHeaders(kept) {
 }
 
 /** Fetch the page from Pages again and keep it; a page Pages no longer has is dropped. */
-async function keepPage(cache, key, pathname, file, policy) {
+async function keepPage(cache, key, pathname, file, policy, learn) {
   const fresh = await brotliCopy(new Request(atOrigin(pathname)), pathname, file, policy);
   if (!fresh?.body || fresh.status !== 200) {
     fresh?.body?.cancel().catch(() => {});
     return cache.delete(key);
   }
+  await learn(fresh.headers);
   return putPage(cache, key, fresh.headers, fresh.body);
 }
 
 /** Fetch the page's dictionary copy from Pages again and keep it with its hash; drop it when Pages has none. */
-async function keepDictionaryPage(cache, key, pathname, file, policy) {
+async function keepDictionaryPage(cache, key, pathname, file, policy, learn) {
   const copy = await dictionaryCopy(new Request(atOrigin(pathname)), pathname, file, policy);
   if (!copy) return cache.delete(key);
+  await learn(copy.response.headers);
   return putPage(cache, key, copy.response.headers, copy.response.body, copy.dictionary);
 }
 

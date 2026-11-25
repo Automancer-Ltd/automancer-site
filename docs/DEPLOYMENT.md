@@ -11,8 +11,8 @@
    enum values) and fails when the built `dist/` drops one without a deprecation that has run its
    notice (t25827).
 2. Merge to `main` → `.github/workflows/deploy.yml`, in about two minutes:
-   - `build` builds the merged commit once, with the Sentry DSN, `PUBLIC_SENTRY_RELEASE=$GITHUB_SHA`
-     and production's page dates, then runs lint, typecheck and the whole `dist/` audit on those
+   - `build` builds the merged commit once, with the Sentry DSN and production's page dates
+     (each Sentry event names the commit from the page's `build-revision`, t26545), then runs lint, typecheck and the whole `dist/` audit on those
      exact bytes before uploading them as the Pages artifact (a merge can produce a tree no pull
      request tested; there is no separate CI run on `main`). It compares those bytes with the
      promises production publishes, as the pull request did, with `--allow-unreachable`: if
@@ -354,13 +354,11 @@ Undo via Executor `sentry-guarded` (`projects.updateProject` and `projects.updat
 - **Pages kept at the edge (t25774, 24 Nov 2026):** a GET for a page from a browser that takes
   Brotli is answered from the data centre's cache (`keptPage()`, the Workers Cache API, kept under
   `/.edge-cache/page/<path>`, an address no visitor's request reaches), and after answering the
-  Worker fetches the page from Pages again and keeps that copy. So a page is at most one view
-  behind Pages at each data centre: after a release, the first visitor to a page there can get it
-  as it was, and the next one gets the new page. Before, GitHub Pages' own cache was cold for
+  Worker fetches the page from Pages again and keeps that copy. Before, GitHub Pages' own cache was cold for
   nearly every page asked for, so the first page waited for GitHub (median 169 ms after TLS from
   London). `X-Edge-Cache` says how each page was answered: `hit`, `miss` (fetched, then kept) or
-  `reload` (`Cache-Control: no-cache`, as a hard reload sends: fetched from Pages, then kept). A
-  copy kept more than 7 days ago is never served (`PAGE_CACHE_SECONDS`). Twins, the API, feeds,
+  `reload` (`Cache-Control: no-cache`, as a hard reload sends: fetched from Pages, then kept), or
+  `release` (below). A copy kept more than 7 days ago is never served (`PAGE_CACHE_SECONDS`). Twins, the API, feeds,
   `HEAD`, ranges and clients without Brotli are never kept: they always come from Pages, and so
   does everything `ops/verify-production.sh` reads with plain `curl`. Nothing needs purging on a
   release: the deploy's production journey first runs
@@ -371,6 +369,24 @@ Undo via Executor `sentry-guarded` (`projects.updateProject` and `projects.updat
   passes the Worker no context, so local serving keeps no copies (the tests stand in a cache).
   Roll back by deploying the preceding Worker version: kept copies are then never read, and the
   cache drops them after 7 days.
+- **Kept pages follow the release (t26545, 25 Nov 2026):** the refresh after each view left a
+  quiet page as it was until someone viewed it, up to 7 days: on 25 Nov all 32 pages read from
+  Vienna were copies from up to six releases back, `/privacy/` among them, while twins and the API
+  were new. GitHub Pages gives every file of a release the same `Last-Modified` (the moment it was
+  published; the hex start of its `ETag` is the same time), and a kept copy keeps the page's own
+  headers. The Worker keeps the newest `Last-Modified` it has fetched a page with at each data
+  centre (`RELEASE_KEY`, `/.edge-cache/release`, never moved back), read alongside the kept copy
+  so a hit waits for no extra round trip. A kept copy dated before it is not served: the page is
+  fetched from Pages and waited for, and answered `X-Edge-Cache: release`. So after a release
+  the first page view at a data centre can still be a copy from before it, and it teaches the
+  Worker the release; every page viewed there after that is the new release's. A copy with no
+  `Last-Modified` is served as before, and without a known release (the cache evicted it) the
+  Worker behaves as t25774 did. Measure with `ops/perf/kept-release.sh` (each page's data centre,
+  `X-Edge-Cache` and whether its `Last-Modified` is the live release's; exits 1 when any page is
+  behind). Its first run at a data centre is the one that measures, since every view refreshes
+  the page; different machines reach different data centres (auto-vps: Vienna; auto-vault,
+  auto-hst1, auto-bee, m6: London). Roll back by deploying the preceding Worker version; the
+  marker is then never read and drops out after 7 days.
 - **Earlier releases' files stay served (t26531, 25 Nov 2026):** a kept page can be several
   releases old on a quiet page (seen live on 25 Nov: 4 of 10 pages were copies from 24-25 Nov),
   and so can a browser's own copy or an open tab. Such a page names its own build's page-load
