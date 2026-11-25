@@ -1,5 +1,20 @@
 # Release notes
 
+## v2026.11.25.1 — 25 November 2026
+
+The site now uses a shared compression dictionary to make page delivery more efficient and explain that approach to visitors.
+
+### Improvements
+
+- Pages use less data for browsers that already have the site's shared compression dictionary.
+- The privacy notice explains how the shared compression dictionary is used.
+- The site's deployment and performance documentation explains the dictionary, its deployment order, and measured results.
+
+### Privacy
+
+- When something goes wrong on the site, error reports include fewer details about your browser.
+
+
 ## v2026.11.24.6 — 24 November 2026
 
 The service price comparison fits on the first phone screen.
