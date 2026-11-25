@@ -1,5 +1,10 @@
 # Release notes
 
+## v2026.11.25.4 — 25 November 2026
+
+Visitors now see pages from the newest release, even when a nearby copy is out of date.
+
+
 ## v2026.11.25.3 — 25 November 2026
 
 Visitors opening a recently cached page can still use its page features while a new release is deployed.
