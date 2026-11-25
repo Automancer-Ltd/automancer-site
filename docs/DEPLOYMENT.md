@@ -268,8 +268,9 @@ to the same path on the apex. The Worker answers what a static host cannot: `Acc
 twin, Markdown 404 bodies, `application/problem+json` errors under `/api/`, the RFC 9727 media type
 for `/.well-known/api-catalog`, HTTP → HTTPS, and one 301 from each legacy `*.html` URL in
 `astro.config.mjs` `redirects` to its page. It sets how long browsers and the edge keep files
-(`cachePolicy`, t18923): `/_astro/*` (stylesheets, scripts and, since t19380, the web fonts) and
-`main.js?v=<commit>` for a year as `immutable`, unversioned files under `/assets/` (images) for a
+(`cachePolicy`, t18923): `/_astro/*` (stylesheets, scripts and, since t19380, the web fonts) for
+a year as `immutable` (its rule for the retired `main.js?v=<commit>` stays until the Worker is next
+deployed: since t26489 that code is in the content-hashed page-load module), unversioned files under `/assets/` (images) for a
 day with a week of `stale-while-revalidate`; pages, twins, JSON
 and unversioned scripts keep GitHub's ten minutes in browsers (a page is also kept at the edge,
 one view behind Pages at most: "Pages kept at the edge" below). Change a file under `/assets/` under a new name

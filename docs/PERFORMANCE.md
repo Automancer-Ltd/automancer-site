@@ -593,3 +593,20 @@ exact `dist/` it publishes, so a heavier production build fails the release inst
   250 B of headroom left, so the JS measure (12,149 → 13,803 B), `/contact/` (167,719 →
   172,392 B) and the default (161,980 → 164,507 B, now the care-provider case study) were
   re-pinned with `measureAllPages()` on this build.
+- **The shared script is one minified file, named by its content (t26489, 25 Nov 2026).**
+  `public/assets/js/main.js` (reveals, the nav, the phone menu, the article contents, print, the
+  decorative motion) was the one script Vite never saw: 8,241 B of ES5, unminified, outside lint
+  and the type checker, fetched as a second script on every page and named by the commit
+  (`?v=<commit>`), so every release made a returning visitor download it again whether or not it
+  had changed. It is now `src/scripts/main.ts`, imported last by BaseLayout's page-load module
+  after the Sentry bootstrap and the prefetch. In production that module is one content-hashed
+  `/_astro/` file the Worker keeps for a year; its name changes only when one of the three scripts
+  does. Measured with `perf-cli.ts` on builds of main and this change (monitoring on): every
+  layout page's JS 14,211 B in two files → 9,948 B in one (Brotli 4,627 → 3,550 B), and the page
+  module's HTML comment, now an Astro comment, takes 401 B off every page; `MEASURED_JS` and
+  `LAYOUT_MEASURED` (166,964 → 162,421 B, /developers/) re-pinned. Cold first visit on a 390 px
+  phone, Slow 4G (150 ms, 1.6 Mbit/s) and 4x CPU, both builds served through `ops/edge/local.mjs`,
+  9 interleaved rounds, medians: the page's script has run (`html.reveal-armed`) at 506 → 414 ms
+  on home and 515 → 416 ms on /services/; requests 8 → 7; script bytes on the wire 5,227 →
+  3,850 B. First paint and load did not move (348-352 ms, 672-681 ms). `pnpm run compare`: none
+  of 66 views differ.

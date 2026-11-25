@@ -120,11 +120,14 @@ test('pages refuse unapproved scripts, event handlers, eval and HTML strings', a
 
 // /contact/'s one Trusted Types policy loads Turnstile's exact URL and
 // nothing else: a script that reaches it cannot load another script with it.
+// The probe waits for DOMContentLoaded, after every script in the page has run:
+// the page-load module itself runs before /contact/'s own script, which creates
+// the policy (t26489; the old main.js ran after it).
 test('the contact page can load only the Turnstile script', async ({ page }) => {
-  await compromisePageModule(page, `(() => {
+  await compromisePageModule(page, `document.addEventListener('DOMContentLoaded', () => {
     const created = (name) => { try { trustedTypes.createPolicy(name, { createScriptURL: (u) => u }); return 'allowed'; } catch (e) { return e.name; } };
     document.documentElement.dataset.policyProbe = created('turnstile');
-  })();`);
+  });`);
   const violations = await recordViolations(page);
   await page.goto('/contact/');
   await page.locator('#contact-form input').first().focus();
