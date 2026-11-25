@@ -91,13 +91,15 @@ Astro.csp!.insertDirective(`connect-src ${new URL(ENDPOINT_URL).origin}`);
               <strong data-service-name></strong>
               <a href="#service-pick" class="service-carried__change">Change</a>
             </p>
-            <div class="field">
-              <label for="name">{f('name').label}</label>
-              <input type="text" id="name" name="name" required autocomplete="name" maxlength={f('name').maxLength} />
-            </div>
-            <div class="field">
-              <label for="email">{f('email').label}</label>
-              <input type="email" id="email" name="email" required autocomplete="email" maxlength={f('email').maxLength} />
+            <div class="contact-fields">
+              <div class="field">
+                <label for="name">{f('name').label}</label>
+                <input type="text" id="name" name="name" required autocomplete="name" maxlength={f('name').maxLength} />
+              </div>
+              <div class="field">
+                <label for="email">{f('email').label}</label>
+                <input type="email" id="email" name="email" required autocomplete="email" maxlength={f('email').maxLength} />
+              </div>
             </div>
             <div class="field">
               <label for="time-sink">{f('time_sink').label}</label>
@@ -140,7 +142,7 @@ Astro.csp!.insertDirective(`connect-src ${new URL(ENDPOINT_URL).origin}`);
               <input type="text" id="website" name="website" tabindex="-1" autocomplete="off" />
             </div>
 
-            <div class="field">
+            <div class="field form-security">
               <span class="sys" style="color:var(--muted)">Security check</span>
               <div class="cf-turnstile turnstile-slot" data-sitekey={TURNSTILE_SITE_KEY} data-theme="dark" data-error-callback="onTurnstileError"></div>
             </div>
@@ -237,11 +239,13 @@ Astro.csp!.insertDirective(`connect-src ${new URL(ENDPOINT_URL).origin}`);
 .contact-hero .page-hero__title { font-size: var(--t-4); margin-block-start: 0; }
 .contact-hero .page-hero__sub { font-size: var(--t-0); margin-top: var(--sp-4); }
 .contact-routes {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 13.5rem), 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: var(--sp-2);
 }
 .contact-route {
+  flex: 1 1 auto;
+  min-inline-size: 0;
   display: grid;
   align-content: center;
   gap: var(--sp-1);
@@ -263,11 +267,17 @@ Astro.csp!.insertDirective(`connect-src ${new URL(ENDPOINT_URL).origin}`);
 
 .section.contact-section { padding-block-start: clamp(2rem, 4vw, 3.5rem); }
 .contact-grid { row-gap: var(--sp-10); align-items: start; }
-.section-head.enquiry-heading { margin-block-end: var(--sp-6); }
+.section-head.enquiry-heading { margin-block-end: var(--sp-4); }
 .section-head.enquiry-heading h2 { font-size: var(--t-3); }
 .section-head.enquiry-heading p:not(.eyebrow) { margin-block-start: var(--sp-3); font-size: var(--t-0); }
 @media (max-width: 860px) {
   .contact-hero .page-hero__inner, .contact-grid { grid-template-columns: minmax(0, 1fr); }
+  .page-hero.contact-hero { padding-block: var(--sp-24) var(--sp-5); }
+  .contact-hero .page-hero__inner { row-gap: var(--sp-3); }
+  .contact-hero .page-hero__sub { margin-block-start: var(--sp-3); }
+  .contact-route { padding-inline: var(--sp-2); font-size: 0.9375rem; }
+  .contact-route span { font-size: 0.875rem; }
+  .section.contact-section { padding-block-start: var(--sp-6); }
 }
 
 .promise { border: 1px solid var(--border); border-radius: var(--radius-lg); padding: clamp(1.5rem, 3vw, 2.25rem);
@@ -278,17 +288,22 @@ Astro.csp!.insertDirective(`connect-src ${new URL(ENDPOINT_URL).origin}`);
   text-transform: uppercase; color: var(--muted); display: block; margin-top: var(--sp-3); }
 .promise p { color: var(--muted); margin-top: var(--sp-5); }
 
-.form:not([hidden]) { display: flex; flex-direction: column; gap: var(--sp-6); }
-.field:not([hidden]) { display: flex; flex-direction: column; gap: var(--sp-3); }
+.form:not([hidden]) { display: flex; flex-direction: column; gap: var(--sp-4); }
+.contact-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 13.5rem), 1fr));
+  gap: var(--sp-4);
+}
+.field:not([hidden]) { display: flex; flex-direction: column; gap: var(--sp-2); }
 .field > label { font-family: var(--font-mono); font-size: 0.72rem; font-weight: 500; letter-spacing: 0.1em;
   text-transform: uppercase; color: var(--muted); }
 .field .opt { color: var(--faint); text-transform: none; letter-spacing: 0; }
 .field input, .field textarea, .field select {
   width: 100%; background: var(--g-975); border: 1px solid var(--border-strong); border-radius: var(--radius);
-  padding: 0.85em 1em; font-size: var(--t-0); color: var(--ink);
+  padding: 0.65em 1em; font-size: var(--t-0); color: var(--ink);
   transition: border-color var(--dur-1), background var(--dur-1), box-shadow var(--dur-1);
 }
-.field textarea { min-height: 150px; resize: vertical; }
+.field textarea { min-height: 8rem; resize: vertical; }
 .field input::placeholder, .field textarea::placeholder { color: var(--faint); }
 .field input:focus, .field textarea:focus, .field select:focus {
   outline: none; border-color: var(--g-400); background: var(--g-950);
@@ -300,7 +315,13 @@ Astro.csp!.insertDirective(`connect-src ${new URL(ENDPOINT_URL).origin}`);
   outline: 2px solid var(--white); outline-offset: 2px; border-color: var(--white);
 }
 .field--hero label { font-size: 0.8rem; color: var(--ink); }
-.turnstile-slot { min-height: 65px; }
+.form-security:has(.turnstile-slot:empty) { display: none; }
+/* The standard widget is 300px wide. On narrow phones, borrow evenly from the page gutters. */
+.turnstile-slot {
+  min-block-size: 65px;
+  inline-size: max(100%, 300px);
+  margin-inline: min(0px, 50% - 150px);
+}
 
 .form-details { border-block: 1px solid var(--border-strong); }
 .form-details summary { padding-block: 0.7rem; color: var(--ink); cursor: pointer; }

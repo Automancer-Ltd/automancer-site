@@ -342,7 +342,7 @@ test("a case study's figures never break inside a word, even with text at 200%",
   }
 });
 
-test('the direct contact links and first form field fit on the first screen', async ({ page }, info) => {
+test('the direct contact links and required form fields fit on the first screen', async ({ page }, info) => {
   await stubIntake(page, { status: 200, body: { ok: true } });
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/contact/');
@@ -350,9 +350,13 @@ test('the direct contact links and first form field fit on the first screen', as
   const email = main.getByRole('link', { name: /^Email Waseem/ });
   const voicemail = main.getByRole('link', { name: /^Leave a voicemail/ });
   const name = main.getByRole('textbox', { name: 'Your name' });
+  const emailField = main.getByRole('textbox', { name: 'Email', exact: true });
+  const message = main.locator('#time-sink');
   await expect(email).toHaveAttribute('href', `mailto:${business.email}`);
   await expect(voicemail).toHaveAttribute('href', `tel:${business.phoneTel}`);
-  for (const control of [email, voicemail, name]) await expect(control).toBeInViewport({ ratio: 1 });
+  for (const control of [email, voicemail, name, emailField, message]) {
+    await expect(control).toBeInViewport({ ratio: 1 });
+  }
   await email.focus();
   await page.keyboard.press('Tab');
   await expect(voicemail).toBeFocused();
@@ -370,6 +374,40 @@ test('the direct contact links and first form field fit on the first screen', as
     await menu.click();
     await expect(page.locator('#mobile-menu')).toBeVisible();
   }
+});
+
+test('the security check takes space only after it mounts and fits a narrow screen', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 640 });
+  await page.route(ENDPOINT_URL, (route) => route.abort());
+  await page.route('**/challenges.cloudflare.com/**', (route) =>
+    route.fulfill({
+      contentType: 'text/javascript',
+      // Model the dimensions of Cloudflare's standard widget inside its shadow host.
+      body: `window.turnstile = { render(slot) {
+        const host = document.createElement('div');
+        const iframe = document.createElement('iframe');
+        iframe.title = 'Security widget';
+        iframe.style.width = '300px';
+        iframe.style.height = '65px';
+        iframe.style.border = '0';
+        host.attachShadow({mode: 'open'}).append(iframe);
+        slot.append(host);
+      } }; window.onTurnstileLoad();`,
+    }),
+  );
+  await page.goto('/contact/');
+  const check = page.locator('.form-security');
+  await expect(page.getByText('Security check', { exact: true })).toBeHidden();
+  // Enlarge text before mounting. The widget's pixel width stays fixed as the gutters grow.
+  await page.evaluate(() => document.documentElement.style.setProperty('font-size', '200%'));
+  await page.locator('#name').focus();
+  const widget = check.locator('iframe');
+  await expect(widget).toBeVisible();
+  const box = await widget.boundingBox();
+  expect(box).not.toBeNull();
+  expect(box!.x).toBeGreaterThanOrEqual(0);
+  expect(box!.x + box!.width).toBeLessThanOrEqual(320);
+  await expectNoSidewaysScroll(page);
 });
 
 test('visitor finds the prices and reaches us through the contact form', async ({ page }, info) => {
