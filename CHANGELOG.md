@@ -1,5 +1,10 @@
 # Release notes
 
+## v2026.11.25.2 — 25 November 2026
+
+Pages load 30% less JavaScript, with the scripts combined into one file. Returning visitors also avoid downloading the old separate script again.
+
+
 ## v2026.11.25.1 — 25 November 2026
 
 The site now uses a shared compression dictionary to make page delivery more efficient and explain that approach to visitors.
