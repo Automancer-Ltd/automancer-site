@@ -128,7 +128,7 @@ async function capture(context, route) {
     document.addEventListener('securitypolicyviolation', (e) => window.__refused.push(`${e.violatedDirective} ${e.blockedURI}`));
   });
   const response = await page.goto(ORIGIN + route, { waitUntil: 'load' });
-  // A still pointer in the middle of the screen: the hero glows' cursor parallax (main.js) rests at zero.
+  // A still pointer in the middle of the screen: the hero glows' cursor parallax (src/scripts/main.ts) rests at zero.
   const { width, height } = page.viewportSize();
   await page.mouse.move(width / 2, height / 2);
   await page.evaluate(async () => {
@@ -145,7 +145,7 @@ async function capture(context, route) {
     // land a frame or two after the scroll and start transitions of their own.
     await new Promise((r) => setTimeout(r, 300));
     const frame = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-    // Paused ones too: main.js pauses offscreen effects wherever they happened to be.
+    // Paused ones too: main.ts pauses offscreen effects wherever they happened to be.
     for (let round = 0; round < 20; round++) {
       const all = document.getAnimations();
       if (round > 0 && !all.some((a) => a.playState === 'running')) break;

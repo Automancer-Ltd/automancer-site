@@ -7,7 +7,7 @@ It does not outrank anything: `VISION.md` is authority 0 and `SPEC.md` describes
 When this file and `SPEC.md` disagree about what exists, `SPEC.md` and the code are right and this
 file is out of date.
 
-Last updated: 24 November 2026 (content never waits for main.js, t25989).
+Last updated: 25 November 2026 (main.js became typed src/scripts/main.ts in the page-load module, t26489).
 
 ## Where the site stands against the vision
 
@@ -125,6 +125,28 @@ The former cache and release-note slices shipped in PRs #164 and #165 respective
 "gap above a field note's first paragraph on phones" slice is dropped from the list: t22126
 measured every note's opening line already on a 390×844 phone's first screen (17 of 17), so the
 gap is a spacing taste call, not lost content.
+
+## Codebase slice: no untyped browser code left on every page (25 November 2026, t26489)
+
+`public/assets/js/main.js` was the last script outside lint and the type checker, and the one
+Vite never minified: 8,241 B on every page, a second script request, named by the commit so each
+release made returning visitors fetch it again. It is now `src/scripts/main.ts`, imported last by
+BaseLayout's page-load module (after `sentry.ts` and `prefetch.ts`). Every page's script went from
+14,211 B in two files to 9,948 B in one; on a throttled phone the page's script has run about
+100 ms sooner. Nothing looks different (`pnpm run compare`: 66 of 66 views the same).
+
+- What moved with it: the journey's reveal, security and telemetry tests now block, probe or name
+  the page-load module (`/_astro/BaseLayout.astro_astro_type_script_*.js`), and
+  `collect_homepage_bundles` in `ops/verify-production.sh` reads the module inline when Sentry is
+  tree-shaken (the preview target), where it used to find `main.js`.
+- Left on purpose: the Worker's `cachePolicy` rule for `main.js?v=` and its tests
+  (`tests/edge-worker.test.ts`, `ops/edge/probe-matrix.mjs`). Changing `worker.js` means deploying
+  the Worker before the merge (`check_edge_source`); remove the rule with the next Worker change.
+- Ordering to know: the page-load module runs before a page's own script, so on `/contact/` it
+  runs before `contact-form.ts` creates the `turnstile` Trusted Types policy (`main.js` ran after
+  it; `sentry.ts` and `prefetch.ts` always ran before). The CSP still allows only this site and
+  Turnstile as script sources.
+- Undo: revert the PR. No Worker deploy needed either way.
 
 ## Frontend slice: content never waits for a script (24 November 2026, t25989)
 

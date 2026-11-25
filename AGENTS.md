@@ -72,7 +72,10 @@ src/data/api.ts             API_ENDPOINTS registry behind /api/index.json, /open
 src/config/site.ts          ENDPOINT_URL, FIELD_LIMITS, TURNSTILE_SITE_KEY, LEAD_ERROR_COPY
 src/content/                case-studies/*.md and field-notes/*.md (schema: src/content.config.ts)
 src/scripts/                the browser code pages load: TypeScript, linted and type-checked; Astro puts
-                            each page's own script in the page (assetsInlineLimit in astro.config.mjs)
+                            each page's own script in the page (assetsInlineLimit in astro.config.mjs).
+                            Every page shares one page-load module (BaseLayout.astro: sentry.ts,
+                            prefetch.ts, main.ts), a content-hashed /_astro/ file while Sentry is on;
+                            code every page needs goes there, never in a new file under public/
 src/lib/og-card.ts          share cards: each note's and case study's og:image, drawn at build (src/pages/og/)
 src/pages/                  .astro HTML routes; .md.ts / .json.ts / .txt.ts / .xml.ts endpoints
 src/layouts/BaseLayout.astro shared shell, SEO, JSON-LD, nav, footer, Sentry bootstrap

@@ -13,7 +13,7 @@
     "build": "astro build",
     "serve": "node ops/edge/local.mjs dist",
     "astro": "astro",
-    "lint": "oxlint --type-aware --deny-warnings src tests public/assets/js",
+    "lint": "oxlint --type-aware --deny-warnings src tests",
     "typecheck:ts": "test -f .astro/content.d.ts || astro sync; tsrs --noEmit",
     "typecheck": "pnpm run typecheck:ts && astro check",
     "check": "pnpm run lint && pnpm run typecheck:ts && if [ -f dist/index.html ]; then SKIP_BUILD=1 vitest run; else SKIP_BUILD=1 vitest run tests/storage-sentinel.test.ts; fi",

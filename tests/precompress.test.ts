@@ -161,7 +161,7 @@ describe('pages compressed against the compression dictionary', () => {
     expect(res.headers.get('Use-As-Dictionary')).toBe(USE_AS_DICTIONARY);
     expect(res.headers.get('Cache-Control')).toBe('public, max-age=31536000, immutable, no-transform');
     expect(brotliDecompressSync(Buffer.from(await res.arrayBuffer())).equals(dictionary)).toBe(true);
-    for (const path of ['/', '/about/', '/assets/js/main.js']) expect((await ask(path)).headers.get('Use-As-Dictionary'), path).toBeNull();
+    for (const path of ['/', '/about/', '/assets/images/logo.svg']) expect((await ask(path)).headers.get('Use-As-Dictionary'), path).toBeNull();
   });
 
   it('gives a browser holding it the same words and headers on every page, a third of the Brotli size', async () => {

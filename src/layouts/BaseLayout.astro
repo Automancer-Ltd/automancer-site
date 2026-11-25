@@ -176,13 +176,19 @@ const SPECULATION_RULES = {
       into the output.
     */}
 
-    <!-- Production-only browser error monitoring. The module itself requires
-         PUBLIC_AUT_SENTRY_WEB_DSN, so preview/dev builds never emit events.
-         Then the hover and touch-screen prefetch for browsers that ignore the
-         Speculation Rules above (Firefox, Safari; src/scripts/prefetch.ts). -->
+    {/*
+      The page-load module, one file every page shares. First production-only browser error
+      monitoring: the module itself requires PUBLIC_AUT_SENTRY_WEB_DSN, so preview/dev builds never
+      emit events. Then the hover and touch-screen prefetch for browsers that ignore the
+      Speculation Rules above (Firefox, Safari; src/scripts/prefetch.ts), and last what every page
+      does once read (src/scripts/main.ts: reveals, the menu, the article contents; t26489). With
+      monitoring on it lazily imports Sentry, so Astro writes it as a content-hashed /_astro/ file;
+      without, it imports nothing and goes inline (assetsInlineLimit in astro.config.mjs).
+    */}
     <script>
       import '../scripts/sentry';
       import '../scripts/prefetch';
+      import '../scripts/main';
     </script>
   </head>
   <body data-print-url={abs(Astro.url.pathname)}>
@@ -201,6 +207,5 @@ const SPECULATION_RULES = {
       <slot />
     </main>
     <Footer />
-    <script is:inline src={`/assets/js/main.js?v=${build.commitFull}`} defer></script>
   </body>
 </html>

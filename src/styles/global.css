@@ -575,12 +575,12 @@ strong { font-weight: 600; color: inherit; }
   .footer__bottom { flex-direction: column; align-items: flex-start; } }
 
 /* ─────────────────────── Reveal motion ─────────────────────── */
-/* Content never waits for main.js (t25989). Every reveal fades in from first
+/* Content never waits for a script (t25989). Every reveal fades in from first
    paint with CSS alone, so the first screen (a case study's headline figures,
    /contact/'s promise) shows with the page, and a page whose script never runs
    (a failed request, a blocked file) still shows everything: before this, 71%
    of /services/ text, three of its four prices, stayed at opacity 0. Once
-   main.js runs it hides only what is still below the fold (html.reveal-armed)
+   main.ts runs it hides only what is still below the fold (html.reveal-armed)
    and fades each piece in as it scrolls into view. Without scripting nothing
    moves at all; browsers without the query show everything. */
 @keyframes reveal-in { from { opacity: 0; transform: translateY(26px); } }
@@ -644,7 +644,7 @@ strong { font-weight: 600; color: inherit; }
    inside slides by transform, so nothing is repainted while it moves. Only the
    hero words, which are single words on one line: a phrase that wraps lays its
    gradient along the joined lines, which a strip cannot follow, so the footer
-   and body phrases keep spectral-pan (main.js pauses them offscreen). Without
+   and body phrases keep spectral-pan (main.ts pauses them offscreen). Without
    mask-clip: text (Firefox) the word keeps spectral-pan too. WebKit clips only
    an inline-block's contents to its text; one word lays out the same either
    way. The strip overhangs the box vertically so no glyph outruns it; the

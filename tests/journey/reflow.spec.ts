@@ -149,7 +149,7 @@ function emptyGridCells(): string[] {
  * the journey's workers share them. Each page loads once per device and is
  * then resized and its text enlarged in place, as a phone turned on its side
  * or a reader zooming does: the layout and the scripts (ResizeObserver and
- * matchMedia listeners in main.js) answer a resize, so this sees what a fresh
+ * matchMedia listeners in src/scripts/main.ts) answer a resize, so this sees what a fresh
  * load at each width would, for a third of the page loads.
  */
 const PARTS = 4;

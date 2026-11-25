@@ -8,7 +8,7 @@
  * phones and tablets; `rail` sits beside the text on wide screens. Both stay in
  * view while reading: the rail beside the text, the disclosure as a bar under
  * the fixed nav that names the part being read and where it falls ("4/7"), and
- * opens over the text (t25430). main.js marks the part being read
+ * opens over the text (t25430). src/scripts/main.ts marks the part being read
  * (aria-current), fills the bar, and closes it after a jump; CSS lights the
  * section that holds the part.
  *
@@ -77,7 +77,7 @@ for (const h of headings) {
 .toc ol ol a { padding-left: var(--sp-4); font-size: .9em; }
 .toc li:has(> ol a[aria-current]) > a { color: var(--white); }
 /* Phones and tablets: a bar the width of the screen that stays under the fixed
-   nav (--nav-h, measured by main.js) while the article is read, and leaves with
+   nav (--nav-h, measured by main.ts) while the article is read, and leaves with
    the article. Its list opens over the text rather than pushing it down, so the
    page under the reader does not move. A screen too short to spare the bar
    (a phone on its side) keeps it in place above the text. */
