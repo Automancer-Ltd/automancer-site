@@ -1627,26 +1627,35 @@ check_sentry_inert() {
 # non-zero when the page or one of its bundles cannot be fetched.
 SENTRY_LABEL=''
 collect_homepage_bundles() {
-  local outfile=$1 url="${BASE_URL}/" script
+  local outfile=$1 url="${BASE_URL}/" script inline
   local -a scripts=()
   SENTRY_LABEL=''
   fetch_body "$url" || return 1
-  # Same-origin JS the homepage actually loads. Sentry, when the DSN is
-  # present, is an /_astro/ chunk. When PUBLIC_AUT_SENTRY_WEB_DSN is unset
-  # or renamed, Sentry is tree-shaken and only /assets/js/main.js ships —
-  # so a check that requires /_astro/*.js would blame the page for not
-  # rendering, which is the wrong diagnosis for the failure this exists
-  # to catch.
+  # Same-origin JS the homepage actually loads. Every page runs one page-load
+  # module (BaseLayout.astro: the Sentry bootstrap, prefetch and main.ts).
+  # When the DSN is present it lazily imports Sentry, so it is an /_astro/
+  # file. When PUBLIC_AUT_SENTRY_WEB_DSN is unset or renamed, Sentry is
+  # tree-shaken, the module imports nothing and Astro writes it into the page
+  # as an inline <script type="module"> — so a check that required
+  # /_astro/*.js would blame the page for not rendering, which is the wrong
+  # diagnosis for the failure this exists to catch. Read both.
   while IFS= read -r script; do
     [[ -n $script ]] || continue
     scripts+=("$script")
   done < <(grep -oE '/(_astro|assets)/[^"[:space:]>]+\.js' "$BODY_FILE" | sort -u || true)
+  : >"$outfile"
+  inline=$(python3 -I -c '
+import re, sys
+html = open(sys.argv[1], encoding="utf-8", errors="replace").read()
+bodies = re.findall(r"<script type=\"?module\"?>(.*?)</script>", html, re.S)
+open(sys.argv[2], "a", encoding="utf-8").write("\n".join(bodies))
+print(len(bodies))
+' "$BODY_FILE" "$outfile") || inline=0
   rm -f "$BODY_FILE"
-  if (( ${#scripts[@]} == 0 )); then
-    printf 'could not find a /_astro/*.js or /assets/*.js bundle on %s — the page did not render as expected\n' "$url"
+  if (( ${#scripts[@]} == 0 && inline == 0 )); then
+    printf 'could not find a /_astro/*.js bundle or an inline module script on %s — the page did not render as expected\n' "$url"
     return 1
   fi
-  : >"$outfile"
   for script in "${scripts[@]}"; do
     if ! fetch_body "${BASE_URL}${script}"; then
       return 1
@@ -1655,6 +1664,7 @@ collect_homepage_bundles() {
     rm -f "$BODY_FILE"
   done
   SENTRY_LABEL="${scripts[*]}"
+  (( inline == 0 )) || SENTRY_LABEL="${SENTRY_LABEL:+$SENTRY_LABEL + }${inline} inline module script(s) on /"
   return 0
 }
 
@@ -2510,20 +2520,23 @@ Canonical: ${canonical_url}
 
   # Rename case: sentry.ts still reads PUBLIC_AUT_SENTRY_WEB_DSN, so a
   # differently-named CI variable produces a production build with Sentry
-  # tree-shaken out. Only /assets/js/main.js ships. That must fail naming
-  # the variable, not "the page did not render".
-  self_test_scenario '{"routes":{"/":{"status":200,"body":"<script src=/assets/js/main.js></script>"},"/assets/js/main.js":{"status":200,"body":"console.log(1)"}},"default":{"status":404,"body":""}}'
+  # tree-shaken out, and the page-load module is written into the page. That
+  # must fail naming the variable, not "the page did not render".
+  self_test_scenario '{"routes":{"/":{"status":200,"body":"<script type=module>console.log(1)</script>"}},"default":{"status":404,"body":""}}'
   self_test_expect fail "renamed PUBLIC_AUT_SENTRY_WEB_DSN leaves no ingest DSN" check_sentry_live
   self_test_scenario '{"routes":{"/":{"status":200,"body":"<script src=/_astro/app.js></script>"},"/_astro/app.js":{"status":200,"body":"const dsn=o4511673494732800.ingest.de.sentry.io/4511769898647632"}},"default":{"status":404,"body":""}}'
   self_test_expect pass "renamed PUBLIC_AUT_SENTRY_WEB_DSN leaves no ingest DSN" check_sentry_live
 
   # Preview mode inverts the Sentry assertion. A preview that ships a real DSN
   # would report into the production error budget; a preview built without the
-  # variable (the intended state) ships only /assets/js/main.js.
+  # variable (the intended state) ships its page-load module inline.
   self_test_scenario '{"routes":{"/":{"status":200,"body":"<script src=/_astro/app.js></script>"},"/_astro/app.js":{"status":200,"body":"const dsn=o4511673494732800.ingest.de.sentry.io/4511769898647632"}},"default":{"status":404,"body":""}}'
   self_test_expect fail "preview target serves no Sentry ingest DSN" check_sentry_inert
-  self_test_scenario '{"routes":{"/":{"status":200,"body":"<script src=/assets/js/main.js></script>"},"/assets/js/main.js":{"status":200,"body":"console.log(1)"}},"default":{"status":404,"body":""}}'
+  self_test_scenario '{"routes":{"/":{"status":200,"body":"<script type=module>console.log(1)</script>"}},"default":{"status":404,"body":""}}'
   self_test_expect pass "preview target serves no Sentry ingest DSN" check_sentry_inert
+  # An inline module that carries a DSN is caught too.
+  self_test_scenario '{"routes":{"/":{"status":200,"body":"<script type=module>const dsn=o4511673494732800.ingest.de.sentry.io/4511769898647632</script>"}},"default":{"status":404,"body":""}}'
+  self_test_expect fail "preview target serves no Sentry ingest DSN" check_sentry_inert
 
   self_test_expect fail "TLS certificate expiry date is parseable" parse_tls_expiry "notAfter=not-a-date"
   self_test_expect pass "TLS certificate expiry date is parseable" parse_tls_expiry "notAfter=Jan 1 00:00:00 2099 GMT"

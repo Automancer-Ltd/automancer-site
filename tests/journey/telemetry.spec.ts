@@ -61,7 +61,12 @@ test('error reports keep source locations without raw browser data', async ({ pa
   expect(envelopes, 'monitoring stays quiet before an error').toHaveLength(0);
   // An error with a frame from one of the page's own scripts is reported, and only
   // that frame is kept: the other frame's path is not one the page loaded.
-  await page.evaluate(async () => {
+  // The page-load module (Sentry bootstrap, prefetch, src/scripts/main.ts) is one of them.
+  const ownScript = new URL(
+    (await page.locator('script[src*="/_astro/BaseLayout.astro_astro_type_script_"]').getAttribute('src'))!,
+    page.url(),
+  ).href;
+  await page.evaluate(async (ownScript) => {
     window.dispatchEvent(new Event('visibilitychange'));
     history.pushState({}, '', '/FACTORY_TEST_PATH?campaign=FACTORY_TEST_HISTORY#FACTORY_TEST_HASH');
     console.warn('FACTORY_TEST_CONSOLE', { business: 'FACTORY_TEST_BUSINESS' });
@@ -71,11 +76,11 @@ test('error reports keep source locations without raw browser data', async ({ pa
     const error = new TypeError('FACTORY_TEST_MESSAGE', { cause });
     error.stack = [
       'TypeError: FACTORY_TEST_MESSAGE',
-      `    at FACTORY_TEST_FUNCTION (${location.origin}/assets/js/main.js?v=FACTORY_TEST_STACK#FACTORY_TEST_FRAME:12:34)`,
+      `    at FACTORY_TEST_FUNCTION (${ownScript}?v=FACTORY_TEST_STACK#FACTORY_TEST_FRAME:12:34)`,
       `    at submit (${location.origin}/FACTORY_TEST_FRAME_PATH:56:78)`,
     ].join('\n');
     window.dispatchEvent(new ErrorEvent('error', { error }));
-  });
+  }, ownScript);
   await expect.poll(() => reports.length).toBe(1);
   // An error with no frame from the page's own scripts names nothing the site can
   // fix. The bootstrap drops it instead of filing another empty
@@ -110,7 +115,7 @@ test('error reports keep source locations without raw browser data', async ({ pa
   const exception = report.exception?.values?.find((value) => value.type === 'TypeError');
   const frames = exception?.stacktrace?.frames ?? [];
   expect(frames).toContainEqual(expect.objectContaining({
-    filename: new URL('/assets/js/main.js', page.url()).href,
+    filename: ownScript,
     lineno: 12,
     colno: 34,
   }));

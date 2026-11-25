@@ -10,7 +10,7 @@
 
    On paper: black ink on white; everything a scroll would reveal is shown;
    navigation, motion, glows and buttons are left out; FAQ answers print open
-   (main.js opens them for the print and closes them after); links in an
+   (src/scripts/main.ts opens them for the print and closes them after); links in an
    article print where they go; headings stay with what follows; and the page
    ends with the company's details and its own address. Nothing here applies
    on screen.
@@ -84,7 +84,7 @@
   .case-card, .offer__catch { border-color: var(--border) !important; }
 
   /* The FAQ answers print with their questions. */
-  /* (main.js opens them before printing; this covers a print without scripts
+  /* (main.ts opens them before printing; this covers a print without scripts
      in browsers that style the details' content box.) */
   .faq details::details-content { content-visibility: visible !important; display: block !important; }
 

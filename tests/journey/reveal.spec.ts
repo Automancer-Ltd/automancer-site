@@ -1,6 +1,7 @@
 /**
- * Content never waits for main.js (t25989). The scroll reveals used to start
- * every `.reveal` at opacity 0 and leave it to main.js to show it, so:
+ * Content never waits for a script (t25989). The scroll reveals used to start
+ * every `.reveal` at opacity 0 and leave it to main.js (now src/scripts/main.ts,
+ * in the page-load module) to show it, so:
  *
  * - a page whose script never ran (a failed request, a blocked file) kept 6,567
  *   characters of text invisible across 9 pages, 71% of /services/ and three of
@@ -9,7 +10,7 @@
  *   on a 1280×800 laptop, stayed blank until the visitor scrolled, because the
  *   observer's threshold never saw enough of it.
  *
- * Now global.css fades every reveal in from first paint, and main.js hides again
+ * Now global.css fades every reveal in from first paint, and main.ts hides again
  * only what is still below the fold. These hold both halves, and that the scroll
  * reveal itself still happens.
  */
@@ -50,17 +51,19 @@ function invisibleText(onScreenOnly: boolean): string[] {
   return found;
 }
 
-test('every page shows all of its text when main.js never runs', async ({ page }, info) => {
+test('every page shows all of its text when its script never runs', async ({ page }, info) => {
   test.skip(info.project.name !== 'mobile', 'one width is enough: the reveal rules are the same at every width');
   test.setTimeout(120_000);
-  await page.route('**/assets/js/main.js*', (route) => route.abort());
+  // The page-load module (Sentry bootstrap, prefetch, src/scripts/main.ts) is an /_astro/ file
+  // in a build with monitoring on, as this one is (playwright.config.ts) and production's is.
+  await page.route('**/_astro/*.js', (route) => route.abort());
   const failures: string[] = [];
   for (const path of await sitemapPaths(page)) {
     await page.goto(path);
     await settle(page);
     failures.push(...(await page.evaluate(invisibleText, false)).map((t) => `${path}: ${t}`));
   }
-  expect(failures, 'text left invisible without main.js').toEqual([]);
+  expect(failures, 'text left invisible without the page script').toEqual([]);
 });
 
 test('what is on the first screen shows without scrolling', async ({ page }) => {

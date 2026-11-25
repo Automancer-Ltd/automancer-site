@@ -118,7 +118,7 @@ test('decorative motion runs on the compositor', async ({ page }) => {
       await page.locator(reading).first().scrollIntoViewIfNeeded();
       await expect(page.locator(reading).first()).not.toHaveClass(/motion-paused/);
     }
-    // main.js has paused what is offscreen (the footer's tagline always is).
+    // main.ts has paused what is offscreen (the footer's tagline always is).
     await expect(page.locator('.footer .spectral-text')).toHaveClass(/motion-paused/);
     const repainting = await page.evaluate(() =>
       document.getAnimations()

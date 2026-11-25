@@ -36,8 +36,11 @@ import { DIST, measureAllPages } from './support/perf';
  * and Safari fetch the links they keep on screen (src/scripts/prefetch.ts).
  * Re-measured 2026-11-24 (t25430): 164,507 B, now the care-provider case study. main.js grew
  * 1,568 B on every page: the phone contents bar that stays under the nav (ArticleContents.astro).
+ * Re-measured 2026-11-25 (t26489): 162,421 B, now /developers/ (166,964 B before). main.js became
+ * src/scripts/main.ts in the one page-load module, minified: every page's script went from 14,211 B
+ * in two files to 9,948 B in one, and the module's comment left the HTML (−401 B a page).
  */
-const LAYOUT_MEASURED = 164507;
+const LAYOUT_MEASURED = 162421;
 
 /**
  * Layout pages that genuinely need more than the default, each with its own
@@ -55,8 +58,8 @@ const GROWS_WITH_CONTENT: Record<string, string> = {
   '/releases/': 'the whole of CHANGELOG.md, about 1 KB of HTML per release',
 };
 
-/** JS measured 2026-11-24. Identical on every layout page. */
-const MEASURED_JS = 14150; // main.js (8,241 B; opens the FAQ for a print, t23850; the phone contents bar, t25430; +347 B so only what is below the fold waits for a scroll, t25989) + the one page-load module (5,823 B): the Sentry bootstrap (src/scripts/sentry.ts) and the Firefox/Safari prefetch (src/scripts/prefetch.ts: hover ~1,160 B, t23288; touch screens +737 B, t24026)
+/** JS measured 2026-11-25. Identical on every layout page. */
+const MEASURED_JS = 9948; // the one page-load module (BaseLayout.astro): the Sentry bootstrap (src/scripts/sentry.ts), the Firefox/Safari prefetch (src/scripts/prefetch.ts: hover ~1,160 B, t23288; touch screens +737 B, t24026) and what every page does once read (src/scripts/main.ts: the module grew 5,970 → 9,948 B; until t26489 the separate, unminified public/assets/js/main.js at 8,241 B)
 /**
  * The Sentry SDK chunk, fetched only when a visitor's page first throws. It
  * is the error path's whole cost, so it is pinned too: importing the SDK as a
@@ -111,11 +114,11 @@ describe('page-weight budgets', () => {
   });
 
   it('keeps JavaScript within budget on every layout page', () => {
-    const budget = MEASURED_JS + headroom(MEASURED_JS); // 15174 B from 14150 B @ 2026-11-24
+    const budget = MEASURED_JS + headroom(MEASURED_JS); // 10972 B from 9948 B @ 2026-11-25
     for (const p of layoutPages) {
       expect(
         p.jsBytes,
-        `${p.route}: js ${p.jsBytes} B > budget ${budget} B (measured ${MEASURED_JS} B on 2026-11-24). ` +
+        `${p.route}: js ${p.jsBytes} B > budget ${budget} B (measured ${MEASURED_JS} B on 2026-11-25). ` +
           'A script grew or a new one was added.',
       ).toBeLessThanOrEqual(budget);
     }

