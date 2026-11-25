@@ -17,14 +17,16 @@
      request tested; there is no separate CI run on `main`). It compares those bytes with the
      promises production publishes, as the pull request did, with `--allow-unreachable`: if
      production cannot be read, the release still ships (it may be the fix) and the step's warning
-     says nothing was compared. It holds no Pages or OIDC permission: only `deploy` can publish;
+     says nothing was compared. Last, it adds the files earlier releases' pages still load
+     (`ops/carry-forward.mjs`, below). It holds no Pages or OIDC permission: only `deploy` can publish;
    - `deploy` downloads the audited archive by its artifact ID, signs its SHA-256 digest
      with GitHub artifact attestations and verifies the signature, workflow and exact
      `main` commit before publishing the archive with `actions/deploy-pages`. Then it runs
      `ops/verify-production.sh --expected-revision "$GITHUB_SHA" https://automancer.uk`
      against production itself. A red verify is a red release;
    - the `journey` job then runs the same Playwright visitor journey against `https://automancer.uk`
-     (read-only: the enquiry endpoint and Turnstile are stubbed, nothing is sent).
+     (read-only: the enquiry endpoint and Turnstile are stubbed, nothing is sent), and checks that
+     every file `/_carried.json` lists answers 200 (`node ops/carry-forward.mjs --check`).
 3. Record the production verification with estate-watch (`deploy-verify` skill in Executor):
    `deploy.start({ product: "site", url: "https://automancer.uk", commit })` straight after the
    merge, with the merge commit's full SHA (it exists only once merged) and before Pages publishes
@@ -369,6 +371,25 @@ Undo via Executor `sentry-guarded` (`projects.updateProject` and `projects.updat
   passes the Worker no context, so local serving keeps no copies (the tests stand in a cache).
   Roll back by deploying the preceding Worker version: kept copies are then never read, and the
   cache drops them after 7 days.
+- **Earlier releases' files stay served (t26531, 25 Nov 2026):** a kept page can be several
+  releases old on a quiet page (seen live on 25 Nov: 4 of 10 pages were copies from 24-25 Nov),
+  and so can a browser's own copy or an open tab. Such a page names its own build's page-load
+  module, Sentry chunk and compression dictionary, under content-hashed names a later Pages
+  artifact did not hold, so it loaded with two 404s and ran no script: the phone menu stayed open
+  after a tap outside, the contents bar showed no position, and reveals, prefetch and error
+  reports were off. The deploy's build job now runs `node ops/carry-forward.mjs --dist=dist`
+  after the audit: it reads production's `/_carried.json` (every file under `/_astro/` and
+  `/_dictionary/` that release serves, and when each stopped being built), and adds each file
+  this build no longer makes that stopped being built less than 8 days ago (`KEEP_DAYS`: kept
+  pages live 7), as production's own bytes, with its `.br` copy when that decodes to the same
+  bytes. It never overwrites a built file. Without a ledger (the first release with one) it reads
+  the files production's pages and their scripts name. If production cannot be read the release
+  ships with nothing carried and the step says so. The carried files come after the audit
+  because they are earlier releases' audited bytes, and the budgets measure this build's own.
+  Verify: `node ops/carry-forward.mjs --check` (the journey job runs it) asks for every listed
+  file; `curl -sI https://automancer.uk/_dictionary/<the previous release's hash>.txt` answers 200.
+  Roll back by reverting the pull request: the next release then carries nothing, and the files
+  already carried stay only in the release that carried them.
 - **HTML byte ranges (t25022):** a range on HTML returns the whole page with `Accept-Ranges: none`.
   Removing the Pages lock changes byte offsets, so a partial copy from Pages can truncate the
   document or cause a Worker error. The local Pages stand-in supports single ranges and the

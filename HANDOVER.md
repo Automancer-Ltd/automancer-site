@@ -7,7 +7,7 @@ It does not outrank anything: `VISION.md` is authority 0 and `SPEC.md` describes
 When this file and `SPEC.md` disagree about what exists, `SPEC.md` and the code are right and this
 file is out of date.
 
-Last updated: 25 November 2026 (main.js became typed src/scripts/main.ts in the page-load module, t26489).
+Last updated: 25 November 2026 (earlier releases' scripts and dictionary carried forward on deploy, t26531).
 
 ## Where the site stands against the vision
 
@@ -125,6 +125,29 @@ The former cache and release-note slices shipped in PRs #164 and #165 respective
 "gap above a field note's first paragraph on phones" slice is dropped from the list: t22126
 measured every note's opening line already on a 390×844 phone's first screen (17 of 17), so the
 gap is a spacing taste call, not lost content.
+
+## Performance slice: a page kept from an earlier release still runs its script (25 November 2026, t26531)
+
+The edge Worker serves a kept copy of a page first, for up to 7 days (t25774). On a quiet page that
+copy is often several releases old: on 25 Nov, 4 of 10 pages read from London and Manchester came
+from releases of 24-25 Nov, and each named a page-load module and dictionary the live Pages
+artifact no longer held. They loaded with two 404s and no script: the phone menu stayed open after
+a tap outside, the contents bar showed no position, and reveals, prefetch and error reports were
+off. A field note or case study reached from search is exactly that first view.
+
+- What shipped: `ops/carry-forward.mjs`, run by the deploy's build job after the audit. Each
+  release publishes `/_carried.json` (every file under `/_astro/` and `/_dictionary/` it serves,
+  and when each stopped being built) and adds production's files that its own build no longer
+  makes and that stopped being built under 8 days ago, as production's bytes with their `.br`.
+  The journey job runs `--check`: every listed file must answer 200. `tests/carry-forward.test.ts`
+  runs it through the edge Worker against the built `dist/` (first release without a list, the
+  list carried on, the 8-day cut-off, production unreachable).
+- Measured (Playwright, 390 px, production's live HTML for 5 pages opened on a newer build): before,
+  each page's module and dictionary answered 404 (10 failed requests) and the menu stayed open
+  after a tap outside on all 5; after, no request failed and the menu closed on all 5.
+- Not covered: kept copies from before t26489 name `/assets/js/main.js?v=`, outside the carried
+  directories; they age out by 2 December 2026. Words on a kept page are still one view behind.
+- Undo: revert the PR. Nothing else reads `/_carried.json`; no Worker deploy either way.
 
 ## Codebase slice: no untyped browser code left on every page (25 November 2026, t26489)
 

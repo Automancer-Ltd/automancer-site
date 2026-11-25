@@ -94,6 +94,16 @@ jobs:
         timeout-minutes: 3
         run: node ops/contract/check-surface.mjs --baseline=https://automancer.uk --candidate=dist --allow-unreachable
 
+      # Pages kept at the edge, in a browser or in an open tab can come from an earlier release,
+      # and name the scripts and compression dictionary that release built (t26531). Add each one
+      # production serves that this build no longer makes and that stopped being built less than
+      # 8 days ago, as production's own bytes, and publish the list (/_carried.json) for the next
+      # release. After the audit: those files belong to releases already audited, and the budgets
+      # measure this build's own. If production cannot be read, nothing is carried and it says so.
+      - name: Keep the files earlier releases' pages load
+        timeout-minutes: 3
+        run: node ops/carry-forward.mjs --dist=dist --from=https://automancer.uk
+
       - name: Upload artifact
         id: pages-artifact
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
@@ -198,3 +208,9 @@ jobs:
         run: pnpm run journey
         env:
           JOURNEY_URL: https://automancer.uk
+
+      # Every script and dictionary this release or an earlier one listed in /_carried.json
+      # answers, so a page kept from an earlier release still runs its script (t26531).
+      - name: Earlier releases' files still answer
+        if: ${{ !cancelled() }}
+        run: node ops/carry-forward.mjs --check --from=https://automancer.uk
