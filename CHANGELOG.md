@@ -1,5 +1,10 @@
 # Release notes
 
+## v2026.11.25.3 — 25 November 2026
+
+Visitors opening a recently cached page can still use its page features while a new release is deployed.
+
+
 ## v2026.11.25.2 — 25 November 2026
 
 Pages load 30% less JavaScript, with the scripts combined into one file. Returning visitors also avoid downloading the old separate script again.
