@@ -1,7 +1,7 @@
 # 05 Contact and the enquiry form
 
-**The journey.** A visitor can email Waseem, leave a voicemail, or start the form from the first
-screen on a phone or laptop. In the form they get told plainly what is missing, send it, and see
+**The journey.** A visitor can email Waseem, leave a voicemail, or see all the required enquiry
+fields on the first screen at 390×844 and 1280×800. In the form they get told what is missing, send it, and see
 the confirmation. If the security check or the intake service fails, they keep what they wrote
 and get a working email route.
 
@@ -19,8 +19,10 @@ picked and named above the first field.
   the choice, the address following the pick, and the closed details still reaching the endpoint.
   An unknown `?service=` picks nothing.
 - `with reduced motion, the form jumps straight to its error and its confirmation`.
-- `the direct contact links and first form field fit on the first screen`: correct email and
+- `the direct contact links and required form fields fit on the first screen`: correct email and
   phone destinations, keyboard order into the form, and usable navigation at 200% text.
+- `the security check takes space only after it mounts and fits a narrow screen`: the check
+  leaves no empty row before it loads, and the standard widget fits at 320px and 200% text.
 - `reading the contact page never starts the security check, but using the form does`.
 - `a slow security script offers email without losing the draft or preventing a later send`.
 - `a refused or failed send keeps the enquiry and never shows an error code` and
