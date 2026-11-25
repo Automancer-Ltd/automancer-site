@@ -240,17 +240,14 @@ normal navigation and contact flow run without CSP errors, locally and after eve
 Since t21659 the policy also turns on Trusted Types (`require-trusted-types-for 'script'`): the
 browser refuses any plain string written into a DOM sink that makes HTML or script (`innerHTML`,
 `outerHTML`, `insertAdjacentHTML`, `DOMParser`, `createContextualFragment`, `srcdoc`, a script's
-`src` or text, `on*` attributes, string eval). So an injected string can add no markup, link, form
-or script, even through code the policy lets run. `trusted-types 'none'` forbids creating any
-policy; `BaseLayout`'s `trustedTypes` prop names the exceptions, and the only one is `/contact/`'s
-`turnstile` policy, which returns Turnstile's exact script URL and throws for anything else. A new
-sink (say a library that sets `innerHTML`) breaks in the browser, not silently: rewrite it with DOM
-methods (`textContent`, `createElement`) or add a named, narrow policy here deliberately. Probed on
-production before shipping with the policy in report-only: every sitemap page, the 404, the lazily
-loaded Sentry SDK and the real Turnstile widget hit no sink except our own loader. The journey's
-"refuse ... HTML strings" probe proves each sink is refused, and the telemetry test that the SDK
-reports with no refusal. Browsers without Trusted Types ignore both directives and the loader
-falls back to a plain URL.
+`src` or text, `on*` attributes, string eval). Every page sets `trusted-types 'none'` to forbid
+policy creation. Contact keeps Cloudflare's script in a template in the head. On first interaction,
+the form checks and clones the fixed script element. The browser can load it without setting a
+script URL at runtime. Contact's `script-src` allows the widget's entry path and its same-host
+redirect to a versioned URL (t26719).
+The browser journey checks that Contact can load the widget while refusing policy creation from
+its first module. The production verifier checks the script allowlist and Trusted Types policy.
+Roll back through a PR reverting this change so GitHub Pages republishes the previous loader.
 The periodic HTTP verifier does not test script execution. The Worker's framing/base/object policy
 below applies alongside this policy; no Worker deploy is needed for a page-policy change.
 

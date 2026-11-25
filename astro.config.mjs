@@ -119,7 +119,7 @@ export default defineConfig({
   // Astro and InlineScript authorize approved script bytes at build time. Unhashed
   // inline JavaScript and eval stay blocked; the external application script
   // and lazy Sentry modules load from our origin. Turnstile is the only
-  // third-party script source, added only by contact.astro.
+  // third-party script, allowed by its entry URL only on contact.astro.
   //
   // Everything else a page may load or send to is listed too, starting from
   // nothing (default-src 'none'), so the browser itself enforces "no
@@ -132,8 +132,7 @@ export default defineConfig({
   // string written into a place that turns text into HTML or code (innerHTML,
   // insertAdjacentHTML, document.write, a script's src or text, on* attributes).
   // An injected string can then add no markup, link, form or script at all, even
-  // through code the policy lets run. BaseLayout names the policies a page may
-  // create: none, except /contact/'s one-URL Turnstile loader.
+  // through code the policy lets run. No page can create a Trusted Types policy.
   security: {
     csp: {
       directives: [
@@ -147,6 +146,7 @@ export default defineConfig({
         "form-action 'self'",
         "base-uri 'self'",
         "require-trusted-types-for 'script'",
+        "trusted-types 'none'",
       ],
       scriptDirective: {
         resources: [

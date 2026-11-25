@@ -939,6 +939,7 @@ if not preview and not report_origin:
     sys.exit("served JS bundle carries no Sentry DSN origin to keep out of connect-src")
 
 TURNSTILE = "https://challenges.cloudflare.com"
+TURNSTILE_ENTRY = f"{TURNSTILE}/turnstile/v0/api.js"
 ENQUIRY = "https://api.automancer.uk"
 BAD = re.compile(r"^\*|^https?://\*|^http:|unsafe-eval|^https?:$")
 
@@ -966,7 +967,7 @@ for route, path in (("/", sys.argv[3]), ("/contact/", sys.argv[4]), ("/404", sys
         ("font-src", ["'self'"]),
         ("script-src-attr", ["'none'"]),
         ("require-trusted-types-for", ["'script'"]),
-        ("trusted-types", ["turnstile"] if is_contact else ["'none'"]),
+        ("trusted-types", ["'none'"]),
     ]
     for name, want in checks:
         if pol.get(name) != want:
@@ -978,8 +979,10 @@ for route, path in (("/", sys.argv[3]), ("/contact/", sys.argv[4]), ("/404", sys
         sys.exit(f"{route} connect-src is {sorted(pol.get('connect-src', []))}, expected {sorted(want_connect)}")
     if pol.get("frame-src") != ([TURNSTILE] if is_contact else None):
         sys.exit(f"{route} frame-src is {pol.get('frame-src')}, expected {[TURNSTILE] if is_contact else None}")
-    if (TURNSTILE in pol.get("script-src", [])) != is_contact:
-        sys.exit(f"{route} script-src Turnstile presence is {not is_contact}, expected {is_contact}")
+    external_scripts = [src for src in pol.get("script-src", []) if src.startswith("https://")]
+    want_scripts = [TURNSTILE_ENTRY] if is_contact else []
+    if external_scripts != want_scripts:
+        sys.exit(f"{route} script-src external sources are {external_scripts}, expected {want_scripts}")
     for name, srcs in pol.items():
         for src in srcs:
             if BAD.search(src):
@@ -2196,7 +2199,7 @@ self_test() {
 
   # Served page <meta> CSP + Trusted Types + connect-src of this site alone.
   local base_csp="default-src 'none'; connect-src 'self'; img-src 'self' data:; font-src 'self'; manifest-src 'self'; form-action 'self'; base-uri 'self'; require-trusted-types-for 'script'; trusted-types 'none'; script-src 'self'; script-src-attr 'none'"
-  local contact_csp="default-src 'none'; connect-src 'self' https://api.automancer.uk; img-src 'self' data:; font-src 'self'; manifest-src 'self'; form-action 'self'; base-uri 'self'; require-trusted-types-for 'script'; trusted-types turnstile; frame-src https://challenges.cloudflare.com; script-src 'self' https://challenges.cloudflare.com; script-src-attr 'none'"
+  local contact_csp="default-src 'none'; connect-src 'self' https://api.automancer.uk; img-src 'self' data:; font-src 'self'; manifest-src 'self'; form-action 'self'; base-uri 'self'; require-trusted-types-for 'script'; trusted-types 'none'; frame-src https://challenges.cloudflare.com; script-src 'self' https://challenges.cloudflare.com/turnstile/v0/api.js; script-src-attr 'none'"
   local dsn_js='const dsn="https://0123456789abcdef0123456789abcdef@o4511673494732800.ingest.de.sentry.io/4511769898647632"'
   python3 - "$SELFTEST_SCENARIO" "$base_csp" "$contact_csp" "$dsn_js" <<'PY'
 import json, sys
@@ -2238,6 +2241,18 @@ open(out, "w").write(json.dumps({
 PY
   self_test_expect pass "served pages carry <meta http-equiv=content-security-policy>" check_page_csp
   self_test_expect pass "served page connect-src keeps the bundled Sentry DSN origin out" check_page_csp
+  self_test_expect pass "served contact page restricts the Turnstile script to its entry path" check_page_csp
+  python3 - "$SELFTEST_SCENARIO" <<'PY'
+import json, sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+scenario = json.loads(path.read_text())
+contact = scenario["routes"]["/contact/"]
+contact["body"] = contact["body"].replace("https://challenges.cloudflare.com/turnstile/v0/api.js", "https://challenges.cloudflare.com")
+path.write_text(json.dumps(scenario))
+PY
+  self_test_expect fail "served contact page restricts the Turnstile script to its entry path" check_page_csp
 
   # The edge Worker's error tunnel refuses another site, another project and batches.
   local problem='"headers":{"Content-Type":"application/problem+json"}'

@@ -10,7 +10,7 @@
  * button for the draft.
  *
  * Cloudflare Turnstile loads only when someone uses the form, and mounts in a typing pause
- * (t24160). The page's Trusted Types policy lets this module create one script URL, Turnstile's.
+ * (t24160). The script URL is already in the page's inert template.
  *
  * The page-specific facts (the address, the draft's field labels, the service names) come from
  * the form's data-enquiry attribute, written by contact.astro from src/data/enquiry.ts; the
@@ -18,7 +18,7 @@
  * Astro bundles this module into the page itself (it imports nothing at run time), and its CSP
  * hash is added to the page's policy, as before.
  */
-import { ENDPOINT_URL, FIELD_LIMITS, LEAD_ERROR_COPY, LEAD_ERROR_FALLBACK } from '../config/site';
+import { ENDPOINT_URL, FIELD_LIMITS, LEAD_ERROR_COPY, LEAD_ERROR_FALLBACK, TURNSTILE_SCRIPT_URL } from '../config/site';
 
 /** What contact.astro writes into the form's data-enquiry attribute. */
 export interface EnquiryPageData {
@@ -38,17 +38,11 @@ interface TurnstileApi {
   render(slot: Element, options: Record<string, unknown>): void;
 }
 
-/** Trusted Types, as far as this module uses them (Chromium; absent elsewhere). */
-interface ScriptUrlPolicy {
-  createScriptURL(url: string): unknown;
-}
-
 declare global {
   interface Window {
     turnstile?: TurnstileApi;
     onTurnstileLoad?: () => void;
     onTurnstileError?: () => boolean;
-    trustedTypes?: { createPolicy(name: string, rules: { createScriptURL(url: string): string }): ScriptUrlPolicy };
   }
   interface Document {
     /** True while Chromium prerenders the page (Speculation Rules, BaseLayout.astro). */
@@ -63,7 +57,6 @@ interface ApiAnswer {
   retryAfterMs?: unknown;
 }
 
-const TURNSTILE_SRC = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=onTurnstileLoad';
 const SECURITY_CHECK_COPY = 'The security check could not load.';
 const SEND_LABEL = 'Send it to Waseem';
 
@@ -273,35 +266,21 @@ function start(form: HTMLFormElement): void {
     turnstileState = 'loaded';
     scheduleTurnstileRender();
   };
-  // The page refuses plain strings as script URLs (Trusted Types, astro.config.mjs).
-  // This page's one policy can produce exactly Turnstile's URL and nothing else.
-  let turnstilePolicy: ScriptUrlPolicy | null = null;
-  try {
-    turnstilePolicy =
-      window.trustedTypes?.createPolicy('turnstile', {
-        createScriptURL(url: string) {
-          if (url !== TURNSTILE_SRC) throw new TypeError('Only the Turnstile script may load here');
-          return url;
-        },
-      }) ?? null;
-  } catch {}
   function loadTurnstile(): void {
     if (turnstileState !== 'idle' || !slot || document.prerendering) return;
-    turnstileState = 'loading';
-    const s = document.createElement('script');
-    try {
-      // A TrustedScriptURL where the page enforces Trusted Types, else the plain URL.
-      (s as { src: unknown }).src = turnstilePolicy ? turnstilePolicy.createScriptURL(TURNSTILE_SRC) : TURNSTILE_SRC;
-    } catch {
+    const template = document.head.querySelector<HTMLTemplateElement>('template#turnstile-loader');
+    const entry = template?.content.firstElementChild;
+    if (!(entry instanceof HTMLScriptElement) || entry.getAttribute('src') !== TURNSTILE_SCRIPT_URL) {
       securityCheckUnavailable();
       return;
     }
-    s.async = true;
-    s.onerror = securityCheckUnavailable;
+    const script = entry.cloneNode(true) as HTMLScriptElement;
+    turnstileState = 'loading';
+    script.onerror = securityCheckUnavailable;
     // A stalled download does not fire onerror. Offer the draft without
     // making the visitor wait for the browser's network timeout.
     turnstileLoadTimer = setTimeout(securityCheckUnavailable, 10_000);
-    document.head.appendChild(s);
+    document.head.appendChild(script);
   }
   form.addEventListener('focusin', loadTurnstile);
   form.addEventListener('pointerdown', loadTurnstile);

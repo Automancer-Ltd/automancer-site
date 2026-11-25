@@ -31,15 +31,9 @@ export interface Props {
   pageType?: string;
   /** Site path of this page's Markdown twin, where it is not a static page. */
   markdown?: string;
-  /**
-   * Trusted Types policies this page's scripts may create (CSP trusted-types).
-   * None by default: no script on the page can turn a string into HTML or a
-   * script URL. Name one only for a sink that cannot be avoided.
-   */
-  trustedTypes?: string[];
 }
 
-const { title, description, ogType = 'website', schema = [], pageType, markdown, trustedTypes = [] } = Astro.props;
+const { title, description, ogType = 'website', schema = [], pageType, markdown } = Astro.props;
 // A field note or case study names its own card; every other page has one
 // drawn from its own words (src/data/share-cards.ts), the 404 page home's.
 const ownCard = Astro.props.image ? undefined : await pageCardFor(Astro.url.pathname);
@@ -52,7 +46,6 @@ if (offsiteLock) {
   const css = /^<style>([^<]*)<\/style>$/.exec(offsiteLock)![1]!;
   Astro.csp!.insertStyleHash(`sha256-${createHash('sha256').update(css).digest('base64')}`);
 }
-Astro.csp!.insertDirective(`trusted-types ${trustedTypes.length ? trustedTypes.join(' ') : "'none'"}`);
 const markdownUrl = markdown ? abs(markdown) : markdownTwinPath(Astro.url.pathname);
 
 // A static page's JSON-LD type comes from its staticPages entry (the same one
@@ -154,8 +147,7 @@ const SPECULATION_RULES = {
       ]}
     />
 
-    <!-- Page-specific extra <head> content: Article JSON-LD on field notes,
-         the Turnstile script on the contact page, etc. -->
+    <!-- Page-specific head content, including Contact's inert Turnstile template. -->
     <slot name="head" />
 
     {/*
