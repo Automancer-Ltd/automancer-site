@@ -121,7 +121,7 @@ export const ABOUT_PRINCIPLES: readonly { name: string; desc: string }[] = [
   { name: 'Remote-first, Bradford-rooted', desc: 'Based in Bradford and working with businesses in Leeds, Manchester, and across the UK.' },
 ];
 
-/** A linked passage as Markdown, each link made absolute with `abs`. */
+/** A linked passage as Markdown, each link made absolute with `abs` (absHref: it keeps a fragment). */
 export function linkedMarkdown(text: Linked, abs: (path: string) => string): string {
   return typeof text === 'string' ? text : text.map((part) => (typeof part === 'string' ? part : `[${part.text}](${abs(part.href)})`)).join('');
 }

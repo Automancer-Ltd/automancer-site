@@ -10,7 +10,7 @@ import { formatGBP, serviceById } from './business';
 import { contactHref } from './enquiry';
 import { noteTopic, noteTopics } from './note-topics';
 import { CLAIM_MENTIONS, SOURCES_ANCHOR, SOURCES_INTRO, evidenceAnchor, evidenceRows, publishedClaims, type ClaimId } from './claims';
-import { abs, pagePath } from './urls';
+import { abs, absHref, pagePath } from './urls';
 
 export { abs };
 export type CaseStudy = CollectionEntry<'case-studies'>;
@@ -57,7 +57,7 @@ export function mdResponse(markdown: string): Response {
 
 /** The Audit button every case study and field note ends with, as a Markdown link. */
 const auditLink = () =>
-  `[Book an Audit — from ${formatGBP(serviceById('automation-opportunity-audit').priceFrom)}](${abs(contactHref('automation-opportunity-audit'))})`;
+  `[Book an Audit — from ${formatGBP(serviceById('automation-opportunity-audit').priceFrom)}](${absHref(contactHref('automation-opportunity-audit'))})`;
 
 /** Markdown twin of one case study: its page's words, the next study and the closing invitation included (t27008). */
 export function studyMarkdown(entry: CaseStudy, next?: CaseStudy): string {

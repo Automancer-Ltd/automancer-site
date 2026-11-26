@@ -16,7 +16,8 @@
  */
 import { describe, expect, it } from 'vitest';
 import { parse, type HTMLElement as ParsedElement } from 'node-html-parser';
-import { allHtmlFiles, readDistFile, type BuiltPage } from './support/dist';
+import { allHtmlFiles, readDistFile, resolveInDist, SITE_HOST, type BuiltPage } from './support/dist';
+import { SERVICE_OPTIONS, SERVICE_PARAM } from '../src/data/enquiry';
 
 /** Elements whose end starts a new block of text, so words in neighbouring cards never run together. */
 const BLOCK = new Set([
@@ -211,6 +212,28 @@ describe('every page and its Markdown twin say the same things', () => {
   it('every sentence in a twin is on its page', () => {
     const gaps = views.flatMap((v) => missing(v.route, v.twinSentences, v.pageAll, TWIN_ONLY[v.route] ?? []));
     expect(gaps, `the twin says what its page does not: take it out, put it on the page, or name it in TWIN_ONLY with why:\n${gaps.join('\n')}`).toEqual([]);
+  });
+
+  it('every link in a twin leads to a page or file the site serves, and to its section there', () => {
+    // A link the page's script reads (#service=<offer>, #topic-…) names no element; any other fragment does.
+    const byFile = new Map(allHtmlFiles().map((p) => [p.file, p]));
+    const broken: string[] = [];
+    for (const { page, twin } of pages) {
+      for (const [, href] of twin.matchAll(/\]\((https?:\/\/[^)\s]+|\/[^)\s]*)\)/g)) {
+        const url = new URL(href!, 'https://automancer.uk');
+        if (url.host !== SITE_HOST) continue;
+        const file = resolveInDist(page.file, href!);
+        if (!file) { broken.push(`${page.route}: ${href} serves nothing`); continue; }
+        const id = decodeURIComponent(url.hash.slice(1));
+        if (id.startsWith(`${SERVICE_PARAM}=`)) {
+          if (!SERVICE_OPTIONS.some((o) => `${SERVICE_PARAM}=${o.value}` === id)) broken.push(`${page.route}: ${href} names no service`);
+          continue;
+        }
+        if (!id || id.startsWith('topic-')) continue;
+        if (!byFile.get(file)?.doc.getElementById(id)) broken.push(`${page.route}: ${href} names no element on ${file}`);
+      }
+    }
+    expect(broken).toEqual([]);
   });
 
   it('names no exception for a page without a twin', () => {

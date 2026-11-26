@@ -141,7 +141,7 @@ the agent byline the page carries.
 - `tests/twin-parity.test.ts` reads every page with a twin (29) and fails on any sentence of two
   words or more that one view has and the other lacks. Words are compared, not formatting, link
   targets or ISO-versus-written dates. Navigation is exempt (`<nav>`, `data-page-words="skip"`,
-  button and arrow links); five named exceptions remain, each with its count and reason (Contact's
+  button and arrow links); seven named exceptions remain, each with its count and reason (Contact's four
   agent instructions and no-script fallback, the work index's "add .md" pointer, the notes list's
   heading).
 - The hand-authored twins (`src/data/static-markdown.ts`) now follow their pages in order. The

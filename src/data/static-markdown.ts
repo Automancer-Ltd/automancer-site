@@ -9,7 +9,7 @@
 import { business, formatGBP, serviceById, serviceOfferAnchor } from './business';
 import { AFTER_SEND_STEPS, contactHref } from './enquiry';
 import { ABOUT_PRINCIPLES, HOME_CAPS, HOME_LADDER, HOME_PROOF, SERVICE_FAQS, SERVICE_OFFERS, linkedMarkdown } from './page-words';
-import { abs } from './urls';
+import { abs, absHref } from './urls';
 import { getReleases } from './releases';
 import { noteTopic } from './note-topics';
 import { frontMatter, mdResponse, getStudies, getNotes, noteTopicLinks, staticPages, studySourcesUrl, type CaseStudy, type PageMeta } from './site-content';
@@ -21,7 +21,7 @@ const sourcesSuffix = (e: CaseStudy) => (studySourcesUrl(e) ? ` ([Sources](${stu
 const audit = serviceById('automation-opportunity-audit');
 const auditFrom = formatGBP(audit.priceFrom);
 /** A button on the page, as a Markdown link. */
-const button = (label: string, path: string) => `[${label}](${abs(path)})`;
+const button = (label: string, path: string) => `[${label}](${absHref(path)})`;
 const auditButton = (label = 'Book an Audit') => button(`${label} — from ${auditFrom}`, contactHref(audit.id));
 /** The page's price as it reads there: "from £450", "from £495/mo". */
 const fromPrice = (s: (typeof HOME_LADDER)[number]['service']) => `from ${formatGBP(s.priceFrom)}${s.priceUnit === 'month' ? '/mo' : ''}`;
@@ -128,7 +128,7 @@ What's included:
 
 ${o.service.includes.map((item) => `- ${item}`).join('\n')}
 
-${linkedMarkdown(o.catch, abs)}`
+${linkedMarkdown(o.catch, absHref)}`
 ).join('\n\n')}
 
 ## The questions everyone asks.
