@@ -13,6 +13,9 @@ and terms, which promise that the site stores nothing in their browser.
   IndexedDB), and the legal no-mirror checks in `tests/agent-readiness.test.ts` (no twin, feed or
   payload repeats a legal sentence).
 - `every page keeps its words on screen at 320px and with text at 200%` covers all three pages.
+- `About introduces Waseem on the first screen and ends his section with the routes to him`
+  (`tests/journey/visitor.spec.ts`, t27060): his heading and first paragraph on the first screen
+  of a phone and a laptop, and the email and voicemail links at the end of his section.
 
 **End state.** The pages state the company facts from `business.ts`, the legal pages have no
 Markdown twin, and the browser stores nothing.

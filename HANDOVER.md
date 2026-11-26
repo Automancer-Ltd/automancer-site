@@ -7,7 +7,7 @@ It does not outrank anything: `VISION.md` is authority 0 and `SPEC.md` describes
 When this file and `SPEC.md` disagree about what exists, `SPEC.md` and the code are right and this
 file is out of date.
 
-Last updated: 26 November 2026 (every page and its Markdown twin say the same sentences, t27008).
+Last updated: 26 November 2026 (About introduces Waseem straight after its introduction, t27060).
 
 ## Where the site stands against the vision
 
@@ -126,6 +126,25 @@ The former cache and release-note slices shipped in PRs #164 and #165 respective
 measured every note's opening line already on a 390×844 phone's first screen (17 of 17), so the
 gap is a spacing taste call, not lost content.
 
+## Frontend slice: About introduces the person you will deal with first (26 November 2026, t27060)
+
+About exists to answer "who runs this, and who will I deal with?", but "Meet Waseem." was its third
+story: after the hero, the story of the name and the business-as-demo story, at 2,344 px on a
+390x844 phone and 2,275 px on a 1280x800 laptop. It now follows a compact introduction
+(`page-hero--compact`, as Work and Field Notes use) on the page's one white surface, at 543 px and
+631 px, his first paragraph on the first screen of both. The section ends with the two routes it
+promises, Email Waseem and Leave a voicemail (the Contact page's labels and `business.ts` values).
+The demo story (now on near-black) and the five rules (black) follow; the name story (white) closes
+the page before the call to action. Story tags renumbered (01 the human, 02 the demo, 03 the name).
+The Markdown twin follows the same order and lists the two routes as Contact's twin does.
+
+- Also fixed: "every call.The agents" (no space after the bold sentence), on the page since it was written.
+- Checks: verify 391 tests; journey 103 passed, 5 skipped, including the new "About introduces
+  Waseem on the first screen" (red on main's About at both widths); compare: only /about/ differs
+  (2 of 66 views); the design detector found nothing on `about.astro`.
+- Page height: phone 6,054 -> 6,145 px (the two routes), laptop 5,057 -> 5,031 px.
+- Undo: revert the merge.
+
 ## Slice: every sentence a person reads, a machine reads too (26 November 2026, t27008)
 
 `VISION.md` says the two views "can never disagree, because neither is allowed to say what the
@@ -133,7 +152,7 @@ other cannot". The tests held prices, service names and included lists to that, 
 each Markdown twin was retyped by hand and had drifted. Read both ways on main, the twins left out
 263 sentences their pages show (who each service is for, the Audit fee being credited, the
 Sprint's typical jobs, each note's byline "Written by an Automancer agent · reviewed and published
-by Waseem Ilyas", most of Contact) and stated 53 that no page shows. About told machines that
+by Waseem Ilyas", most of Contact) and stated 52 that no page shows. About told machines that
 Waseem's earlier company was "shipping and operating software that businesses relied on every
 day"; the page never says that. The field-notes index named Waseem as each note's author without
 the agent byline the page carries.
@@ -151,7 +170,7 @@ the agent byline the page carries.
 - No page a person sees changed: `pnpm run compare` found 0 of 66 views different. Every twin's
   words changed, so the next release re-dates no HTML page (`contentSha256` hashes the page, not
   the twin) and IndexNow announces nothing for it.
-- Proof the check catches drift: on main's twins it fails with 263 and 53 sentences.
+- Proof the check catches drift: on main's twins it fails with 263 and 52 sentences (its 53rd line is an exception-count message).
 - Undo: revert the merge. Nothing else reads `page-words.ts`.
 
 Next for this line: the JSON-LD still names Waseem Ilyas as each field note's author
