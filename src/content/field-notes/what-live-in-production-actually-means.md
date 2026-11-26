@@ -36,7 +36,7 @@ The pattern is usually the same, and it rarely has anything to do with the quali
 
 Production is not a bigger demo. It is a different standard of work. In practice it adds five things.
 
-**A source of truth.** Every record has one place it is allowed to be right, and the system checks itself against it. When we built the care provider's platform, the outputs were reconciled against the client's real exports: 500 visits, 175 medication alerts, 416 names routed to review. The point was not the numbers. The point was that the numbers could be checked.
+**A source of truth.** Every record has one place it is allowed to be right, and the system checks itself against it. When we built the care provider's platform, the outputs were reconciled against the client's real exports: [500 visits](/work/care-provider-transformation/#source-reconciliation-visit-count), [175 medication alerts](/work/care-provider-transformation/#source-reconciliation-visit-count), [416 names](/work/care-provider-transformation/#source-reconciliation-visit-count) routed to review. The point was not the numbers. The point was that the numbers could be checked.
 
 **Monitoring that tells you first.** Someone should know the job failed before the client rings. That means alerts on the things that matter, not a dashboard nobody opens.
 
