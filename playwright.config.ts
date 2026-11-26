@@ -24,6 +24,9 @@ export default defineConfig({
   testDir: 'tests/journey',
   // Every test opens its own page, so the workers share tests, not whole files.
   fullyParallel: true,
+  // GitHub's runner has 4 vCPUs and Playwright's default takes half. The journey mostly waits on
+  // pages and the network, not the processor, so CI runs one worker a vCPU (t26952).
+  workers: process.env.CI ? 4 : undefined,
   outputDir: 'test-results',
   retries: live ? 2 : 0,
   reporter: [['list']],

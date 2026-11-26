@@ -21,15 +21,17 @@ async function sitemapPaths(page: Page): Promise<string[]> {
   return [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => new URL(m[1]!).pathname).concat('/no-such-page-reveal/');
 }
 
-/** Wait for every animation that ends (the reveals), not the ambient ones that loop. */
+/**
+ * Jump every animation that ends (the reveals) to its end, not the ambient ones that loop. The
+ * page then reads as it does once they have played: waiting them out cost 820 ms or more a page,
+ * 85% of these tests' time, on every pull request and release (t26952).
+ */
 async function settle(page: Page) {
-  await page.evaluate(() =>
-    Promise.all(
-      document.getAnimations()
-        .filter((a) => a.effect?.getComputedTiming().endTime !== Infinity)
-        .map((a) => a.finished.catch(() => undefined)),
-    ),
-  );
+  await page.evaluate(() => {
+    for (const a of document.getAnimations()) {
+      if (a.effect?.getComputedTiming().endTime !== Infinity) a.finish();
+    }
+  });
 }
 
 /** Text in <main> a reader cannot see because it, or an ancestor, is (nearly) transparent. */

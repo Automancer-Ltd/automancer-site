@@ -49,14 +49,15 @@ async function scrollThrough(page: Page) {
     }
     scrollTo(0, 0);
   });
-  await page.waitForTimeout(900); // the reveal transition is 820ms
 }
 
 /** A blank or unstyled render screenshots to a tiny PNG; real pages are far larger. */
 // ponytail: a size floor, not a pixel diff. Baseline images flake across fonts and OSes.
 async function expectPainted(page: Page, name: string) {
   await scrollThrough(page);
-  const png = await page.screenshot({ fullPage: true, path: `test-results/${name}.png` });
+  // `animations: 'disabled'` draws the reveals the scroll started as they end, without waiting
+  // 820 ms or more for them to play (t26952).
+  const png = await page.screenshot({ fullPage: true, animations: 'disabled', path: `test-results/${name}.png` });
   expect(png.length, `${name} rendered (blank page?)`).toBeGreaterThan(30_000);
 }
 

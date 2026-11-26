@@ -24,6 +24,9 @@ The journeys are listed, with the tests that prove each one, in [`features/`](fe
   headers, redirects and twins are tested before a deploy as well as after it. `SKIP_BUILD=1`
   serves the `dist/` already there instead (after `pnpm run verify`, as CI does). Tests run fully
   parallel across the workers, so each must open its own page and share no state with another.
+  Never wait an animation out (`waitForTimeout`, `animation.finished`): jump finite ones to their
+  end (`animation.finish()`, or `page.screenshot({ animations: 'disabled' })`) and check the end
+  state. Waiting out the 820 ms reveals was a third of the journey's time (t26952).
 - **Journey, any served copy:** `JOURNEY_URL=<origin> pnpm run journey` runs the same tests
   read-only against that origin (`deploy.yml` does this on `https://automancer.uk` after
   publishing). The enquiry endpoint and Turnstile are stubbed in every run, so no run ever sends a
