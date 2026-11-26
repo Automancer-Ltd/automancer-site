@@ -14,6 +14,9 @@ regexes = [
   '''example(_|-)?(api|token|secret|key)''',
   '''your-[a-z0-9-]+''',
   '''<[a-z0-9_-]+>''',
+  # The IndexNow key (ops/indexnow.mjs, t26811). It is public by design: production serves it at
+  # /<key>.txt for search engines to check. Only this exact value is allowed.
+  '''66b4dcf893fce47c732bb1db048576ff''',
 ]
 paths = [
   '''(^|/)\.git/''',

@@ -40,6 +40,7 @@ jobs:
     timeout-minutes: 20
     outputs:
       pages-artifact-id: ${{ steps.pages-artifact.outputs.artifact_id }}
+      indexnow-urls: ${{ steps.indexnow.outputs.urls }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -93,6 +94,14 @@ jobs:
       - name: Keep every promise production publishes to machines
         timeout-minutes: 3
         run: node ops/contract/check-surface.mjs --baseline=https://automancer.uk --candidate=dist --allow-unreachable
+
+      # Which pages this release adds, changes or removes, by their words, against what production
+      # serves now (t26811). The journey job announces them to search engines once they are live.
+      # Production does not change until this run's deploy, so it is read here.
+      - name: Plan which pages to announce to search engines
+        id: indexnow
+        timeout-minutes: 2
+        run: node ops/indexnow.mjs --plan --dist=dist --from=https://automancer.uk
 
       # Pages kept at the edge, in a browser or in an open tab can come from an earlier release,
       # and name the scripts and compression dictionary that release built (t26531). Add each one
@@ -174,7 +183,7 @@ jobs:
   # endpoint and Turnstile are stubbed, so nothing is sent. Its own job, with
   # neither pages: write nor id-token, because it runs `pnpm install`.
   journey:
-    needs: deploy
+    needs: [build, deploy]
     runs-on: ${{ fromJSON(vars.CI_RUNNER || '"ubuntu-24.04"') }}
     timeout-minutes: 20
     permissions:
@@ -214,3 +223,16 @@ jobs:
       - name: Earlier releases' files still answer
         if: ${{ !cancelled() }}
         run: node ops/carry-forward.mjs --check --from=https://automancer.uk
+
+      # IndexNow (ops/indexnow.mjs): the engines that share its submissions (Bing, Yandex, Seznam,
+      # Naver, Yep) hear about the changed pages now rather than on their next crawl. Last, after
+      # the edge reload above, so an engine fetching a page gets this release, and so a refusal
+      # never skips the checks before it. The release is live whatever the journey found, so it is
+      # announced unless the run was cancelled. An engine outage only warns; a refused key or URL
+      # fails this step.
+      - name: Announce this release's changed pages to search engines
+        if: ${{ !cancelled() }}
+        timeout-minutes: 2
+        env:
+          INDEXNOW_URLS: ${{ needs.build.outputs.indexnow-urls }}
+        run: node ops/indexnow.mjs --submit --from=https://automancer.uk
