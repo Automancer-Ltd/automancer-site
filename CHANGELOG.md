@@ -1,5 +1,18 @@
 # Release notes
 
+## v2026.11.26.4 — 26 November 2026
+
+Visitors get a clearer introduction to Automancer and page text that matches what they see on the website.
+
+### About
+
+- Meet Waseem straight after the introduction, with email and voicemail routes at the end of his section.
+
+### Page text and links
+
+- The plain-text versions of pages now match the website sentence for sentence, and their links keep their destinations.
+
+
 ## v2026.11.26.3 — 26 November 2026
 
 A first visit in each data centre after a release now prepares its pages for faster views that follow.
