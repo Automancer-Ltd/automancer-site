@@ -424,7 +424,9 @@ Undo via Executor `sentry-guarded` (`projects.updateProject` and `projects.updat
   warming, so the deploy's `edge-wait.sh --reload` pass sends no extra requests. Cost: about 66
   requests to Pages per release at each data centre a visitor reaches. Verify: after a release,
   view one page, wait ten seconds, then run `ops/perf/kept-release.sh`: every page answers `hit`
-  and none is behind. Roll back by deploying the preceding Worker version; the marker is then
+  and none is behind. Pages dates one release's files up to a second apart (18:55:15 or :16, the
+  same file either), so dates within `RELEASE_SPREAD_MS` (60 s) are one release; compared to the
+  millisecond, a page kept at :15 was refetched on every view once :16 was known. Roll back by deploying the preceding Worker version; the marker is then
   never read and drops out after 7 days.
 - **Earlier releases' files stay served (t26531, 25 Nov 2026):** a kept page can be several
   releases old on a quiet page (seen live on 25 Nov: 4 of 10 pages were copies from 24-25 Nov),
