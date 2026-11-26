@@ -152,15 +152,20 @@ function aboutBody(): string {
 
 Automancer runs its own finance tracking, project management, and website on AI agents. Waseem makes every decision and takes every call.
 
-## Why "Automancer"?
+## Meet Waseem.
 
-01 · the name
+01 · the human
 
-An automancer works magic through machines. That's the joke, and it's also the job description. When systems talk to each other and repetitive admin happens overnight, it feels like magic. In practice, it is careful software engineering pointed at the dullest, most expensive jobs in your week.
+Automancer is founded and run by Waseem Ilyas, an engineer who builds software that takes repetitive admin off small teams.
 
-For years, custom automation required a six-figure budget and an internal IT department. Smaller businesses had to make do with disconnected apps and spreadsheets. Better tools now make it affordable for a care provider in Bradford or a manufacturer in Manchester to have software built around their exact workflow.
+Before starting Automancer, he founded and ran a SaaS product company from scratch. He brings that production discipline — automated testing, monitoring, and verified backups — to every client project.
 
-We built Automancer to deliver that — and we run our own consultancy on the same tools we build for clients.
+He works with businesses across social care, manufacturing, professional services, and travel, from [a ~600-person care provider's operations platform](${abs('/work/care-provider-transformation/')}) to a single-page site for a new travel agency.
+
+When you contact Automancer, you deal directly with Waseem. He reads your enquiry, scopes your project, and takes every call.
+
+- **Email Waseem:** ${business.email}
+- **Leave a voicemail:** ${business.phone}
 
 ## The business is the demo.
 
@@ -174,23 +179,21 @@ One rule never changes: **a human makes every decision and takes every call.** T
 
 Running our own back office this way keeps our overheads low and proves our tools in daily use before we put them to work for you.
 
-## Meet Waseem.
-
-03 · the human
-
-Automancer is founded and run by Waseem Ilyas, an engineer who builds software that takes repetitive admin off small teams.
-
-Before starting Automancer, he founded and ran a SaaS product company from scratch. He brings that production discipline — automated testing, monitoring, and verified backups — to every client project.
-
-He works with businesses across social care, manufacturing, professional services, and travel, from [a ~600-person care provider's operations platform](${abs('/work/care-provider-transformation/')}) to a single-page site for a new travel agency.
-
-When you contact Automancer, you deal directly with Waseem. He reads your enquiry, scopes your project, and takes every call.
-
 ## Five rules we actually keep.
 
 How we do things. // rules_kept: 5/5
 
 ${ABOUT_PRINCIPLES.map((p, i) => `${i + 1}. **${p.name}** — ${p.desc}`).join('\n')}
+
+## Why "Automancer"?
+
+03 · the name
+
+An automancer works magic through machines. That's the joke, and it's also the job description. When systems talk to each other and repetitive admin happens overnight, it feels like magic. In practice, it is careful software engineering pointed at the dullest, most expensive jobs in your week.
+
+For years, custom automation required a six-figure budget and an internal IT department. Smaller businesses had to make do with disconnected apps and spreadsheets. Better tools now make it affordable for a care provider in Bradford or a manufacturer in Manchester to have software built around their exact workflow.
+
+We built Automancer to deliver that — and we run our own consultancy on the same tools we build for clients.
 
 ## Want a business that runs a bit more like ours?
 
