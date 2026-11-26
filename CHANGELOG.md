@@ -1,5 +1,10 @@
 # Release notes
 
+## v2026.11.26.3 — 26 November 2026
+
+A first visit in each data centre after a release now prepares its pages for faster views that follow.
+
+
 ## v2026.11.26.1 — 26 November 2026
 
 The site tells search engines about pages as each release adds, changes or removes them, so new field notes can appear in search sooner.
