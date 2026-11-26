@@ -1090,3 +1090,17 @@ test('a shared page previews with its own card, not the generic image', async ({
     expect(await og('image:alt')).toContain((await page.locator('h1').textContent())!.trim());
   }
 });
+
+test('About introduces Waseem on the first screen and ends his section with the routes to him', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/about/');
+  await page.evaluate(() => document.fonts.ready);
+  // "Meet Waseem." used to be the third story, at 2,344 px on a 390 x 844 phone (t27060).
+  const viewport = page.viewportSize()!;
+  const human = page.getByRole('region', { name: 'Meet Waseem.' });
+  await expect(human.getByRole('heading', { level: 2 })).toBeInViewport({ ratio: 1 });
+  const opening = human.locator('.story__body > p').first();
+  expect((await opening.boundingBox())!.y + 24, 'his introduction starts below the first screen').toBeLessThan(viewport.height);
+  await expect(human.getByRole('link', { name: /^Email Waseem/ })).toHaveAttribute('href', `mailto:${business.email}`);
+  await expect(human.getByRole('link', { name: /^Leave a voicemail/ })).toHaveAttribute('href', `tel:${business.phoneTel}`);
+});
