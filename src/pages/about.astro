@@ -3,16 +3,12 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import SpectrumGlow from '../components/SpectrumGlow.astro';
 import { formatGBP, serviceById } from '../data/business';
 import { contactHref } from '../data/enquiry';
+import { ABOUT_PRINCIPLES } from '../data/page-words';
 
 const auditFrom = formatGBP(serviceById('automation-opportunity-audit').priceFrom);
 
-const principles = [
-  { name: 'Sensible prices, published', desc: 'Our starting prices are on the website so you can see them before you get in touch.' },
-  { name: 'A human in the loop, always', desc: 'Agents do the work; Waseem makes the decisions and takes the calls. We promise a meeting within one week of first contact.' },
-  { name: 'Built properly, not prototyped', desc: 'Audited, monitored, backed up, and tested to the same standard as our own systems.' },
-  { name: 'Staged, checked delivery', desc: 'You see each part working in a test environment before it goes live.' },
-  { name: 'Remote-first, Bradford-rooted', desc: 'Based in Bradford and working with businesses in Leeds, Manchester, and across the UK.' },
-];
+// Written once, for this page and its Markdown twin (src/data/page-words.ts).
+const principles = ABOUT_PRINCIPLES;
 ---
 
 <BaseLayout

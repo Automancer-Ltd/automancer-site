@@ -9,12 +9,10 @@ import { formatGBP, serviceById, serviceOfferAnchor } from '../data/business';
 import { contactHref } from '../data/enquiry';
 import { staticPages } from '../data/site-content';
 import { serviceCatalogNode } from '../data/jsonld';
+import { HOME_CAPS, HOME_LADDER, HOME_PROOF } from '../data/page-words';
 import { SOURCES_ANCHOR, evidenceRows } from '../data/claims';
 
 const audit = serviceById('automation-opportunity-audit');
-const sprint = serviceById('workflow-implementation-sprint');
-const systemBuild = serviceById('system-agent-build');
-const ops = serviceById('ai-ops-partner');
 const homeDescription = staticPages.find((page) => page.path === '/')!.description;
 
 const isProd = import.meta.env.PROD;
@@ -27,19 +25,10 @@ const rest = studies.filter((e) => e.id !== feature?.id).slice(0, 2);
 // A card that quotes a study's figures links to the evidence behind them as well as to the study (t23577).
 const sourcesHref = (e: (typeof studies)[number]) => (evidenceRows(e.data).length > 0 ? `/work/${e.id}/#${SOURCES_ANCHOR}` : null);
 
-const ladder = [
-  { service: audit, description: "We map where your time and money are leaking, and hand you a costed plan. Fee credited against any project you go on to do." },
-  { service: sprint, description: '1–3 automations live in roughly two weeks.' },
-  { service: systemBuild, description: 'A custom system or AI agent, built to last.' },
-  { service: ops, description: 'We run it, watch it, and keep automating. Cancel anytime.' },
-];
-
-const caps = [
-  { name: 'Workflow automation', desc: 'Repetitive admin across your existing tools, connected into one reliable flow.' },
-  { name: 'Custom systems & portals', desc: 'Software built around how your team works, rather than forcing you into an off-the-shelf template.' },
-  { name: 'AI agents', desc: 'Software that reads, drafts, and acts while a person stays in control of every important decision.' },
-  { name: 'AI Ops partnership', desc: 'We stay on, keep your systems running, and automate the next job. Cancel anytime.' },
-];
+// The ladder, the proof cells and the capabilities are written once, for this page and its
+// Markdown twin (src/data/page-words.ts).
+const ladder = HOME_LADDER;
+const caps = HOME_CAPS;
 ---
 
 <BaseLayout
@@ -115,12 +104,7 @@ const caps = [
       </div>
 
       <div class="proof-grid reveal-stagger">
-        {[
-          { n: '01', tag: 'finance', h: 'Monitored, not automated', p: 'Agents monitor software spend and draft invoices. Waseem approves and sends them. Bookkeeping stays manual.' },
-          { n: '02', tag: 'delivery', h: 'Tracked end to end', p: 'Agents track every project and check each release before Waseem signs it off for a client.' },
-          { n: '03', tag: 'content', h: 'This site & blog', p: "Written, built, and maintained by the same agents we put to work in your business." },
-          { n: '04', tag: 'control', h: 'One human in the loop', p: 'Every decision and every call goes through Waseem. No call centre and no ticket queue.' },
-        ].map((c) => (
+        {HOME_PROOF.map((c) => (
           <div class="proof-cell" data-spot>
             <span class="ghost-num" aria-hidden="true">{c.n}</span>
             <span class="proof-cell__n">{c.tag}</span>

@@ -805,9 +805,8 @@ describe('one-week meeting promise — people and machines, same words', () => {
     'src/data/static-markdown.ts',
     'src/data/site-content.ts',
     'src/pages/contact.astro',
-    'src/pages/services.astro',
+    'src/data/page-words.ts',
     'src/pages/work/[slug].astro',
-    'src/pages/about.astro',
     'src/pages/index.astro',
   ];
 

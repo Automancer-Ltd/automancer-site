@@ -7,7 +7,8 @@
  */
 import { getCollection, type CollectionEntry } from 'astro:content';
 import { formatGBP, serviceById } from './business';
-import { noteTopics } from './note-topics';
+import { contactHref } from './enquiry';
+import { noteTopic, noteTopics } from './note-topics';
 import { CLAIM_MENTIONS, SOURCES_ANCHOR, SOURCES_INTRO, evidenceAnchor, evidenceRows, publishedClaims, type ClaimId } from './claims';
 import { abs, pagePath } from './urls';
 
@@ -54,10 +55,15 @@ export function mdResponse(markdown: string): Response {
   });
 }
 
-/** Markdown twin of one case study. */
-export function studyMarkdown(entry: CaseStudy): string {
+/** The Audit button every case study and field note ends with, as a Markdown link. */
+const auditLink = () =>
+  `[Book an Audit — from ${formatGBP(serviceById('automation-opportunity-audit').priceFrom)}](${abs(contactHref('automation-opportunity-audit'))})`;
+
+/** Markdown twin of one case study: its page's words, the next study and the closing invitation included (t27008). */
+export function studyMarkdown(entry: CaseStudy, next?: CaseStudy): string {
   const d = entry.data;
   const url = abs(`/work/${entry.id}`);
+  const nextLine = next ? `Next case study: [${next.data.headline ?? next.data.title}](${abs(`/work/${next.id}/`)})\n\n` : '';
   return (
     frontMatter({
       // The page <title> derives from fitTitle(d.title) — the twin's
@@ -69,7 +75,13 @@ export function studyMarkdown(entry: CaseStudy): string {
       canonical: url,
       type: 'CaseStudy',
       datePublished: iso(d.date),
-    }) + '\n' + studyText(entry)
+    }) + '\n' + studyText(entry) + '\n' + nextLine +
+    `## Got a job like this?
+
+Start with an Audit and we'll show you where automation will save time and money — with real numbers and a plain plan. We promise a meeting within one week of first contact.
+
+${auditLink()}
+`
   );
 }
 
@@ -80,8 +92,10 @@ export function studyText(entry: CaseStudy): string {
   const sourced = evidenceRows(d);
   // Mirror the rendered page: the h1 shows the editorial headline
   // (`d.headline ?? d.title`), so it stays in the twin as the top heading.
-  const parts = [`# ${d.headline ?? d.title}`, ''];
+  const notes = [d.anonymised && 'anonymised', d.status].filter((n): n is string => Boolean(n));
+  const parts = [[d.sector, ...notes].join(' · '), '', `# ${d.headline ?? d.title}`, ''];
   if (d.subhead) parts.push(d.subhead, '');
+  if (d.client) parts.push(`**Client:** ${d.client}`, '');
   if (sourced.length) parts.push(`[Where these numbers come from](${url}#${SOURCES_ANCHOR})`, '');
   if (d.stats.length > 0) {
     for (const stat of d.stats) {
@@ -94,6 +108,8 @@ export function studyText(entry: CaseStudy): string {
   // The page's "Where these numbers come from", word for word (t23334), hero figures included (t23577).
   if (sourced.length > 0) {
     parts.push(
+      '',
+      '// sources',
       '',
       '## Where these numbers come from',
       '',
@@ -152,10 +168,26 @@ export function noteClaims(entry: FieldNote, urls: ReadonlyMap<ClaimId, string>)
     .map(({ id }) => ({ id, evidenceUrl: urls.get(id)! }));
 }
 
-/** Markdown twin of one field note: front matter + full body. */
+const longDate = (dt: Date) => dt.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+
+/**
+ * Markdown twin of one field note: front matter, then the page's words in its order: title,
+ * description, date, subject and author, the body, the byline and the closing invitation (t27008).
+ */
 export function noteMarkdown(entry: FieldNote): string {
   const d = entry.data;
   const url = abs(`/field-notes/${entry.id}`);
+  const head = `# ${d.title}\n\n${d.description}\n\n${longDate(d.date)} · ${noteTopic(d)} · ${d.author}\n\n`;
+  const foot = `
+
+Written by an Automancer agent · reviewed and published by ${d.author}. Agents do the work; a human makes the call.
+
+## Sounds like your Tuesday?
+
+Tell us what's eating your week. Waseem reads every enquiry himself.
+
+${auditLink()}
+`;
   return (
     frontMatter({
       title: d.title,
@@ -165,7 +197,7 @@ export function noteMarkdown(entry: FieldNote): string {
       type: 'BlogPosting',
       author: d.author,
       datePublished: iso(d.date),
-    }) + noteText(entry)
+    }) + head + noteText(entry).trimEnd() + foot
   );
 }
 

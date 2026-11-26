@@ -5,6 +5,7 @@ import { formatGBP, serviceById, serviceOfferAnchor } from '../data/business';
 import { serviceCatalogNode } from '../data/jsonld';
 import { staticPages } from '../data/site-content';
 import { NOT_SURE, contactHref } from '../data/enquiry';
+import { SERVICE_FAQS, SERVICE_OFFERS } from '../data/page-words';
 
 const audit = serviceById('automation-opportunity-audit');
 const sprint = serviceById('workflow-implementation-sprint');
@@ -19,79 +20,16 @@ const overview = [
   { service: ops, from: `${formatGBP(ops.priceFrom)}/mo`, what: 'We run it, watch it, keep automating. Cancel anytime.' },
 ];
 
-const offers = [
-  {
-    step: 'Rung 01 · start here',
-    anchor: serviceOfferAnchor(audit.id),
-    name: audit.name,
-    href: contactHref(audit.id),
-    amt: formatGBP(audit.priceFrom),
-    note: 'from · credited in full against any project you go on to do',
-    one: 'We find where your time and money are leaking and hand you a costed plan to fix it.',
-    who: "You know time is being lost to double-entry, spreadsheet updates, and chasing tasks, but you want to know what is worth fixing first. Start here.",
-    includes: audit.includes,
-    catch: `If you go on to book a Sprint or a Build with us, the audit fee is deducted in full from the project price. Otherwise, you keep a clear plan for ${formatGBP(audit.priceFrom)}.`,
-    cta: 'Book an Audit',
-  },
-  {
-    step: 'Rung 02 · act fast',
-    anchor: serviceOfferAnchor(sprint.id),
-    name: sprint.name,
-    href: contactHref(sprint.id),
-    amt: formatGBP(sprint.priceFrom),
-    note: 'from',
-    one: '1–3 automations, live and working, in roughly two weeks.',
-    who: 'You already know which repetitive admin jobs are slowing your team down and you want them automated quickly.',
-    includes: sprint.includes,
-    catch: 'Typical jobs: turning enquiries into quotes, preparing invoices and reconciliations, syncing data between two systems, routing approvals, and generating weekly reports automatically.',
-    cta: 'Start a Sprint',
-  },
-  {
-    step: 'Rung 03 · build it right',
-    anchor: serviceOfferAnchor(systemBuild.id),
-    name: systemBuild.name,
-    href: contactHref(systemBuild.id),
-    amt: formatGBP(systemBuild.priceFrom),
-    note: 'from',
-    one: 'A custom system or AI agent built around how your business runs.',
-    who: 'You have outgrown spreadsheets or off-the-shelf tools that do not fit your process. You need a customer portal, an internal operations system, or an AI agent with human sign-off.',
-    includes: systemBuild.includes,
-    // Each figure links to the line of evidence behind it on its case study (t23577).
-    catch: [
-      'Recent builds: a customer trade portal that replaced phone-and-memory ordering, a care provider’s operations platform with ',
-      { text: '294 carer records', href: '/work/care-provider-transformation/#source-carer-record-count' },
-      ' and ',
-      { text: '588 scheduled supervisions', href: '/work/care-provider-transformation/#source-supervision-schedule-count' },
-      ', and a self-service AI product that runs ',
-      { text: 'a £300–400 consultant review for £10–80', href: '/work/debiaser-ai-product/#source-debiaser-per-engagement-cost' },
-      '.',
-    ],
-    cta: 'Scope a Build',
-  },
-  {
-    step: 'Rung 04 · stay live',
-    anchor: serviceOfferAnchor(ops.id),
-    name: ops.name,
-    href: contactHref(ops.id),
-    amt: formatGBP(ops.priceFrom),
-    per: '/mo',
-    note: 'from · cancel anytime',
-    one: 'We stay on, keep your systems running, and automate the next bottleneck.',
-    who: 'You have live automation and want it monitored, maintained, and steadily improved without hiring an in-house engineer.',
-    includes: ops.includes,
-    catch: 'Because our own monitoring and operations run on AI agents, we can watch and maintain your systems at a low monthly cost.',
-    cta: 'Become a Partner',
-  },
-];
+// The offers and questions are written once, for this page and its Markdown twin (src/data/page-words.ts).
+const offers = SERVICE_OFFERS.map((o) => ({
+  ...o,
+  anchor: serviceOfferAnchor(o.service.id),
+  name: o.service.name,
+  href: contactHref(o.service.id),
+  includes: o.service.includes,
+}));
 
-const faqs = [
-  { q: 'Is it really this cheap?', a: 'Yes. We run our own finance tracking, project management, and website on AI agents, which keeps our overheads low. The prices on this page are real starting prices for published work.' },
-  { q: 'What if it breaks?', a: 'Every system we ship is monitored, backed up, and tested. On an AI Ops Partner plan, we watch it day to day and fix issues as they arise. When you need help, you speak directly with Waseem rather than a ticket queue.' },
-  { q: 'Do I need to understand AI?', a: 'No. You know your business and where time is being lost; we handle the software and explain every step in plain English.' },
-  { q: 'Will a human actually answer?', a: 'Always. Agents do the background work, while Waseem makes every decision and takes every call. When you get in touch, he reads it himself and replies personally. We promise a meeting within one week of first contact.' },
-  { q: 'Where are you, and do you work remotely?', a: 'We are based in Bradford and work with businesses in Leeds, Manchester, and across the UK. Most of our work runs remotely.' },
-  { q: 'What if I just want a website?', a: 'We build those too: fast, compliant websites with no monthly platform fees.' },
-];
+const faqs = SERVICE_FAQS;
 ---
 
 <BaseLayout
