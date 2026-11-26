@@ -1,5 +1,10 @@
 # Release notes
 
+## v2026.11.26.1 — 26 November 2026
+
+The site tells search engines about pages as each release adds, changes or removes them, so new field notes can appear in search sooner.
+
+
 ## v2026.11.25.5 — 25 November 2026
 
 The full enquiry form comes into view sooner when you visit the contact page.
