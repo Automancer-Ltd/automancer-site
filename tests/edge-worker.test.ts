@@ -614,6 +614,21 @@ describe('pages kept at the edge', () => {
     expect(fetched()).not.toContain('/sitemap-index.xml');
   });
 
+  it('takes files of one release dated a second apart as the same release (t26986)', async () => {
+    // Pages dated one release's files 18:55:15 or 18:55:16 on 26 Nov 2026, the same file either.
+    published += 1000;
+    expect((await view('/services/')).res.headers.get(PAGE_CACHE_HEADER)).toBe('miss');
+    published -= 1000;
+    expect((await view('/kept/')).res.headers.get(PAGE_CACHE_HEADER)).toBe('miss');
+    calls = [];
+    const again = await view('/kept/');
+    expect([again.res.headers.get(PAGE_CACHE_HEADER), again.text]).toEqual(['hit', '<html>first</html>']);
+    // The next release, an hour later, is a new one.
+    release({ '/kept/': '<html>second</html>', '/services/': '<html>services, second</html>' });
+    await view('/kept/');
+    expect((await view('/services/')).res.headers.get(PAGE_CACHE_HEADER)).toBe('release');
+  });
+
   it('never moves the release it knows back, and serves copies with no date as before', async () => {
     await view('/kept/');
     release({ '/kept/': '<html>second</html>' });

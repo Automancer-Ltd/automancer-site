@@ -966,7 +966,7 @@ async function keptPage(request, pathname, file, policy, ctx, dictionary = null)
   const usable = (kept) => {
     const headers = kept && keptHeaders(kept);
     if (!headers || !kept.body) return null;
-    if (releaseOf(headers) < release) {
+    if (newerRelease(release, releaseOf(headers))) {
       behind = true;
       return null;
     }
@@ -1013,6 +1013,18 @@ async function keptPage(request, pathname, file, policy, ctx, dictionary = null)
   return pageAnswer(request, [...fresh.headers], visitor, state);
 }
 
+// GitHub Pages does not date every file of a release the same second: the release published at
+// 18:55 UTC on 26 Nov 2026 dated its files 18:55:15 or 18:55:16, and the same file could carry
+// either, depending on which GitHub server answered. Comparing to the millisecond, a page kept at
+// :15 counted as behind a release learned at :16, so it was fetched from Pages and waited for on
+// every view (`release`) where it should have been a hit (t26986). Releases are serialized and each
+// takes minutes (deploy.yml, concurrency group `pages`), so dates closer than RELEASE_SPREAD_MS
+// are the same release.
+const RELEASE_SPREAD_MS = 60_000;
+
+/** Whether release date `at` (ms) is a later release than `than`, not the same one dated a second apart. */
+const newerRelease = (at, than) => at - than > RELEASE_SPREAD_MS;
+
 /** When Pages published the release a page's headers come from (its Last-Modified, ms), or NaN. */
 function releaseOf(headers) {
   const list = Array.isArray(headers) ? headers : [...headers];
@@ -1034,7 +1046,7 @@ async function knownRelease(cache) {
  */
 async function noteRelease(cache, headers, known) {
   const at = releaseOf(headers);
-  if (!(at > known)) return 0;
+  if (!newerRelease(at, known)) return 0;
   await cache.put(new Request(atOrigin(RELEASE_KEY)), releaseMark(at));
   return at;
 }
@@ -1068,7 +1080,7 @@ const SITEMAP_INDEX = '/sitemap-index.xml';
 async function warmRelease(cache, at, skip) {
   const done = await cache.match(new Request(atOrigin(WARM_KEY))).catch(() => null);
   done?.body?.cancel().catch(() => {});
-  if (Number(done?.headers.get(KEPT_RELEASE)) >= at) return;
+  if (!newerRelease(at, Number(done?.headers.get(KEPT_RELEASE)) || 0)) return;
   await cache.put(new Request(atOrigin(WARM_KEY)), releaseMark(at));
   const queue = (await sitemapPages()).filter((path) => path !== skip);
   const keepNext = async () => {
