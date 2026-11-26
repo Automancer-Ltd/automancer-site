@@ -7,7 +7,7 @@ It does not outrank anything: `VISION.md` is authority 0 and `SPEC.md` describes
 When this file and `SPEC.md` disagree about what exists, `SPEC.md` and the code are right and this
 file is out of date.
 
-Last updated: 25 November 2026 (earlier releases' scripts and dictionary carried forward on deploy, t26531).
+Last updated: 26 November 2026 (every page and its Markdown twin say the same sentences, t27008).
 
 ## Where the site stands against the vision
 
@@ -19,7 +19,7 @@ disagree. Against that, today:
 | --- | --- |
 | A UK business reads pages that answer plainly and publish the price | Built. `/services/` prices render from `src/data/business.ts`; a build test fails if a from-price in the output is not a published `priceFrom` (`v2026.10.14.1`, PR #69). |
 | An agent can quote, price and act on it correctly | Built. The `/api/*.json` endpoints in one registry (`src/data/api.ts`) behind the discovery document, the OpenAPI 3.1 spec and `/developers`; `agent.json`, `security.txt`, `llms.txt`, Markdown twins and full-content feeds. `/api/services.json` `includes` is the same included list `/services/` shows, and the build fails if they disagree. Acting still means email: the form needs a browser security check, and since 12 Nov 2026 that is data: `/api/enquiry.json` names email as the route an agent can complete, with the form's fields, limits and an email template that asks the same questions. |
-| What a machine is told never differs from what a person is shown | Enforced for the facts that matter most: prices, service names, each service's included list, page inventory, JSON-LD, twins and feeds all read shared modules, and dist-level tests compare the payloads with the pages. |
+| What a machine is told never differs from what a person is shown | Enforced for the facts that matter most: prices, service names, each service's included list, page inventory, JSON-LD, twins and feeds all read shared modules, and dist-level tests compare the payloads with the pages. Since t27008 it holds for every sentence: each page's Markdown twin says what the page says, both ways (`tests/twin-parity.test.ts`). |
 | Its own honesty audited | Partly. Production is verified after every deploy and every 30 minutes (`ops/verify-production.sh`), including the revision served, the legal block, TLS and the machine surfaces. Nothing yet audits the *claims* on the pages against the truth layer continuously. Since t23334 a person sees the same evidence a machine gets: every case-study figure the claims registry backs links to the dossier line behind it. Since t23577 that holds wherever a figure is repeated (home, /work/, /services/, /about/, field notes), and the build fails on a page that states a registered figure without a link to its evidence (`tests/figure-sources.test.ts`). Since t25118 a case study cannot state a number the registry does not hold, and since t25645 neither can a field note or any page a buyer reads before getting in touch: five unbacked facts are named as debt. |
 | Published identifiers are promises | Built and held between releases. The promise is a document an agent can fetch (`/api/stability.json`), and since t25827 every pull request and every release is compared with what production publishes: a build that drops an endpoint, operationId, field, service id, page URL or enum value without a deprecation that has run its notice does not ship. |
 | Nothing reaches the public without Waseem | Honoured: this repository ships the site; it never speaks to a prospect itself. |
@@ -125,6 +125,40 @@ The former cache and release-note slices shipped in PRs #164 and #165 respective
 "gap above a field note's first paragraph on phones" slice is dropped from the list: t22126
 measured every note's opening line already on a 390×844 phone's first screen (17 of 17), so the
 gap is a spacing taste call, not lost content.
+
+## Slice: every sentence a person reads, a machine reads too (26 November 2026, t27008)
+
+`VISION.md` says the two views "can never disagree, because neither is allowed to say what the
+other cannot". The tests held prices, service names and included lists to that, but the prose of
+each Markdown twin was retyped by hand and had drifted. Read both ways on main, the twins left out
+263 sentences their pages show (who each service is for, the Audit fee being credited, the
+Sprint's typical jobs, each note's byline "Written by an Automancer agent · reviewed and published
+by Waseem Ilyas", most of Contact) and stated 53 that no page shows. About told machines that
+Waseem's earlier company was "shipping and operating software that businesses relied on every
+day"; the page never says that. The field-notes index named Waseem as each note's author without
+the agent byline the page carries.
+
+- `tests/twin-parity.test.ts` reads every page with a twin (29) and fails on any sentence of two
+  words or more that one view has and the other lacks. Words are compared, not formatting, link
+  targets or ISO-versus-written dates. Navigation is exempt (`<nav>`, `data-page-words="skip"`,
+  button and arrow links); five named exceptions remain, each with its count and reason (Contact's
+  agent instructions and no-script fallback, the work index's "add .md" pointer, the notes list's
+  heading).
+- The hand-authored twins (`src/data/static-markdown.ts`) now follow their pages in order. The
+  lists both views show are written once in `src/data/page-words.ts`. Case-study twins gained the
+  sector line, client, "// sources", the next study and the closing invitation; field-note twins
+  gained the title, description, date, subject, byline and invitation.
+- No page a person sees changed: `pnpm run compare` found 0 of 66 views different. Every twin's
+  words changed, so the next release re-dates no HTML page (`contentSha256` hashes the page, not
+  the twin) and IndexNow announces nothing for it.
+- Proof the check catches drift: on main's twins it fails with 263 and 53 sentences.
+- Undo: revert the merge. Nothing else reads `page-words.ts`.
+
+Next for this line: the JSON-LD still names Waseem Ilyas as each field note's author
+(`articleNode()`), where the page says an agent wrote it and he reviewed and published it.
+Whether `author` should become the organisation, with Waseem as `editor`, is a wording call about
+who wrote the notes: ask before changing it. `llms-full.txt` reads `noteText()` and `studyText()`
+(the body), so it has the case-study sector and client lines but not the notes' byline.
 
 ## Performance slice: a page kept from an earlier release still runs its script (25 November 2026, t26531)
 
