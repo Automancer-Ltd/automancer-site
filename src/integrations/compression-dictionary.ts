@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import { constants, zstdCompress } from 'node:zlib';
 import type { AstroIntegration } from 'astro';
+import { parse } from 'node-html-parser';
 import { DCZ_MAGIC, DICTIONARY_DIR, withoutLock } from '../../ops/edge/worker.js';
 
 const compress = promisify(zstdCompress);
@@ -14,19 +15,27 @@ const compress = promisify(zstdCompress);
  *
  * Every page carries the same frame: about 46 KB of inlined CSS, the header, the menu and the
  * footer, so a visitor's second page repeats most of the first. Brotli cannot see that across
- * pages; a dictionary can. The build writes one per release, the home page as the Worker serves
- * it with its <main> taken out, and every page names it in a <link rel="compression-dictionary">.
+ * pages; a dictionary can. The build uses the home page frame, omitting its <main> and build
+ * provenance so browsers can reuse the same dictionary when only those parts of the page change.
+ * Every page names it in a <link rel="compression-dictionary">.
  * A browser that keeps it (Chromium) fetches it once while idle and then asks for each page with
  * `Available-Dictionary: :<its SHA-256>:`; the edge Worker answers with `<page>.dcz`, the page
  * compressed with Zstandard against that dictionary (precompress()), when the hashes match, and
  * with the Brotli copy otherwise.
  */
 export function dictionaryOf(home: string): string {
-  const served = withoutLock(home);
-  const start = served.indexOf('<main');
-  const end = served.indexOf('</main>');
-  if (start === -1 || end < start) throw new Error('compression dictionary: the home page has no <main>');
-  return served.slice(0, start) + served.slice(end + '</main>'.length);
+  let frame = withoutLock(home);
+  const omitted = parse(frame).querySelectorAll(
+    'main, meta[name="build-revision"], .proof-strip b, .proof-strip .sr-only',
+  );
+  if (!omitted.some((node) => node.rawTagName === 'main')) {
+    throw new Error('compression dictionary: the home page has no <main>');
+  }
+  // Keep the rendered bytes of the rest of the frame, including inlined CSS.
+  for (const { range: [start, end] } of omitted.sort((a, b) => b.range[0] - a.range[0])) {
+    frame = frame.slice(0, start) + frame.slice(end);
+  }
+  return frame;
 }
 
 /** The URL a dictionary is served at, named by its content so browsers may keep it for a year. */

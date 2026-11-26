@@ -357,7 +357,8 @@ Undo via Executor `sentry-guarded` (`projects.updateProject` and `projects.updat
   own compression at once, and the unused `.br` files are harmless. On the `github.io` copy they
   are only downloads, never a page.
 - **The compression dictionary (t26098, RFC 9842):** every page names `/_dictionary/<hash>.txt`
-  (the home page frame without its `<main>`), and the build writes `<page>.dcz` beside each `.br`.
+  (the home page frame without its `<main>` or build provenance), and the build writes `<page>.dcz`
+  beside each `.br`. Releases with the same frame reuse the same dictionary URL (t27085).
   The Worker serves the dictionary with `Use-As-Dictionary` and a year's `immutable` lifetime, and
   sends a page's `.dcz` (`Content-Encoding: dcz`, `Vary: ..., Available-Dictionary`) only to a
   browser whose `Available-Dictionary` is the hash in the copy's first 40 bytes; anything else gets
