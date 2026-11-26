@@ -30,6 +30,15 @@ exact `dist/` it publishes, so a heavier production build fails the release inst
   requests to Pages per release at each data centre a visitor reaches, after the answer, three
   pages at a time. The measured result after release is in the t26986 FYI and the project summary.
 
+- **Returning Chromium browsers reuse the dictionary across releases (t27085).** When the
+  home page frame stays the same, the build keeps the dictionary URL by omitting the build
+  stamp and revision. In Chromium against two successive builds served through the local
+  Worker, a browser already holding the dictionary downloaded 5,156 B for the first
+  `/services/` visit after release, down from 28,969 B for the Brotli page and a new dictionary.
+  Production can still serve a kept Brotli page while fetching its dictionary-compressed copy;
+  the browser still saves the dictionary download. The 33 dictionary-compressed pages together
+  grew from 172,669 B to 179,255 B (about 200 B per page on average).
+
 - **A second page arrives against a shared dictionary (t26098, 24 Nov 2026).** Every page
   repeats the same frame (about 46 KB of inlined CSS, header, menu, footer), which Brotli cannot
   share across pages. Chromium now keeps one dictionary per release (13,470 B as Brotli, fetched

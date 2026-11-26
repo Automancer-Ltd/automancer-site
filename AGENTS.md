@@ -160,8 +160,9 @@ ops/indexnow.mjs            tells search engines (IndexNow) which pages each rel
   Worker and fails on any difference from the file.
 - A browser holding the release's compression dictionary gets the build's own `<page>.dcz` (t26098,
   RFC 9842). `compressionDictionary()` (`src/integrations/compression-dictionary.ts`) writes one
-  dictionary per release under `/_dictionary/` (the home page as served, without its `<main>`) and
-  names it in every page's `<head>`; `precompress()` compresses each page against it. The Worker
+  dictionary per build under `/_dictionary/` (the served home page without its `<main>` or build
+  provenance) and names it in every page's `<head>`; `precompress()` compresses each page against
+  it. A stable home page frame keeps the same dictionary URL across releases. The Worker
   sends the `.dcz` only when `Available-Dictionary` is the hash the copy starts with, and Brotli
   otherwise; `keptPage()` keeps it apart from the Brotli copy and never makes a visitor wait for it
   when a Brotli copy is already kept. Only Chromium takes `dcz` today. The dictionary file and the

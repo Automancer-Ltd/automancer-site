@@ -13,7 +13,7 @@ import { extname, join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { brotliDecompressSync, zstdDecompressSync } from 'node:zlib';
 import { BROTLI_TYPES, DICTIONARY_DIR, USE_AS_DICTIONARY, dczDictionary, legacyRedirect } from '../ops/edge/worker.js';
-import { namedDictionary } from '../src/integrations/compression-dictionary';
+import { dictionaryOf, namedDictionary } from '../src/integrations/compression-dictionary';
 import { siteFromDist } from '../ops/edge/local.mjs';
 import { DIST, allHtmlFiles } from './support/dist';
 
@@ -153,6 +153,17 @@ describe('pages compressed against the compression dictionary', () => {
     for (const page of pages) expect(namedDictionary(page.html), page.route).toBe(dictionaryFiles[0]);
     const copies = built.filter((file) => file.endsWith('.dcz'));
     expect(copies.sort()).toEqual(pages.map((p) => `${p.is404 ? '/404.html' : `${p.route}index.html`}`).map((f) => `${f}.dcz`).sort());
+  });
+
+  it('lets a returning browser reuse its dictionary after a content-only release', () => {
+    const home = readFileSync(join(DIST, 'index.html'), 'utf8');
+    const next = home
+      .replace(/(<meta name="build-revision" content=")[^"]+/, '$1new-revision')
+      .replaceAll(/data-build-since="[^"]+"/g, 'data-build-since="2026-01-01T00:00:00.000Z"')
+      .replace(/Last deployed [^<]+/, 'Last deployed 1 Jan 2026, 00:00 UTC, build abc123.')
+      .replace('<main id="main">', '<main id="main"><p>New home page copy.</p>');
+
+    expect(dictionaryOf(next)).toBe(dictionaryOf(home));
   });
 
   it('serves the dictionary for browsers to keep for a year, for pages only', async () => {
