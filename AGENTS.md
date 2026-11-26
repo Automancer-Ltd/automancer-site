@@ -143,7 +143,9 @@ ops/indexnow.mjs            tells search engines (IndexNow) which pages each rel
 - Pages are kept at the edge (t25774): `keptPage()` in `ops/edge/worker.js` answers a browser's
   GET from the data centre's cache and fetches the page again after answering. A copy dated
   before the newest release the data centre has fetched a page from is fetched again instead of
-  served (`RELEASE_KEY`, t26545): it reads Pages' `Last-Modified`, so keep the kept headers. Keep only HTML pages there: twins, the API and feeds are read by machines
+  served (`RELEASE_KEY`, t26545): it reads Pages' `Last-Modified`, so keep the kept headers. The
+  view that teaches a data centre a new release keeps every page the sitemap lists there too
+  (`warmRelease()`, t26986), so keep every page in the sitemap. Keep only HTML pages there: twins, the API and feeds are read by machines
   and by the build (`page-dates.ts`), which must never get an older copy (`tests/edge-worker.test.ts`).
 - The Worker sends GitHub Pages only the method, `If-None-Match`, `If-Modified-Since`, `Range` and
   `If-Range` (`pagesRequest()` in `ops/edge/worker.js`, t23955). Never pass the visitor's `Request`

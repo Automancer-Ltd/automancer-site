@@ -29,7 +29,8 @@ behind=0
 total=0
 for p in $pages; do
   out=$(curl -sS --max-time 15 -o /dev/null -D - -H 'Accept: text/html' -H 'Accept-Encoding: br' "$base$p")
-  header() { grep -i "^$1:" <<<"$out" | head -1 | cut -d' ' -f2- | tr -d '\r'; }
+  # A missing header is an empty value, never the end of the run (set -e with pipefail).
+  header() { { grep -i "^$1:" <<<"$out" || true; } | head -1 | cut -d' ' -f2- | tr -d '\r'; }
   colo=$(header cf-ray); colo=${colo##*-}
   cache=$(header x-edge-cache)
   modified=$(header last-modified)

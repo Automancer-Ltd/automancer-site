@@ -18,6 +18,18 @@ exact `dist/` it publishes, so a heavier production build fails the release inst
 
 ## Decisions behind the numbers
 
+- **A release is kept whole at each data centre after one view (t26986, 26 Nov 2026).**
+  Pages kept at the edge (t25774) follow the release (t26545), so after every release each page's
+  first view at each data centre waited for GitHub again, and this site releases several times a
+  day. Read on production as a browser asks (every sitemap page once; wait from the end of TLS to
+  the first byte), 97 minutes after a release: from London (LHR) 26 of 32 pages were `release`,
+  median 198 ms, against 49 ms for the same pages kept; from Vienna (VIE) 31 of 32, median
+  198 ms. Now the view that teaches a data centre the release makes the Worker fetch every
+  sitemap page from Pages after answering and keep it (`warmRelease()` in `ops/edge/worker.js`), so
+  that view is the only one per release per data centre that waits for GitHub. Cost: about 66
+  requests to Pages per release at each data centre a visitor reaches, after the answer, three
+  pages at a time. The measured result after release is in the t26986 FYI and the project summary.
+
 - **A second page arrives against a shared dictionary (t26098, 24 Nov 2026).** Every page
   repeats the same frame (about 46 KB of inlined CSS, header, menu, footer), which Brotli cannot
   share across pages. Chromium now keeps one dictionary per release (13,470 B as Brotli, fetched

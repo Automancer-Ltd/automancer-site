@@ -33,7 +33,8 @@
 //     once and fetched again from Pages after each answer, so a visitor never
 //     waits for GitHub's cold cache (keptPage, PAGE_CACHE_HEADER; t25774). A
 //     copy kept before the newest release seen here is fetched again instead
-//     of served (RELEASE_KEY, t26545).
+//     of served (RELEASE_KEY, t26545). A view that teaches a data centre a new
+//     release keeps every sitemap page of it there too (warmRelease, t26986).
 // Everything else passes through untouched. Deploy and undo: docs/DEPLOYMENT.md.
 //
 // The files come from the GitHub Pages project address (PAGES), not from
@@ -950,8 +951,15 @@ async function keptPage(request, pathname, file, policy, ctx, dictionary = null)
     reload ? 0 : knownRelease(cache),
     reload ? null : cache.match(dictionary ? dczKey : key).catch(() => null),
   ]);
-  // Teach this data centre the release of a page just fetched from Pages, when it is newer.
-  const learn = (headers) => noteRelease(cache, headers, release);
+  // Teach this data centre the release of a page just fetched from Pages, when it is newer, and
+  // then keep every other page of that release here too (warmRelease, t26986). Once per view: the
+  // Brotli and dictionary copies can both teach it. A hard reload reads no release, so it teaches
+  // without warming (the release's own reload pass, edge-wait.sh --reload, sends one per page).
+  let warming = null;
+  const learn = (headers) => noteRelease(cache, headers, release).then((at) => {
+    if (at && !reload && !warming) warming = warmRelease(cache, at, pathname).catch(() => {});
+    return warming;
+  });
   const keepDcz = () => ctx.waitUntil(keepDictionaryPage(cache, dczKey, pathname, file, policy, learn).catch(() => {}));
   // A kept copy is served only while no newer release has been seen here.
   let behind = false;
@@ -1020,13 +1028,81 @@ async function knownRelease(cache) {
   return Number.isFinite(at) && at > 0 ? at : 0;
 }
 
-/** Keep the release `headers` were published in as this data centre's newest, when it is newer than `known`. */
-function noteRelease(cache, headers, known) {
+/**
+ * Keep the release `headers` were published in as this data centre's newest, when it is newer than
+ * `known`. Resolves to that release (ms) when it was newer, or 0.
+ */
+async function noteRelease(cache, headers, known) {
   const at = releaseOf(headers);
-  if (!(at > known)) return Promise.resolve();
-  return cache.put(new Request(atOrigin(RELEASE_KEY)), new Response('', {
-    headers: { 'Cache-Control': `max-age=${PAGE_CACHE_SECONDS}`, [KEPT_RELEASE]: String(at) },
-  }));
+  if (!(at > known)) return 0;
+  await cache.put(new Request(atOrigin(RELEASE_KEY)), releaseMark(at));
+  return at;
+}
+
+const releaseMark = (at) => new Response('', {
+  headers: { 'Cache-Control': `max-age=${PAGE_CACHE_SECONDS}`, [KEPT_RELEASE]: String(at) },
+});
+
+// Every page of a release kept at once (t26986). Kept copies alone left the first view of each
+// page at a data centre after every release waiting for GitHub: on 26 Nov 2026, 97 minutes after a
+// release, 26 of the 32 sitemap pages read from London were `release` (a median 198 ms after TLS,
+// against 49 ms for a kept copy), and this site releases several times a day. So when a view
+// teaches a data centre a newer release (or the first one it has seen), the Worker fetches every
+// page in the sitemap from Pages after answering and keeps it there, as keepPage() does after a
+// hit: the visitor's next page, and anyone's after them, is answered from the edge. Only the
+// Brotli copy is fetched: a browser holding the dictionary is answered from it at once and its
+// dictionary copy kept for next time, as before. The view that teaches the release still waits
+// for GitHub, once per release per data centre.
+//
+// Cost: up to WARM_PAGES pages fetched from Pages (two requests each, as keepPage makes) once per
+// release at each data centre a visitor reaches, three pages at a time, so that their requests
+// stay within the six connections a Worker may hold open; the 32 pages take a few seconds, well
+// inside the 30 s a Worker may run after answering. WARM_KEY records the release warmed, so
+// views at the same data centre do not repeat it (two views a few milliseconds apart can).
+const WARM_KEY = '/.edge-cache/warmed';
+export const WARM_PAGES = 100;
+const WARM_AT_ONCE = 3;
+const SITEMAP_INDEX = '/sitemap-index.xml';
+
+/** Fetch and keep every sitemap page but `skip` in this data centre, once per release `at`. */
+async function warmRelease(cache, at, skip) {
+  const done = await cache.match(new Request(atOrigin(WARM_KEY))).catch(() => null);
+  done?.body?.cancel().catch(() => {});
+  if (Number(done?.headers.get(KEPT_RELEASE)) >= at) return;
+  await cache.put(new Request(atOrigin(WARM_KEY)), releaseMark(at));
+  const queue = (await sitemapPages()).filter((path) => path !== skip);
+  const keepNext = async () => {
+    for (let path = queue.shift(); path !== undefined; path = queue.shift()) {
+      const file = brotliFile(path);
+      if (!file?.type.startsWith('text/html')) continue;
+      await keepPage(cache, pageCacheKey(path), path, file, cachePolicy(path, ''), async () => 0).catch(() => {});
+    }
+  };
+  await Promise.all(Array.from({ length: WARM_AT_ONCE }, keepNext));
+}
+
+/** The paths of the pages the sitemap on Pages lists on this site (WARM_PAGES at most), or none. */
+export async function sitemapPages() {
+  const locs = async (path) => {
+    const res = await fetch(atPages(path)).catch(() => null);
+    if (!res?.ok) {
+      res?.body?.cancel().catch(() => {});
+      return [];
+    }
+    const paths = [];
+    for (const [, loc] of (await res.text()).matchAll(/<loc>\s*([^<\s]+)\s*<\/loc>/g)) {
+      let url = null;
+      try {
+        url = new URL(loc);
+      } catch {}
+      if (url?.origin === ORIGIN && !url.search && !url.pathname.includes('//')) paths.push(url.pathname);
+    }
+    return paths;
+  };
+  const sitemaps = (await locs(SITEMAP_INDEX)).filter((path) => path.endsWith('.xml')).slice(0, 4);
+  const pages = new Set();
+  for (const sitemap of sitemaps) for (const path of await locs(sitemap)) pages.add(path);
+  return [...pages].slice(0, WARM_PAGES);
 }
 
 /** The page's own headers from a kept copy, or null when the copy is too old or unreadable. */
@@ -1048,16 +1124,14 @@ async function keepPage(cache, key, pathname, file, policy, learn) {
     fresh?.body?.cancel().catch(() => {});
     return cache.delete(key);
   }
-  await learn(fresh.headers);
-  return putPage(cache, key, fresh.headers, fresh.body);
+  return Promise.all([putPage(cache, key, fresh.headers, fresh.body), learn(fresh.headers)]);
 }
 
 /** Fetch the page's dictionary copy from Pages again and keep it with its hash; drop it when Pages has none. */
 async function keepDictionaryPage(cache, key, pathname, file, policy, learn) {
   const copy = await dictionaryCopy(new Request(atOrigin(pathname)), pathname, file, policy);
   if (!copy) return cache.delete(key);
-  await learn(copy.response.headers);
-  return putPage(cache, key, copy.response.headers, copy.response.body, copy.dictionary);
+  return Promise.all([putPage(cache, key, copy.response.headers, copy.response.body, copy.dictionary), learn(copy.response.headers)]);
 }
 
 // Kept as plain bytes with no Content-Encoding, as Pages serves the .br file, so the cache hands
