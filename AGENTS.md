@@ -68,6 +68,7 @@ it publishes. `SKIP_BUILD=1` skips the build in either: `SKIP_BUILD=1 pnpm run j
 src/data/business.ts        company facts, contact details, services and prices: the one source
 src/data/site-content.ts    staticPages metadata (PageMeta) and collection loaders
 src/data/static-markdown.ts Markdown twin prose for static pages, twinRoute()
+src/data/page-words.ts      lists a page and its twin both show (home ladder, service offers, FAQs, About's rules)
 src/data/api.ts             API_ENDPOINTS registry behind /api/index.json, /openapi.json, /developers/
 src/config/site.ts          ENDPOINT_URL, FIELD_LIMITS, TURNSTILE_SITE_KEY, LEAD_ERROR_COPY
 src/content/                case-studies/*.md and field-notes/*.md (schema: src/content.config.ts)
@@ -193,6 +194,14 @@ ops/indexnow.mjs            tells search engines (IndexNow) which pages each rel
   engines (Bing and those sharing its submissions) once it is live (t26811; `ops/indexnow.mjs`, the
   key file `src/pages/[indexnowKey].txt.ts`, `tests/indexnow.test.ts`; `docs/DEPLOYMENT.md` › Search
   engines). The plan reads `contentSha256` in `/api/pages.json`, so keep that hash on every page.
+- A page and its Markdown twin say the same sentences, both ways (t27008;
+  `tests/twin-parity.test.ts`): a sentence a person reads in `<main>` is in the twin, and a sentence
+  in the twin is on the page. Words are compared, not formatting or link targets. A sentence added
+  to a page goes in its twin too (`src/data/static-markdown.ts` for the hand-authored pages,
+  `studyMarkdown()` / `noteMarkdown()` in `src/data/site-content.ts` for case studies and notes);
+  a list both show is written once in `src/data/page-words.ts`. Navigation is exempt (`<nav>`,
+  `data-page-words="skip"`, button and arrow links); any other exception is named in the test with
+  how often it occurs and why.
 - `/privacy/` and `/terms/` are `legalNoMirror` and hash-pinned (`tests/legal-integrity.test.ts`);
   their wording changes only on Waseem's instruction.
 - The contact form never shows a raw API error code (`tests/contact-errors.test.ts`).

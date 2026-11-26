@@ -15,6 +15,8 @@ points to: `/llms.txt`, `/llms-full.txt`, `/agent.json`, `/security.txt`, `/open
 - Vitest: `tests/developer-surface.test.ts` (OpenAPI 3.1 describes exactly the listed endpoints;
   `/developers/` lists each endpoint's response fields as the spec declares them),
   `tests/agent-readiness.test.ts` (twins, `llms*.txt`, manifests, security.txt, feeds, robots),
+  `tests/twin-parity.test.ts` (every sentence of a page is in its twin and every sentence of a
+  twin is on its page, t27008),
   `tests/feeds.test.ts` and `tests/claims.test.ts`.
 - Between releases: `node ops/contract/check-surface.mjs` (CI and the deploy) fails a build that
   drops an endpoint, operationId, field, service id, page URL or enum value production publishes;
