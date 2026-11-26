@@ -413,6 +413,19 @@ Undo via Executor `sentry-guarded` (`projects.updateProject` and `projects.updat
   the page; different machines reach different data centres (auto-vps: Vienna; auto-vault,
   auto-hst1, auto-bee, m6: London). Roll back by deploying the preceding Worker version; the
   marker is then never read and drops out after 7 days.
+- **A new release is kept whole at each data centre (t26986, 26 Nov 2026):** t26545 still left the
+  first view of every page at a data centre after each release waiting for GitHub (`release`):
+  97 minutes after a release, 26 of the 32 sitemap pages read from London were. Now the view that
+  teaches a data centre a newer release (or its first) also makes the Worker fetch every page the
+  sitemap on Pages lists (`sitemapPages()`, `WARM_PAGES` at most) and keep its Brotli copy there,
+  after answering (`warmRelease()`, three pages at a time, a few seconds). Only that one view per
+  release per data centre waits for GitHub. `/.edge-cache/warmed` records the release warmed, so
+  it is done once (two views milliseconds apart can both do it); a hard reload teaches without
+  warming, so the deploy's `edge-wait.sh --reload` pass sends no extra requests. Cost: about 66
+  requests to Pages per release at each data centre a visitor reaches. Verify: after a release,
+  view one page, wait ten seconds, then run `ops/perf/kept-release.sh`: every page answers `hit`
+  and none is behind. Roll back by deploying the preceding Worker version; the marker is then
+  never read and drops out after 7 days.
 - **Earlier releases' files stay served (t26531, 25 Nov 2026):** a kept page can be several
   releases old on a quiet page (seen live on 25 Nov: 4 of 10 pages were copies from 24-25 Nov),
   and so can a browser's own copy or an open tab. Such a page names its own build's page-load

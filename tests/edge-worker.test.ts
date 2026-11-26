@@ -580,6 +580,40 @@ describe('pages kept at the edge', () => {
     expect((await view('/kept/')).text).toBe('<html>second</html>');
   });
 
+  it('keeps every sitemap page of a release once a view teaches it to a data centre (t26986)', async () => {
+    const loc = (paths: string[]) => paths.map((p) => `<url><loc>https://automancer.uk${p}</loc></url>`).join('');
+    pages['/privacy/'] = '<html>privacy, first</html>';
+    pages['/sitemap-index.xml'] = '<sitemapindex><sitemap><loc>https://automancer.uk/sitemap-0.xml</loc></sitemap></sitemapindex>';
+    // Only this site's pages are fetched: not another host's, a feed or a page Pages lacks.
+    pages['/sitemap-0.xml'] = `<urlset>${loc(['/kept/', '/services/', '/privacy/', '/gone/', '/field-notes/rss.xml'])}<url><loc>https://example.com/x/</loc></url></urlset>`;
+    const fetched = () => calls.map((r) => new URL(r.url).pathname.slice('/automancer-site'.length));
+
+    // The first view at a data centre that has seen no release waits for Pages, and keeps the rest.
+    const first = await view('/kept/');
+    expect(first.res.headers.get(PAGE_CACHE_HEADER)).toBe('miss');
+    expect(fetched()).toEqual(expect.arrayContaining(['/sitemap-index.xml', '/sitemap-0.xml', '/services/index.html.br', '/privacy/index.html.br', '/gone/index.html.br']));
+    expect(fetched().filter((p) => p.startsWith('/kept/') || p.includes('rss') || p.includes('example'))).toEqual(['/kept/index.html.br', '/kept/']);
+    for (const request of calls) expect([...request.headers.keys()], request.url).toEqual([]);
+    for (const path of ['/services/', '/privacy/']) expect((await view(path)).res.headers.get(PAGE_CACHE_HEADER), path).toBe('hit');
+    expect(kept.has(pageCacheKey('/gone/').url)).toBe(false);
+
+    // A release: the view that teaches it is served the copy kept before, and every other page is
+    // the new release's at once, where each waited for Pages before (`release`).
+    release({ '/kept/': '<html>second</html>', '/services/': '<html>services, second</html>', '/privacy/': '<html>privacy, second</html>' });
+    expect((await view('/kept/')).text).toBe('<html>first</html>');
+    const services = await view('/services/');
+    expect([services.res.headers.get(PAGE_CACHE_HEADER), services.text]).toEqual(['hit', '<html>services, second</html>']);
+    expect((await view('/privacy/')).text).toBe('<html>privacy, second</html>');
+
+    // Once per release per data centre: later views and a hard reload do not fetch the sitemap again.
+    calls = [];
+    await view('/kept/');
+    await view('/services/', { 'Cache-Control': 'no-cache' });
+    kept.delete('https://automancer.uk/.edge-cache/release');
+    await view('/kept/', { 'Cache-Control': 'no-cache' });
+    expect(fetched()).not.toContain('/sitemap-index.xml');
+  });
+
   it('never moves the release it knows back, and serves copies with no date as before', async () => {
     await view('/kept/');
     release({ '/kept/': '<html>second</html>' });
