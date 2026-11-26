@@ -17,7 +17,8 @@
      request tested; there is no separate CI run on `main`). It compares those bytes with the
      promises production publishes, as the pull request did, with `--allow-unreachable`: if
      production cannot be read, the release still ships (it may be the fix) and the step's warning
-     says nothing was compared. Last, it adds the files earlier releases' pages still load
+     says nothing was compared. It plans which pages to announce to search engines (`node
+     ops/indexnow.mjs --plan`, below), and last it adds the files earlier releases' pages still load
      (`ops/carry-forward.mjs`, below). It holds no Pages or OIDC permission: only `deploy` can publish;
    - `deploy` downloads the audited archive by its artifact ID, signs its SHA-256 digest
      with GitHub artifact attestations and verifies the signature, workflow and exact
@@ -26,7 +27,8 @@
      against production itself. A red verify is a red release;
    - the `journey` job then runs the same Playwright visitor journey against `https://automancer.uk`
      (read-only: the enquiry endpoint and Turnstile are stubbed, nothing is sent), and checks that
-     every file `/_carried.json` lists answers 200 (`node ops/carry-forward.mjs --check`).
+     every file `/_carried.json` lists answers 200 (`node ops/carry-forward.mjs --check`). Last, it
+     announces the release's changed pages to search engines (IndexNow, below).
 3. Record the production verification with estate-watch (`deploy-verify` skill in Executor):
    `deploy.start({ product: "site", url: "https://automancer.uk", commit })` straight after the
    merge, with the merge commit's full SHA (it exists only once merged) and before Pages publishes
@@ -48,6 +50,33 @@ To read back the branch settings, run `gh api repos/Automancer-Ltd/automancer-si
 with repository administration access. To undo this branch policy change, clear **Do not allow
 bypassing the above settings** and **Require a pull request before merging** on the `main` branch
 protection rule, retaining the existing `checks` requirement.
+
+## Search engines hear about each release (IndexNow, t26811)
+
+Google recrawls on its own schedule; the IndexNow engines are told. One post to
+`https://api.indexnow.org/indexnow` reaches every engine that takes part (Bing, and through Bing's
+index ChatGPT search, Copilot and DuckDuckGo; Yandex, Seznam, Naver and Yep), which share each
+submission with each other ([protocol](https://www.indexnow.org/documentation)).
+
+- **The key** is `INDEXNOW_KEY` in `ops/indexnow.mjs`, served at `/<key>.txt` by
+  `src/pages/[indexnowKey].txt.ts`. It is public by design (an engine fetches it to check that whoever
+  announces can publish on automancer.uk), and `.gitleaks.toml` allows that exact value only.
+  Changing it re-announces every page once.
+- **Plan** (build job, before the deploy, while production still serves the last release):
+  `node ops/indexnow.mjs --plan --dist=dist` compares the build's `/api/pages.json` with
+  production's by each page's words (`contentSha256`, the hash that dates pages) and lists the
+  pages that were added, changed or removed. When production does not serve the key yet, or cannot
+  be read, it lists every sitemap page. A release that changes no words announces nothing.
+  `/developers/` has no hash in `/api/pages.json`, so it is announced only with every page.
+- **Submit** (journey job, last): `node ops/indexnow.mjs --submit` checks production serves the key
+  file, then posts the planned URLs. 200 and 202 (key still being checked) are success. An engine
+  that is busy (429), down (5xx) or unreachable warns and never fails the release; 400, 403 (key
+  not valid) and 422 (URL not on the host) fail the step, because they are this site's faults.
+- **Check by hand**: `node ops/indexnow.mjs --plan --dist=dist` after a build shows what the next
+  release would announce; `INDEXNOW_URLS='["https://automancer.uk/"]' node ops/indexnow.mjs --submit
+  --dry-run` checks the live key without posting.
+- **Undo**: revert the change. Engines keep the URLs already announced (they are the site's own
+  public pages); an announcement cannot be withdrawn and needs none.
 
 ## Release notes
 

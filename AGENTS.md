@@ -85,6 +85,7 @@ ops/edge/                   Cloudflare Worker in front of Pages; local.mjs serve
 ops/preview/                the non-production preview target
 ops/contract/               what production promises machines, and the check a release keeps it
 ops/carry-forward.mjs       adds earlier releases' scripts and dictionary to a release (/_carried.json)
+ops/indexnow.mjs            tells search engines (IndexNow) which pages each release changed
 ```
 
 ## Adding a page
@@ -186,6 +187,10 @@ ops/carry-forward.mjs       adds earlier releases' scripts and dictionary to a r
   `field`, as a payload path like `releases[].notes`) in `DEPRECATIONS` in `src/data/stability.ts`,
   release that, and remove it only after its sunset, at least 90 days later. A page that moves
   leaves a redirect at its old URL. `tests/published-contract.test.ts` holds the check to the rules.
+- Each release announces the pages whose words it added, changed or removed to the IndexNow
+  engines (Bing and those sharing its submissions) once it is live (t26811; `ops/indexnow.mjs`, the
+  key file `src/pages/[indexnowKey].txt.ts`, `tests/indexnow.test.ts`; `docs/DEPLOYMENT.md` › Search
+  engines). The plan reads `contentSha256` in `/api/pages.json`, so keep that hash on every page.
 - `/privacy/` and `/terms/` are `legalNoMirror` and hash-pinned (`tests/legal-integrity.test.ts`);
   their wording changes only on Waseem's instruction.
 - The contact form never shows a raw API error code (`tests/contact-errors.test.ts`).
