@@ -254,7 +254,7 @@ function start(form: HTMLFormElement): void {
     turnstileRenderTimer = setTimeout(renderTurnstile, Math.max(0, 600 - (Date.now() - lastInputAt)));
   }
   addEventListener('message', (event: MessageEvent<CheckMessage | null>) => {
-    if (!checkFrame || event.source !== checkFrame.contentWindow || event.origin !== CHECK_ORIGIN) return;
+    if (!checkFrame?.contentWindow || event.source !== checkFrame.contentWindow || event.origin !== CHECK_ORIGIN) return;
     const said = event.data?.securityCheck;
     if (said === 'loaded') {
       if (turnstileState !== 'loading' && turnstileState !== 'failed') return;
