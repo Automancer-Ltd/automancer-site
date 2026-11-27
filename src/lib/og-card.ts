@@ -5,7 +5,7 @@
  * Each card is drawn at build time from words its page already shows (the
  * title, its label, its date or status), never new ones: the card restates the
  * page, it makes no claim of its own. The SVG below is rasterised by resvg
- * (WebAssembly; no browser) with static instances of the site's own fonts,
+ * (through its Node binding) with static instances of the site's own fonts,
  * cut by ops/og-card/fonts.py from the served subsets, so a card can show
  * exactly the characters a page can.
  *
@@ -14,9 +14,9 @@
  * WebPage primaryImageOfPage and a field note's BlogPosting image.
  */
 import { readFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
-import { initWasm, Resvg } from '@resvg/resvg-wasm';
+import { fontdb } from 'resvg-napi';
+import { renderRaw } from 'resvg-napi/helpers';
 import sharp from 'sharp';
 
 export const OG_WIDTH = 1200;
@@ -303,31 +303,25 @@ ${prices}
 </svg>`;
 }
 
-let ready: Promise<void> | undefined;
-let fontBuffers: Uint8Array[] | undefined;
-function init(): Promise<void> {
-  ready ??= (async () => {
-    const require = createRequire(import.meta.url);
-    await initWasm(readFileSync(require.resolve('@resvg/resvg-wasm/index_bg.wasm')));
-    fontBuffers = FONTS.map((f) => new Uint8Array(readFileSync(asset(`src/assets/og/${f}.ttf`))));
-  })();
-  return ready;
+let fonts: fontdb.Database | undefined;
+function cardFonts(): fontdb.Database {
+  if (!fonts) {
+    const database = new fontdb.Database();
+    for (const name of FONTS) database.loadFontData(readFileSync(asset(`src/assets/og/${name}.ttf`)));
+    fonts = database;
+  }
+  return fonts;
 }
 
 /** The card as PNG bytes, exactly OG_WIDTH × OG_HEIGHT. */
 export async function renderCard(input: CardInput): Promise<Uint8Array<ArrayBuffer>> {
-  await init();
-  const resvg = new Resvg(cardSvg(input), {
-    font: { fontBuffers: fontBuffers!, loadSystemFonts: false, defaultFontFamily: FAMILY['space-grotesk-400'] },
-    fitTo: { mode: 'original' },
+  const { data, width, height } = renderRaw(cardSvg(input), {
+    fonts: cardFonts(),
+    fontFamily: FAMILY['space-grotesk-400'],
   });
-  const image = resvg.render();
-  const pixels = image.pixels;
-  image.free();
-  resvg.free();
 
   // Repeated colours in the glow compress best without adaptive filtering.
-  const png = await sharp(pixels, { raw: { width: OG_WIDTH, height: OG_HEIGHT, channels: 4 } })
+  const png = await sharp(data, { raw: { width, height, channels: 4 } })
     .png({ compressionLevel: 9, adaptiveFiltering: false })
     .toBuffer();
   return Uint8Array.from(png);
