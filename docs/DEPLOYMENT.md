@@ -9,7 +9,11 @@
    ops/contract/check-surface.mjs` reads every identifier `/api/stability.json` promises machines
    from production (endpoint paths, operationIds, response field names, service ids, page URLs,
    enum values) and fails when the built `dist/` drops one without a deprecation that has run its
-   notice (t25827).
+   notice (t25827). Steps that mostly wait and read nothing the others make (the `ops/`
+   self-tests, the browser download) start in the background with `ops/ci/beside.sh start` and
+   report with `ops/ci/beside.sh wait` where they used to run, so the check no longer waits for
+   them one after another (t27546). The deploy's production journey reloads the release's pages
+   at the edge the same way, while Node and the browser are set up.
 2. Merge to `main` → `.github/workflows/deploy.yml`, in about two minutes:
    - `build` builds the merged commit once, with the Sentry DSN and production's page dates
      (each Sentry event names the commit from the page's `build-revision`, t26545), then runs lint, typecheck and the whole `dist/` audit on those

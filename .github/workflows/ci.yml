@@ -29,6 +29,12 @@ jobs:
       with:
         fetch-depth: 0
         persist-credentials: false
+    # The checker self-tests read only the scripts and their own fixture
+    # servers, and mostly wait on them (about 16 s here, under a second of it
+    # computing), so they run beside the steps below; their verdict is
+    # collected after the journey (t27546).
+    - name: Start the checker self-tests beside the next steps
+      run: ops/ci/beside.sh start self-tests sh -c 'ops/verify-production.sh --self-test && ops/test-preview-target.sh'
     - name: Run Estate Checks
       uses: Automancer-Ltd/estate-checks@v1
     - name: Scan commit history for secrets
@@ -46,6 +52,14 @@ jobs:
         runtime: node@26
         cache: true
         require-lockfile: true
+    # The browser alone, from Playwright's CDN. The hosted image already has
+    # every library Chromium needs. `--with-deps` added only apt fonts and mesa
+    # updates the journey never reads, and the runner's apt mirror often crawled
+    # at about 64 kB/s: over 2 minutes in 11 of the 19 pull requests before
+    # t25593, up to 10. Nothing before the journey uses it, so it downloads
+    # while verify runs (t27546); the timeout guards a stalled download.
+    - name: Start downloading the journey browser beside verify
+      run: ops/ci/beside.sh start browser timeout 300 pnpm exec playwright install chromium
     - name: Lint, typecheck, build and test
       run: pnpm run verify
     # The release before this one is production: /api/stability.json promises
@@ -55,21 +69,17 @@ jobs:
     - name: Keep every promise production publishes to machines
       timeout-minutes: 3
       run: node ops/contract/check-surface.mjs --baseline=https://automancer.uk --candidate=dist
-    - name: Install the journey browser
-      # The browser alone, from Playwright's CDN (about 20 s). The hosted image
-      # already has every library Chromium needs. `--with-deps` added only apt
-      # fonts and mesa updates the journey never reads, and the runner's apt
-      # mirror often crawled at about 64 kB/s: over 2 minutes in 11 of the 19
-      # pull requests before t25593, up to 10. The cap guards a stalled download.
+    - name: Journey browser downloaded
       timeout-minutes: 5
-      run: pnpm exec playwright install chromium
+      run: ops/ci/beside.sh wait browser
     - name: Visitor journey (phone and desktop, against the built dist/)
       timeout-minutes: 10
       # The dist/ verify just built and audited, not a second build of it.
       run: pnpm run journey
       env:
         SKIP_BUILD: "1"
-    - name: Self-test the production checker
-      run: ops/verify-production.sh --self-test
-    - name: Self-test the preview target's deploy logic
-      run: ops/test-preview-target.sh
+    # Reported even when an earlier step failed, so a red run shows every verdict.
+    - name: Self-test the production checker and the preview target's deploy logic
+      if: ${{ !cancelled() }}
+      timeout-minutes: 5
+      run: ops/ci/beside.sh wait self-tests

@@ -194,6 +194,13 @@ jobs:
         with:
           persist-credentials: false
 
+      # The edge Worker serves each page from the data centre's cache and fetches it again after
+      # answering, so a page is at most one view behind Pages (t25774). Here that one view could be
+      # the release before this one: reload every page once, so the journey reads this release.
+      # It is curl alone, so it runs while Node and the browser are set up (t27546).
+      - name: Start taking this release's pages at this runner's edge
+        run: ops/ci/beside.sh start edge-reload ops/perf/edge-wait.sh https://automancer.uk --reload --label=release
+
       - name: Set up Node, pnpm and locked dependencies
         uses: pnpm/setup@731dfb6463bbd11c11fd0ee11fe00ed0e36d48a1 # v3.2.0
         with:
@@ -207,11 +214,9 @@ jobs:
         timeout-minutes: 5
         run: pnpm exec playwright install chromium
 
-      # The edge Worker serves each page from the data centre's cache and fetches it again after
-      # answering, so a page is at most one view behind Pages (t25774). Here that one view could be
-      # the release before this one: reload every page once, so the journey reads this release.
       - name: Take this release's pages at this runner's edge
-        run: ops/perf/edge-wait.sh https://automancer.uk --reload --label=release
+        timeout-minutes: 5
+        run: ops/ci/beside.sh wait edge-reload
 
       - name: Visitor journey against production
         run: pnpm run journey
