@@ -81,6 +81,7 @@ src/lib/og-card.ts          share cards: each note's and case study's og:image, 
 src/pages/                  .astro HTML routes; .md.ts / .json.ts / .txt.ts / .xml.ts endpoints
 src/layouts/BaseLayout.astro shared shell, SEO, JSON-LD, nav, footer, Sentry bootstrap
 tests/                      Vitest against the built dist/ (tests/README.md)
+ops/ci/beside.sh            runs a CI step that only waits beside the steps after it, then reports it
 ops/verify-production.sh    production verifier (deploy job; estate-watch siteVerify every 30 min)
 ops/edge/                   Cloudflare Worker in front of Pages; local.mjs serves dist/ through it
 ops/preview/                the non-production preview target
