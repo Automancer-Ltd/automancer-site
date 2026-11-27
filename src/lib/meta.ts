@@ -1,46 +1,26 @@
 /**
- * SEO-length clamps for pages whose <title>/meta description come verbatim
- * from content-collection frontmatter.
+ * The document title every page carries in <title>, og:title and twitter:title.
  *
- * Why this exists: search engines truncate titles past ~60 characters
- * (including the " | Automancer" suffix BaseLayout appends) and
- * descriptions past ~160. Several frontmatter titles/descriptions exceed
- * those budgets, but the Markdown files are editorial copy and stay
- * untouched — so the slug layouts pass their values through here. Visible
- * headings (<h1>, card text) keep using the original frontmatter strings;
- * only the SERP-facing metadata is fitted to budget.
+ * A page's title is its whole headline, never a cut-off one. Until t27598 the
+ * field notes and case studies were clipped at a word to stay under 60
+ * characters, so search results, browser tabs, bookmarks and link previews
+ * read "AI hype vs AI that ships: how to tell before | Automancer" and lost the
+ * very words a searcher typed ("in 2026?", "price breakdown"). Google sets no
+ * limit on a <title> and shortens the title link itself, with an ellipsis, to
+ * fit the screen (developers.google.com/search/docs/appearance/title-link), so
+ * the site gives it the whole headline and lets the reader's screen decide.
  *
- * Deterministic by design: same input, same output, no editorialising.
+ * The brand goes at the end only while headline and brand together fit in
+ * 60 characters, about what a result line shows: a longer headline keeps that
+ * room for its own words, and the result already names the site above it.
  */
 
-const TITLE_SUFFIX = ' | Automancer';
-/** Hard ceiling for the composed <title>; SERPs truncate around 60. */
-const TITLE_MAX = 59;
-const DESCRIPTION_MAX = 160;
+export const BRAND = 'Automancer';
+const TITLE_SUFFIX = ` | ${BRAND}`;
+/** Headline plus brand up to this length keeps the brand; beyond it, the headline alone. */
+export const BRANDED_TITLE_MAX = 60;
 
-/** Cut at the last word boundary that fits, then trim dangling punctuation. */
-function truncateAtWord(text: string, max: number): string {
-  if (text.length <= max) return text;
-  const clipped = text.slice(0, max + 1);
-  const spaceAt = clipped.lastIndexOf(' ');
-  const base = spaceAt > Math.floor(max / 2) ? clipped.slice(0, spaceAt) : text.slice(0, max);
-  return base.replace(/[\s,;:.!?–—-]+$/u, '');
-}
-
-/**
- * A title which, with the brand suffix appended, stays under 60 characters.
- * Returns the original string unchanged whenever it already fits.
- */
-export function fitTitle(title: string): string {
-  if ((title + TITLE_SUFFIX).length <= TITLE_MAX) return title;
-  return truncateAtWord(title, TITLE_MAX - TITLE_SUFFIX.length);
-}
-
-/**
- * A meta description within [50, 160]. Only over-long values are touched —
- * a too-short description is an editorial problem and must be fixed at the
- * source, not padded by a machine.
- */
-export function fitDescription(description: string): string {
-  return truncateAtWord(description, DESCRIPTION_MAX);
+export function documentTitle(headline: string): string {
+  const branded = headline + TITLE_SUFFIX;
+  return branded.length <= BRANDED_TITLE_MAX ? branded : headline;
 }

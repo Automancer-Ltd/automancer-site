@@ -21,7 +21,7 @@ import { describe, expect, it } from 'vitest';
 import { DIST, ROOT, SITE_URL, allHtmlFiles, contentPages, readDistFile, resolveInDist } from './support/dist';
 import { contentEntries } from './support/content';
 import { business, formatGBP, services } from '../src/data/business';
-import { fitDescription, fitTitle } from '../src/lib/meta';
+import { documentTitle } from '../src/lib/meta';
 
 /** Every file emitted into dist/, as dist-relative POSIX paths. */
 function allDistFiles(): string[] {
@@ -194,18 +194,16 @@ describe('markdown twins — every content page also speaks Markdown', () => {
       const metaDesc =
         page!.doc.querySelector('meta[name="description"]')?.getAttribute('content')?.trim() ?? '';
 
-      // <title> is fitted to SERP budget (src/lib/meta.ts) before the brand
-        // suffix is appended; the twin carries the unfitted copy. Recomputing
-        // the same fit keeps this strict against wording drift while allowing
-        // only the deterministic length clamp.
+      // The page and its twin carry the same whole title and description;
+      // the page adds only the brand, while it fits (src/lib/meta.ts, t27598).
       expect(
         htmlTitle,
         `dist/${twinPath}: front-matter title "${fm.title}" has drifted from the page <title>`
-      ).toBe(`${fitTitle(fm.title)} | Automancer`);
+      ).toBe(documentTitle(fm.title));
       expect(
         metaDesc,
         `dist/${twinPath}: front-matter description has drifted from the page meta description`
-      ).toBe(fitDescription(fm.description));
+      ).toBe(fm.description);
     }
   });
 });
@@ -470,7 +468,7 @@ describe('/api/*.json endpoints', () => {
       const route = new URL(entry.url).pathname;
       const htmlTitle = byRoute.get(route)?.doc.querySelector('title')?.text.trim();
       expect(htmlTitle, `api/pages.json: title "${entry.title}" disagrees with ${route} <title>`).toBe(
-        `${fitTitle(entry.title)} | Automancer`
+        documentTitle(entry.title)
       );
     }
   });

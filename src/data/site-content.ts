@@ -66,9 +66,9 @@ export function studyMarkdown(entry: CaseStudy, next?: CaseStudy): string {
   const nextLine = next ? `Next case study: [${next.data.headline ?? next.data.title}](${abs(`/work/${next.id}/`)})\n\n` : '';
   return (
     frontMatter({
-      // The page <title> derives from fitTitle(d.title) — the twin's
-      // front-matter title must be that same string (unfitted), not the
-      // display headline, or the twin and its page disagree.
+      // The page <title> is documentTitle(d.title) — the twin's
+      // front-matter title must be that same whole title, not the display
+      // headline, or the twin and its page disagree.
       title: d.title,
       description: d.description,
       url,

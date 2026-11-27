@@ -10,6 +10,7 @@ import { cardAlt, pageCardFor } from '../data/share-cards';
 import { markdownTwinPath, staticPages } from '../data/site-content';
 import { abs, pagePath } from '../data/urls';
 import { build } from '../data/build';
+import { documentTitle } from '../lib/meta';
 import { OFFSITE_LOCK } from '../../ops/edge/worker.js';
 import '../styles/fonts.css';
 import '../styles/global.css';
@@ -124,7 +125,7 @@ const SPECULATION_RULES = {
     <meta name="is-agentic-site-type" content="business" />
     {/* The full commit this page was built from: deploy checks compare it with the commit shipped. */}
     {build.commitFull && <meta name="build-revision" content={build.commitFull} />}
-    <SEO title={`${title} | Automancer`} description={description} image={image} imageAlt={imageAlt} type={ogType} />
+    <SEO title={documentTitle(title)} description={description} image={image} imageAlt={imageAlt} type={ogType} />
     {markdownUrl && <link rel="alternate" type="text/markdown" href={markdownUrl} />}
 
     <link rel="icon" type="image/png" sizes="32x32" href="/assets/images/favicon-32.png" />

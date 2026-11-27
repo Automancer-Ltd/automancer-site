@@ -8,7 +8,6 @@ import JsonLd from '../../components/JsonLd.astro';
 import ArticleContents from '../../components/ArticleContents.astro';
 import { articleNode } from '../../data/jsonld';
 import { getCollection, render } from 'astro:content';
-import { fitDescription, fitTitle } from '../../lib/meta';
 import { formatGBP, serviceById } from '../../data/business';
 import { contactHref } from '../../data/enquiry';
 import { cardAlt, cardPath, fieldNoteCard } from '../../data/share-cards';
@@ -46,9 +45,7 @@ const published = (await getNotes()).map(asRelatable);
 const next = relatedNotes(asRelatable(entry), published).map((r) => r.note);
 ---
 
-{/* SERP metadata is length-fitted (see src/lib/meta.ts); the visible
-     article title below keeps the frontmatter copy verbatim. */}
-<BaseLayout title={fitTitle(d.title)} description={fitDescription(d.description)} ogType="article" image={card} imageAlt={cardAlt(fieldNoteCard(entry))} markdown={`/field-notes/${entry.id}.md`}>
+<BaseLayout title={d.title} description={d.description} ogType="article" image={card} imageAlt={cardAlt(fieldNoteCard(entry))} markdown={`/field-notes/${entry.id}.md`}>
   <Fragment slot="head">
     <JsonLd
       nodes={[articleNode({ path: Astro.url.pathname, title: d.title, description: d.description, date: d.date, author: d.author, body: entry.body, image: card })]}
