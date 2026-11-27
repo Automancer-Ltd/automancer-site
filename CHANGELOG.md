@@ -1,5 +1,10 @@
 # Release notes
 
+## v2026.11.27.3 — 27 November 2026
+
+Each release’s pages are checked at the site edge during deployment.
+
+
 ## v2026.11.27.2 — 27 November 2026
 
 Visitors can submit the contact form more smoothly while the security check loads, and the check runs separately from the details they enter.
