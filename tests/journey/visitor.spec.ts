@@ -314,6 +314,21 @@ test("a case study's sector and notes read as whole lines, not ragged columns", 
   }
 });
 
+test('case study figures and their labels fit on the first screen', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const xml = await (await page.request.get('/sitemap-0.xml')).text();
+  const studies = [...xml.matchAll(/<loc>([^<]+\/work\/[^<]+\/)<\/loc>/g)].map((m) => new URL(m[1]!).pathname);
+  expect(studies.length, 'no case studies in the sitemap').toBeGreaterThan(0);
+  for (const path of studies) {
+    await page.goto(path);
+    await page.evaluate(() => document.fonts.ready);
+    const offscreen = await page.locator('.statband :is(.stat__v, .stat__l)').evaluateAll((items) =>
+      items.filter((item) => item.getBoundingClientRect().bottom > innerHeight).map((item) => item.textContent),
+    );
+    expect.soft(offscreen, `${path} figures and labels below the first screen`).toEqual([]);
+  }
+});
+
 test("a case study's figures never break inside a word, even with text at 200%", async ({ page }, info) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   const xml = await (await page.request.get('/sitemap-0.xml')).text();
@@ -325,16 +340,19 @@ test("a case study's figures never break inside a word, even with text at 200%",
         await page.goto(path);
         await page.evaluate((size) => document.documentElement.style.setProperty('font-size', size), text);
         await page.evaluate(() => document.fonts.ready);
-        // A run may break after its dash ("Near-" / "zero"); anywhere else is mid-word ("Compu" / "ted").
+        // A word or price range is one run, including any dash inside it.
         const broken = await page.evaluate(() => {
           const out: string[] = [];
           for (const v of document.querySelectorAll('.stat__v')) {
-            const node = v.firstChild as Text;
-            for (const m of node.textContent!.matchAll(/[^\s–-]+[–-]?/g)) {
-              const range = document.createRange();
-              range.setStart(node, m.index!);
-              range.setEnd(node, m.index! + m[0].length);
-              if (range.getClientRects().length > 1) out.push(m[0]);
+            const text = document.createTreeWalker(v, NodeFilter.SHOW_TEXT);
+            while (text.nextNode()) {
+              const node = text.currentNode;
+              for (const m of node.textContent!.matchAll(/\S+/g)) {
+                const range = document.createRange();
+                range.setStart(node, m.index!);
+                range.setEnd(node, m.index! + m[0].length);
+                if (range.getClientRects().length > 1) out.push(m[0]);
+              }
             }
           }
           return out;

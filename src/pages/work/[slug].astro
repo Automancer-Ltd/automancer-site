@@ -29,9 +29,13 @@ export async function getStaticPaths() {
 const { entry, next } = Astro.props;
 const { Content, headings } = await render(entry);
 const d = entry.data;
-// Characters in a figure's longest unbroken run ("Computed"; "£300–400" may
-// break after its dash). The figure is sized so that run fits the band.
-const longestWord = (v: string) => Math.max(...(v.match(/[^\s–-]+[–-]?/g) ?? ['']).map((w) => [...w].length));
+// Break a figure at spaces so a price range always stays together. The
+// longest run also sets how much to scale the figure in a narrow cell.
+const figures = d.stats.map((stat) => {
+  const parts = stat.v.split(/(\s+)/);
+  const longest = Math.max(1, ...parts.map((part) => [...part.trim()].length));
+  return { ...stat, parts, longest };
+});
 // Notes after the sector, in order. The text keeps the '· ' separators the page
 // has always carried, so its words (and published page date) do not change.
 const notes = [d.anonymised && 'anonymised', d.status].filter((n): n is string => Boolean(n));
@@ -42,9 +46,8 @@ const sourced = evidenceRows(d);
 ---
 
 <BaseLayout title={d.title} description={d.description} image={cardPath('work', entry.id)} imageAlt={cardAlt(caseStudyCard(entry))} markdown={`/work/${entry.id}.md`}>
-  <!-- Designed hero -->
   <article>
-    <header class="page-hero hatch">
+    <header class="page-hero page-hero--compact case-opening hatch">
       <SpectrumGlow class="page-hero__glow" px={26} />
       <div class="page-hero__inner case-hero">
         <p class="eyebrow eyebrow--case">
@@ -55,37 +58,35 @@ const sourced = evidenceRows(d);
             </span>
           )}
         </p>
-        <h1 class="page-hero__title">{d.headline ?? d.title}</h1>
-        {d.subhead && <p class="page-hero__sub">{d.subhead}</p>}
-        {d.client && (
-          <p class="form__micro" style="margin-top: var(--sp-6); max-width: 60ch;">
-            <strong style="color:var(--ink)">Client:</strong> {d.client}
-          </p>
-        )}
-        {sourced.length > 0 && (
-          <a class="stat__src case-hero__src" href={`#${SOURCES_ANCHOR}`}>Where these numbers come from<span aria-hidden="true"> ↓</span></a>
-        )}
+        <div class="case-opening__overview">
+          <div>
+            <h1 class="page-hero__title">{d.headline ?? d.title}</h1>
+            {d.subhead && <p class="page-hero__sub">{d.subhead}</p>}
+            {d.client && (
+              <p class="case-opening__client">
+                <strong>Client:</strong> {d.client}
+              </p>
+            )}
+            {sourced.length > 0 && (
+              <a class="stat__src case-hero__src" href={`#${SOURCES_ANCHOR}`}>Where these numbers come from<span aria-hidden="true"> ↓</span></a>
+            )}
+          </div>
+          {figures.length > 0 && (
+            <ul class="statband case-opening__figures" role="list" aria-label="Case study figures">
+              {figures.map((s) => (
+                <li class="stat">
+                  <div class="stat__v" style={`--stat-word: ${s.longest}`}>{s.parts.map((part) => part.trim() ? <span>{part}</span> : part)}</div>
+                  <div class="stat__l">{s.l}</div>
+                  {s.claims.length > 0 && (
+                    <a class="stat__src" href={`#${evidenceAnchor(s.claims)}`} aria-label={`Source for ${s.v}`}>Source<span aria-hidden="true"> ↓</span></a>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
     </header>
-
-    <!-- Stat band -->
-    {d.stats.length > 0 && (
-      <section class="section section--tight on-near">
-        <div class="wrap">
-          <div class="statband reveal-stagger">
-            {d.stats.map((s) => (
-              <div class="stat">
-                <div class="stat__v" style={`--stat-word: ${longestWord(s.v)}`}>{s.v}</div>
-                <div class="stat__l">{s.l}</div>
-                {s.claims.length > 0 && (
-                  <a class="stat__src" href={`#${evidenceAnchor(s.claims)}`} aria-label={`Source for ${s.v}`}>Source<span aria-hidden="true"> ↓</span></a>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-    )}
 
     <!-- Long-form body -->
     <section class="section on-dark">
@@ -153,6 +154,73 @@ const sourced = evidenceRows(d);
 </BaseLayout>
 
 <style is:global>
+.case-opening .eyebrow--case { margin-block-end: var(--sp-4); }
+.case-opening .page-hero__title {
+  font-size: clamp(1.75rem, 1.125rem + 3.5vw, 3.25rem);
+}
+.case-opening .page-hero__sub { line-height: 1.55; }
+.case-opening__client {
+  max-inline-size: 54ch;
+  margin-block-start: var(--sp-3);
+  font-size: var(--t--1);
+  color: var(--muted);
+}
+.case-opening__client strong { color: var(--ink); }
+.case-opening__figures {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-self: start;
+  gap: 0 var(--sp-5);
+  max-inline-size: var(--w-text);
+  margin-block-start: var(--sp-5);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  overflow: visible;
+}
+.case-opening__figures .stat {
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  align-items: start;
+  padding: var(--sp-3) 0;
+  border-block-start: 1px solid var(--border-strong);
+  background: transparent;
+}
+.case-opening__figures .stat__v {
+  font-family: var(--font-ui);
+  font-weight: 700;
+  font-size: min(clamp(1.25rem, 1.13rem + .55vw, 1.625rem), 100cqi / var(--stat-word));
+  font-variant-numeric: lining-nums tabular-nums;
+  text-wrap: wrap;
+}
+.case-opening__figures .stat__v span { white-space: nowrap; }
+.case-opening__figures .stat__l { margin-block: var(--sp-1) var(--sp-1); }
+.case-opening__figures .stat__src {
+  margin-block-start: auto;
+  min-block-size: 1.75rem;
+  align-content: center;
+  text-decoration-color: currentColor;
+}
+.case-opening__figures .stat__src:active { color: var(--white); }
+
+@container (width >= 20rem) {
+  .case-opening__figures { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media screen {
+  @container (width >= 54rem) {
+    .case-opening__overview:has(> .case-opening__figures) {
+      display: grid;
+      grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+      gap: var(--sp-12);
+    }
+    .case-opening__figures { margin-block-start: 0; }
+  }
+}
+@media print {
+  .case-opening__figures .stat { padding-inline: var(--sp-3); }
+}
+
 /* A case study's eyebrow: sector · anonymised · status. On one line where the
    longest (about 48rem) fits; in a narrower column (phones, tablets, enlarged
    text) the notes take a second line under the sector, without a leading dot,
