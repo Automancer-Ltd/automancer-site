@@ -1,5 +1,10 @@
 # Release notes
 
+## v2026.11.27.2 — 27 November 2026
+
+Visitors can submit the contact form more smoothly while the security check loads, and the check runs separately from the details they enter.
+
+
 ## v2026.11.27.1 — 27 November 2026
 
 Automancer has added a new field note to help visitors understand the evidence behind its published information.
