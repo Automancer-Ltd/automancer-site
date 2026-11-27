@@ -958,9 +958,10 @@ async function keptPage(request, pathname, file, policy, ctx, dictionary = null)
   // then keep every other page of that release here too (warmRelease, t26986). Once per view: the
   // Brotli and dictionary copies can both teach it. A hard reload reads no release, so it teaches
   // without warming (the release's own reload pass, edge-wait.sh --reload, sends one per page).
+  // `coding` is the copy whose headers taught it, which warming need not fetch again.
   let warming = null;
-  const learn = (headers) => noteRelease(cache, headers, release).then((at) => {
-    if (at && !reload && !warming) warming = warmRelease(cache, at, pathname).catch(() => {});
+  const learn = (headers, coding = 'br') => noteRelease(cache, headers, release).then((at) => {
+    if (at && !reload && !warming) warming = warmRelease(cache, at, { path: pathname, coding }).catch(() => {});
     return warming;
   });
   const keepDcz = () => ctx.waitUntil(keepDictionaryPage(cache, dczKey, pathname, file, policy, learn).catch(() => {}));
@@ -999,7 +1000,7 @@ async function keptPage(request, pathname, file, policy, ctx, dictionary = null)
     if (copy) {
       const [visitor, keep] = copy.response.body.tee();
       ctx.waitUntil(putPage(cache, dczKey, copy.response.headers, keep, copy.dictionary).catch(() => {}));
-      ctx.waitUntil(learn(copy.response.headers).catch(() => {}));
+      ctx.waitUntil(learn(copy.response.headers, 'dcz').catch(() => {}));
       if (copy.dictionary === dictionary) return pageAnswer(request, [...copy.response.headers], visitor, state);
       visitor.cancel().catch(() => {});
     }
@@ -1064,33 +1065,47 @@ const releaseMark = (at) => new Response('', {
 // against 49 ms for a kept copy), and this site releases several times a day. So when a view
 // teaches a data centre a newer release (or the first one it has seen), the Worker fetches every
 // page in the sitemap from Pages after answering and keeps it there, as keepPage() does after a
-// hit: the visitor's next page, and anyone's after them, is answered from the edge. Only the
-// Brotli copy is fetched: a browser holding the dictionary is answered from it at once and its
-// dictionary copy kept for next time, as before. The view that teaches the release still waits
-// for GitHub, once per release per data centre.
+// hit: the visitor's next page, and anyone's after them, is answered from the edge. The view that
+// teaches the release still waits for GitHub, once per release per data centre.
 //
-// Cost: up to WARM_PAGES pages fetched from Pages (two requests each, as keepPage makes) once per
-// release at each data centre a visitor reaches, three pages at a time, so that their requests
-// stay within the six connections a Worker may hold open; the 32 pages take a few seconds, well
-// inside the 30 s a Worker may run after answering. WARM_KEY records the release warmed, so
-// views at the same data centre do not repeat it (two views a few milliseconds apart can).
+// Both copies of each page are kept: Brotli, and the copy compressed against the release's
+// dictionary (keepDictionaryPage). Warming kept Brotli alone at first, and a kept Brotli copy is
+// served at once to a browser holding the dictionary too, so on a site this quiet nearly every
+// Chromium view got Brotli: on 27 Nov 2026 a five-page Chromium visit offered the dictionary on
+// all four later pages and got Brotli on all four (t27582). Keeping the dictionary copy too sends
+// those pages at about a third of the size.
+//
+// Cost: up to WARM_PAGES pages fetched from Pages (four requests each, two per copy, as keepPage
+// and keepDictionaryPage make) once per release at each data centre a visitor reaches, three
+// pages at a time and one copy after the other, so that their requests stay within the six
+// connections a Worker may hold open; the 32 pages take a few seconds, well inside the 30 s a
+// Worker may run after answering. WARM_KEY records the release warmed, so views at the same data
+// centre do not repeat it (two views a few milliseconds apart can).
 const WARM_KEY = '/.edge-cache/warmed';
 export const WARM_PAGES = 100;
 const WARM_AT_ONCE = 3;
 const SITEMAP_INDEX = '/sitemap-index.xml';
 
-/** Fetch and keep every sitemap page but `skip` in this data centre, once per release `at`. */
+/**
+ * Fetch and keep both copies of every sitemap page in this data centre, once per release `at`,
+ * but the copy `skip` names (the view that taught the release fetched it already).
+ */
 async function warmRelease(cache, at, skip) {
   const done = await cache.match(new Request(atOrigin(WARM_KEY))).catch(() => null);
   done?.body?.cancel().catch(() => {});
   if (!newerRelease(at, Number(done?.headers.get(KEPT_RELEASE)) || 0)) return;
   await cache.put(new Request(atOrigin(WARM_KEY)), releaseMark(at));
-  const queue = (await sitemapPages()).filter((path) => path !== skip);
+  const queue = await sitemapPages();
   const keepNext = async () => {
     for (let path = queue.shift(); path !== undefined; path = queue.shift()) {
       const file = brotliFile(path);
       if (!file?.type.startsWith('text/html')) continue;
-      await keepPage(cache, pageCacheKey(path), path, file, cachePolicy(path, ''), async () => 0).catch(() => {});
+      const policy = cachePolicy(path, '');
+      for (const coding of ['br', 'dcz']) {
+        if (path === skip.path && coding === skip.coding) continue;
+        const keep = coding === 'dcz' ? keepDictionaryPage : keepPage;
+        await keep(cache, pageCacheKey(path, coding), path, file, policy, async () => 0).catch(() => {});
+      }
     }
   };
   await Promise.all(Array.from({ length: WARM_AT_ONCE }, keepNext));
@@ -1146,7 +1161,7 @@ async function keepPage(cache, key, pathname, file, policy, learn) {
 async function keepDictionaryPage(cache, key, pathname, file, policy, learn) {
   const copy = await dictionaryCopy(new Request(atOrigin(pathname)), pathname, file, policy);
   if (!copy) return cache.delete(key);
-  return Promise.all([putPage(cache, key, copy.response.headers, copy.response.body, copy.dictionary), learn(copy.response.headers)]);
+  return Promise.all([putPage(cache, key, copy.response.headers, copy.response.body, copy.dictionary), learn(copy.response.headers, 'dcz')]);
 }
 
 // Kept as plain bytes with no Content-Encoding, as Pages serves the .br file, so the cache hands
