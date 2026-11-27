@@ -9,8 +9,12 @@
  * delivered it opens the recovery block: the email route, carrying the chosen service, and a Copy
  * button for the draft.
  *
- * Cloudflare Turnstile loads only when someone uses the form, and mounts in a typing pause
- * (t24160). The script URL is already in the page's inert template.
+ * The security check (Cloudflare Turnstile) runs in a frame on its own origin, SECURITY_CHECK_URL
+ * (t27305), so Cloudflare's script never runs in this page and cannot read the form. The frame
+ * loads, hidden, only when someone uses the form, and draws the widget in a typing pause
+ * (t24160). It tells this page only its state and the token, by postMessage; anything else, or
+ * anything from another window or origin, is ignored. Its sandbox lets it run, keep its own
+ * origin and open Cloudflare's links in a new tab, never navigate this page.
  *
  * The page-specific facts (the address, the draft's field labels, the service names) come from
  * the form's data-enquiry attribute, written by contact.astro from src/data/enquiry.ts; the
@@ -18,7 +22,7 @@
  * Astro bundles this module into the page itself (it imports nothing at run time), and its CSP
  * hash is added to the page's policy, as before.
  */
-import { ENDPOINT_URL, FIELD_LIMITS, LEAD_ERROR_COPY, LEAD_ERROR_FALLBACK, TURNSTILE_SCRIPT_URL } from '../config/site';
+import { ENDPOINT_URL, FIELD_LIMITS, LEAD_ERROR_COPY, LEAD_ERROR_FALLBACK, SECURITY_CHECK_URL } from '../config/site';
 
 /** What contact.astro writes into the form's data-enquiry attribute. */
 export interface EnquiryPageData {
@@ -32,18 +36,18 @@ export interface EnquiryPageData {
   services: readonly { value: string; label: string }[];
 }
 
-interface TurnstileApi {
-  getResponse(): string | undefined;
-  reset(): void;
-  render(slot: Element, options: Record<string, unknown>): void;
+/** What the security check frame says (securityCheck() in ops/edge/worker.js). */
+interface CheckMessage {
+  securityCheck?: unknown;
+  token?: unknown;
 }
 
+const CHECK_ORIGIN = new URL(SECURITY_CHECK_URL).origin;
+// Run scripts at its own origin and open Cloudflare's privacy and help links in a new tab;
+// no navigating this page, no forms, no downloads.
+const CHECK_SANDBOX = 'allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox';
+
 declare global {
-  interface Window {
-    turnstile?: TurnstileApi;
-    onTurnstileLoad?: () => void;
-    onTurnstileError?: () => boolean;
-  }
   interface Document {
     /** True while Chromium prerenders the page (Speculation Rules, BaseLayout.astro). */
     readonly prerendering?: boolean;
@@ -216,28 +220,23 @@ function start(form: HTMLFormElement): void {
   let turnstileLoadTimer: ReturnType<typeof setTimeout> | undefined;
   let turnstileRenderTimer: ReturnType<typeof setTimeout> | undefined;
   let lastInputAt = 0;
+  let checkFrame: HTMLIFrameElement | null = null;
+  let checkToken = '';
 
   function turnstileToken(): string {
-    // Prefer the official API; fall back to the injected hidden input.
-    try {
-      if (window.turnstile) return window.turnstile.getResponse() || '';
-    } catch {}
-    return form.querySelector<HTMLInputElement>('[name="cf-turnstile-response"]')?.value ?? '';
+    return checkToken;
+  }
+  function askCheck(securityCheck: 'render' | 'reset'): void {
+    checkFrame?.contentWindow?.postMessage({ securityCheck }, CHECK_ORIGIN);
   }
   function securityCheckUnavailable(): void {
     clearTimeout(turnstileLoadTimer);
     turnstileState = 'failed';
     showDeliveryError(SECURITY_CHECK_COPY);
   }
-  window.onTurnstileError = () => {
-    securityCheckUnavailable();
-    // Keep a handled widget error out of Sentry (AUTOMANCER-SITE-4).
-    return true;
-  };
   function resetTurnstile(): void {
-    try {
-      window.turnstile?.reset();
-    } catch {}
+    checkToken = '';
+    askCheck('reset');
   }
   function renderTurnstile(): void {
     clearTimeout(turnstileRenderTimer);
@@ -245,15 +244,8 @@ function start(form: HTMLFormElement): void {
     // A late load can still render. Leave the email and copy controls
     // available in case the visitor has already started using them.
     if (errEl.textContent === SECURITY_CHECK_COPY) clearError();
-    try {
-      window.turnstile!.render(slot!, {
-        sitekey: slot!.getAttribute('data-sitekey'),
-        theme: slot!.getAttribute('data-theme'),
-        'error-callback': window.onTurnstileError,
-      });
-    } catch {
-      securityCheckUnavailable();
-    }
+    slot!.dataset.mounted = '';
+    askCheck('render');
   }
   function scheduleTurnstileRender(): void {
     // Mounting the widget can block typing on a slower phone. Start in a
@@ -261,26 +253,34 @@ function start(form: HTMLFormElement): void {
     clearTimeout(turnstileRenderTimer);
     turnstileRenderTimer = setTimeout(renderTurnstile, Math.max(0, 600 - (Date.now() - lastInputAt)));
   }
-  window.onTurnstileLoad = () => {
-    clearTimeout(turnstileLoadTimer);
-    turnstileState = 'loaded';
-    scheduleTurnstileRender();
-  };
+  addEventListener('message', (event: MessageEvent<CheckMessage | null>) => {
+    if (!checkFrame || event.source !== checkFrame.contentWindow || event.origin !== CHECK_ORIGIN) return;
+    const said = event.data?.securityCheck;
+    if (said === 'loaded') {
+      if (turnstileState !== 'loading' && turnstileState !== 'failed') return;
+      clearTimeout(turnstileLoadTimer);
+      turnstileState = 'loaded';
+      scheduleTurnstileRender();
+    } else if (said === 'token') {
+      checkToken = typeof event.data?.token === 'string' ? event.data.token : '';
+    } else if (said === 'expired') {
+      checkToken = '';
+    } else if (said === 'error') {
+      checkToken = '';
+      securityCheckUnavailable();
+    }
+  });
   function loadTurnstile(): void {
     if (turnstileState !== 'idle' || !slot || document.prerendering) return;
-    const template = document.head.querySelector<HTMLTemplateElement>('template#turnstile-loader');
-    const entry = template?.content.firstElementChild;
-    if (!(entry instanceof HTMLScriptElement) || entry.getAttribute('src') !== TURNSTILE_SCRIPT_URL) {
-      securityCheckUnavailable();
-      return;
-    }
-    const script = entry.cloneNode(true) as HTMLScriptElement;
     turnstileState = 'loading';
-    script.onerror = securityCheckUnavailable;
-    // A stalled download does not fire onerror. Offer the draft without
+    checkFrame = document.createElement('iframe');
+    checkFrame.title = 'Security check';
+    checkFrame.setAttribute('sandbox', CHECK_SANDBOX);
+    checkFrame.src = SECURITY_CHECK_URL;
+    // A stalled or refused frame says nothing. Offer the draft without
     // making the visitor wait for the browser's network timeout.
     turnstileLoadTimer = setTimeout(securityCheckUnavailable, 10_000);
-    document.head.appendChild(script);
+    slot.append(checkFrame);
   }
   form.addEventListener('focusin', loadTurnstile);
   form.addEventListener('pointerdown', loadTurnstile);

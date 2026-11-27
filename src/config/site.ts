@@ -78,8 +78,15 @@ export const FIELD_LIMITS = {
  * (widget "automancer.uk lead form" in the Automancer Cloudflare account, managed mode,
  * domain automancer.uk).
  * Site keys are public by design; the paired secret is TURNSTILE_SECRET in
- * the AUTD Convex deployment.
+ * the AUTD Convex deployment. The widget runs only in the security check frame
+ * (CHECK_SITE_KEY in ops/edge/worker.js, which tests/edge-worker.test.ts holds
+ * equal to this), never in a page of the site.
  */
 export const TURNSTILE_SITE_KEY = '0x4AAAAAAFillry1PYXs0p-E';
-export const TURNSTILE_SCRIPT_ENTRY = 'https://challenges.cloudflare.com/turnstile/v0/api.js';
-export const TURNSTILE_SCRIPT_URL = `${TURNSTILE_SCRIPT_ENTRY}?render=explicit&onload=onTurnstileLoad`;
+/**
+ * The contact form's security check: one page on a host of its own, served by the
+ * edge Worker (securityCheck() in ops/edge/worker.js, t27305). Cloudflare's script
+ * runs there, on another origin, so it can never read the form; the frame sends
+ * the form only its state and the token.
+ */
+export const SECURITY_CHECK_URL = 'https://check.automancer.uk/';

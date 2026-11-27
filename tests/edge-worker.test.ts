@@ -3,8 +3,9 @@ import { createHash } from 'node:crypto';
 import { brotliCompressSync, brotliDecompressSync, zstdCompressSync, zstdDecompressSync } from 'node:zlib';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import worker, { DCZ_MAGIC, EDGE_SOURCE_HEADER, ERROR_TUNNEL, OFFSITE_LOCK, PAGE_CACHE_HEADER, PAGE_CACHE_SECONDS, SENTRY_INGEST, SENTRY_PROJECT, acceptsBrotli, acceptsCoding, atOrigin, availableDictionary, atPages, brotliFile, cachePolicy, dczDictionary, fromPages, legacyRedirect, namesTag, pageCacheKey, unlocked } from '../ops/edge/worker.js';
+import worker, { CHECK_HOST, CHECK_PARENT, CHECK_SITE_KEY, TURNSTILE_SCRIPT, DCZ_MAGIC, EDGE_SOURCE_HEADER, ERROR_TUNNEL, OFFSITE_LOCK, PAGE_CACHE_HEADER, PAGE_CACHE_SECONDS, SENTRY_INGEST, SENTRY_PROJECT, acceptsBrotli, acceptsCoding, atOrigin, availableDictionary, atPages, brotliFile, cachePolicy, dczDictionary, fromPages, legacyRedirect, namesTag, pageCacheKey, unlocked } from '../ops/edge/worker.js';
 import { DIST, allHtmlFiles, contentPages } from './support/dist';
+import { SECURITY_CHECK_URL, TURNSTILE_SITE_KEY } from '../src/config/site';
 
 // The Pages project the Worker reads (t22925): the site has no custom domain on GitHub.
 const PAGES = 'https://automancer-ltd.github.io/automancer-site';
@@ -1064,5 +1065,98 @@ describe('error report tunnel', () => {
     expect(res.status).toBe(502);
     expect(res.headers.get('Location')).toBeNull();
     expect(fetchSpy).toHaveBeenCalledOnce();
+  });
+});
+
+describe('security check frame (t27305)', () => {
+  const check = (path = '/', init: RequestInit = {}, env: Record<string, string> = {}) =>
+    worker.fetch(new Request(`https://${CHECK_HOST}${path}`, init), env) as Promise<Response>;
+  const policyOf = (res: Response) =>
+    new Map((res.headers.get('Content-Security-Policy') ?? '').split(';').map((part) => {
+      const [name, ...sources] = part.trim().split(/\s+/);
+      return [name, sources] as const;
+    }));
+  const sha = (text: string) => `'sha256-${createHash('sha256').update(text).digest('base64')}'`;
+
+  beforeEach(() => {
+    // The frame is answered by the Worker alone: nothing is fetched from Pages or anywhere else.
+    vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new Error('the security check fetched something'))));
+  });
+
+  it('is the host the contact form frames, and uses the site key the form was given', () => {
+    expect(new URL(SECURITY_CHECK_URL).host).toBe(CHECK_HOST);
+    expect(new URL(SECURITY_CHECK_URL).pathname).toBe('/');
+    expect(CHECK_SITE_KEY).toBe(TURNSTILE_SITE_KEY);
+    expect(CHECK_PARENT).toBe('https://automancer.uk');
+  });
+
+  it('runs only its own script and Turnstile, and only inside automancer.uk', async () => {
+    const res = await check();
+    expect(res.status).toBe(200);
+    expect(res.headers.get('Content-Type')).toBe('text/html; charset=utf-8');
+    const html = await res.text();
+    const policy = policyOf(res);
+    expect(policy.get('default-src')).toEqual(["'none'"]);
+    expect(policy.get('frame-ancestors')).toEqual(['https://automancer.uk']);
+    expect(policy.get('frame-src')).toEqual(['https://challenges.cloudflare.com']);
+    expect(policy.get('base-uri')).toEqual(["'none'"]);
+    expect(policy.get('form-action')).toEqual(["'none'"]);
+    expect(policy.get('require-trusted-types-for')).toEqual(["'script'"]);
+    expect(policy.get('trusted-types')).toEqual(["'none'"]);
+    expect(policy.has('connect-src')).toBe(false);
+    // Every script and stylesheet in the page is the one its policy names, and nothing else may run.
+    const inline = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]!);
+    const external = [...html.matchAll(/<script async src="([^"]+)"><\/script>/g)].map((m) => m[1]!.replaceAll('&amp;', '&'));
+    const styles = [...html.matchAll(/<style>([\s\S]*?)<\/style>/g)].map((m) => m[1]!);
+    expect(html.match(/<script/g)).toHaveLength(inline.length + external.length);
+    expect(inline).toHaveLength(1);
+    expect(external).toEqual([`${TURNSTILE_SCRIPT}?render=explicit&onload=onTurnstileLoad`]);
+    expect(policy.get('script-src')).toEqual([sha(inline[0]!), TURNSTILE_SCRIPT]);
+    expect(policy.get('style-src')).toEqual(styles.map(sha));
+    expect(html).toContain('data-parent="https://automancer.uk"');
+    expect(html).toContain(`data-sitekey="${TURNSTILE_SITE_KEY}"`);
+    // It tells only the parent page, by its exact origin.
+    expect(inline[0]).toContain('parent.postMessage(');
+    expect(inline[0]).not.toMatch(/postMessage\([^)]*'\*'/);
+    expect(res.headers.get('Referrer-Policy')).toBe('no-referrer');
+    expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
+    expect(res.headers.get('Strict-Transport-Security')).toMatch(/^max-age=\d+/);
+    expect(res.headers.get('X-Robots-Tag')).toBe('noindex');
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('serves nothing else, and nothing that can be framed or posted to', async () => {
+    for (const path of ['/index.html', '/contact/', '/?sitekey=x', '/_errors', '/.well-known/security.txt']) {
+      const res = await check(path);
+      expect(res.status, path).toBe(404);
+      expect(res.headers.get('Content-Security-Policy'), path).toBe("default-src 'none'; frame-ancestors 'none'");
+      expect(await res.text(), path).toBe('Not found\n');
+    }
+    const post = await check('/', { method: 'POST', body: 'x' });
+    expect(post.status).toBe(405);
+    expect(post.headers.get('Allow')).toBe('GET, HEAD');
+    const head = await check('/', { method: 'HEAD' });
+    expect(head.status).toBe(200);
+    expect(await head.text()).toBe('');
+    const plain = await worker.fetch(new Request(`http://${CHECK_HOST}/`), {}) as Response;
+    expect(plain.status).toBe(301);
+    expect(plain.headers.get('Location')).toBe(`https://${CHECK_HOST}/`);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('takes another parent only from the environment, and only a plain origin', async () => {
+    const local = await check('/', {}, { CHECK_PARENT: 'http://127.0.0.1:4321' });
+    expect(policyOf(local).get('frame-ancestors')).toEqual(['http://127.0.0.1:4321']);
+    expect(await local.text()).toContain('data-parent="http://127.0.0.1:4321"');
+    for (const bad of ['https://automancer.uk"><script>', "https://a.example 'unsafe-inline'", '*', 'https://a.example/path']) {
+      const res = await check('/', {}, { CHECK_PARENT: bad });
+      expect(policyOf(res).get('frame-ancestors'), bad).toEqual(['https://automancer.uk']);
+    }
+  });
+
+  it('names the source it runs from, as every other response does', async () => {
+    const source = `sha256:${'a'.repeat(64)}`;
+    const res = await check('/', {}, { EDGE_SOURCE: source });
+    expect(res.headers.get(EDGE_SOURCE_HEADER)).toBe(source);
   });
 });

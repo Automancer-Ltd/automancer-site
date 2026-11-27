@@ -11,7 +11,9 @@
  *     bundled DSN's own origin, Sentry's, must never be in connect-src;
  *   - the bundled SDK does not post to ERROR_TUNNEL, so the browser would
  *     refuse every error report;
- *   - any page but /contact/ may frame or script Turnstile;
+ *   - any page runs a script from another origin: Turnstile runs only in the
+ *     security check frame on its own host, which /contact/ alone may frame
+ *     (t27305), so Cloudflare's script never shares a page with the form;
  *   - a page lets plain strings into HTML or script sinks or creates a
  *     Trusted Types policy;
  *   - inline styles are blocked or allowed without a hash;
@@ -24,11 +26,11 @@ import { createHash } from 'node:crypto';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { ENDPOINT_URL, TURNSTILE_SCRIPT_ENTRY } from '../src/config/site';
+import { ENDPOINT_URL, SECURITY_CHECK_URL } from '../src/config/site';
 import { ERROR_TUNNEL } from '../ops/edge/worker.js';
 import { DIST, allHtmlFiles } from './support/dist';
 
-const TURNSTILE = new URL(TURNSTILE_SCRIPT_ENTRY).origin;
+const SECURITY_CHECK = new URL(SECURITY_CHECK_URL).origin;
 const ENQUIRY_API = new URL(ENDPOINT_URL).origin;
 
 function policyOf(html: string): Map<string, string[]> | null {
@@ -100,10 +102,9 @@ describe('page Content Security Policy', () => {
       expect(connect).toEqual(expected);
       expect(connect.has(reportOrigin ?? ""), `${route} lets the browser post to Sentry itself`).toBe(false);
 
-      expect(policy.get('frame-src') ?? null).toEqual(isContact ? [TURNSTILE] : null);
-      expect(policy.get('script-src')?.filter((source) => source.startsWith('https://'))).toEqual(
-        isContact ? [TURNSTILE_SCRIPT_ENTRY] : [],
-      );
+      expect(policy.get('frame-src') ?? null).toEqual(isContact ? [SECURITY_CHECK] : null);
+      // Only this site's own scripts, on every page: no origin, host or scheme source at all.
+      expect(policy.get('script-src')?.filter((source) => !source.startsWith("'"))).toEqual([]);
 
       const styleSources = policy.get('style-src-elem') ?? policy.get('style-src') ?? [];
       expect(styleSources).not.toContain("'unsafe-inline'");

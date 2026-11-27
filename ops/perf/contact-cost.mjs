@@ -69,9 +69,10 @@ for (let i = 0; i < rounds; i++) {
   const t1 = Date.now();
   await page.locator('#name').tap();
   let ready = null;
-  // The widget's frame sits in a closed shadow root; its response input and frame are what show.
+  // The widget runs in the security check frame on check.automancer.uk (t27305); Cloudflare's own
+  // frame inside it is what shows.
   try {
-    await page.locator('.turnstile-slot [name="cf-turnstile-response"]').waitFor({ state: 'attached', timeout: 20000 });
+    await page.locator('.turnstile-slot iframe').waitFor({ state: 'attached', timeout: 20000 });
     while (!page.frames().some((f) => f.url().includes('/turnstile/')) && Date.now() - t1 < 20000) await page.waitForTimeout(20);
     ready = Date.now() - t1;
   } catch {}
