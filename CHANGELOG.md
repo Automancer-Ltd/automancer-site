@@ -1,5 +1,12 @@
 # Release notes
 
+## v2026.11.27.4 — 27 November 2026
+
+Visitors see full page headlines and descriptions in search results, browser tabs and link previews, so they can read what each page is about.
+
+Page visits now receive the compressed copy suited to their browser, including when the page has been prepared ahead of time for release.
+
+
 ## v2026.11.27.3 — 27 November 2026
 
 Each release’s pages are checked at the site edge during deployment.
