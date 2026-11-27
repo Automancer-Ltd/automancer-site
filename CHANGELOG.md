@@ -1,5 +1,10 @@
 # Release notes
 
+## v2026.11.27.5 — 27 November 2026
+
+The case study page update has limited evidence, so it is omitted.
+
+
 ## v2026.11.27.4 — 27 November 2026
 
 Visitors see full page headlines and descriptions in search results, browser tabs and link previews, so they can read what each page is about.
