@@ -35,6 +35,9 @@
 //     copy kept before the newest release seen here is fetched again instead
 //     of served (RELEASE_KEY, t26545). A view that teaches a data centre a new
 //     release keeps every sitemap page of it there too (warmRelease, t26986).
+//   - check.automancer.uk (CHECK_HOST) answers only the contact form's security
+//     check frame, so Cloudflare's Turnstile script never runs in a page of the
+//     site and cannot read the form (securityCheck, t27305).
 // Everything else passes through untouched. Deploy and undo: docs/DEPLOYMENT.md.
 //
 // The files come from the GitHub Pages project address (PAGES), not from

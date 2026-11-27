@@ -166,13 +166,14 @@ draft with no page to link can be reviewed from its file in the repository inste
 
 HTML pages also carry Astro's build-generated Content Security Policy in a meta tag. It blocks
 unapproved inline JavaScript, event-handler attributes and eval; same-origin scripts and modules
-remain allowed. Only `/contact/` adds the Turnstile script origin.
+remain allowed. No page lists a script origin other than its own: Turnstile runs in the security
+check frame on `check.automancer.uk` (below, t27305), which only `/contact/` may frame.
 
 Since t21404 the same policy starts from `default-src 'none'` and lists everything else a page may
 use (`security.csp.directives` in `astro.config.mjs`): images, fonts, the manifest, form targets
 and base URLs from this site only, and `connect-src` limited to this site. Until t24432 it also
 allowed the origin of the Sentry DSN the build bundles; error reports now go to this site (below).
-`contact.astro` adds `frame-src https://challenges.cloudflare.com`
+`contact.astro` adds `frame-src https://check.automancer.uk`
 and the enquiry API's origin for that page alone. The browser therefore refuses any request to
 another host, even from code the policy lets run. `tests/csp.test.ts` fails if a page's
 `connect-src` lets the browser post to the bundled DSN's origin, or the bundled SDK does not post
@@ -270,12 +271,11 @@ Since t21659 the policy also turns on Trusted Types (`require-trusted-types-for 
 browser refuses any plain string written into a DOM sink that makes HTML or script (`innerHTML`,
 `outerHTML`, `insertAdjacentHTML`, `DOMParser`, `createContextualFragment`, `srcdoc`, a script's
 `src` or text, `on*` attributes, string eval). Every page sets `trusted-types 'none'` to forbid
-policy creation. Contact keeps Cloudflare's script in a template in the head. On first interaction,
-the form checks and clones the fixed script element. The browser can load it without setting a
-script URL at runtime. Contact's `script-src` allows the widget's entry path and its same-host
-redirect to a versioned URL (t26719).
-The browser journey checks that Contact can load the widget while refusing policy creation from
-its first module. The production verifier checks the script allowlist and Trusted Types policy.
+policy creation. Contact runs no Cloudflare script at all since t27305 (below); before, it cloned a fixed script
+element from a template in the head on first interaction (t26719).
+The browser journey checks that Contact refuses policy creation from its first module and that
+Cloudflare's script loads only in the check frame. The production verifier checks that no page's
+`script-src` names another origin, and the check frame's own policy.
 Roll back through a PR reverting this change so GitHub Pages republishes the previous loader.
 The periodic HTTP verifier does not test script execution. The Worker's framing/base/object policy
 below applies alongside this policy; no Worker deploy is needed for a page-policy change.
@@ -585,6 +585,42 @@ During the switch, the Worker asked the project address before the domain came o
 `/automancer-site///<path>` for an hour, a path nobody had asked for. To make a switch like this
 again, remove the custom domain first. Never request the project address while the domain is still
 attached. Serve from the old origin until the new one answers 200 for every path.
+
+## The security check runs on its own origin (t27305)
+
+Cloudflare Turnstile, the contact form's security check, used to load its script (`api.js`) into
+the `/contact/` page itself. Any script in a page can read every field in it, so Cloudflare's
+script could read a visitor's name, email and message as they typed, and could send the page
+anywhere; a change on Cloudflare's side would have reached the form unreviewed. Since 27 Nov 2026
+it runs only in a one-page frame on `https://check.automancer.uk/`, another origin:
+
+- The edge Worker answers that host itself (`securityCheck()`, `CHECK_HOST` in
+  `ops/edge/worker.js`); nothing is fetched from Pages. `/` is the frame; every other path is an
+  unframeable 404, and only GET and HEAD exist. Its policy: `default-src 'none'`, its own hashed
+  script and Turnstile's entry point only, `frame-ancestors https://automancer.uk`, no
+  `connect-src`, Trusted Types with no policy, `Referrer-Policy: no-referrer`.
+- The form (`src/scripts/contact-form.ts`) adds the frame, hidden, on first use, and asks it to
+  draw the widget in a typing pause, as before. The frame tells the form only `loaded`, `token`
+  (with the token), `expired` or `error`, by `postMessage` to `https://automancer.uk`; the form
+  takes a message only from that frame's window at that origin, and asks it only `render` and
+  `reset`. The iframe is sandboxed `allow-scripts allow-same-origin allow-popups
+  allow-popups-to-escape-sandbox`: it cannot navigate the page.
+- The widget "automancer.uk lead form" lists `automancer.uk`, which covers its subdomains
+  (Cloudflare: "adding a hostname automatically authorizes all of its subdomains"), so the same
+  site key issues tokens there, and the intake (`automancer-api`) checks the token, not the
+  hostname it was issued on. Neither changed.
+- The host needs, on zone `automancer.uk` (`4574254c3155f93a8f02aabcf19e00af`), a proxied
+  `AAAA check.automancer.uk 100::` and the Worker route `check.automancer.uk/*` to
+  `automancer-site-edge` (fail closed), both added on 27 Nov 2026 (ids in the PR). Universal SSL
+  covers the name.
+- `check_security_check_frame` in `ops/verify-production.sh` reads the frame and a missing path
+  after every deploy; `tests/edge-worker.test.ts` and the journey (`tests/journey/check-frame.ts`
+  serves the frame locally from the Worker, framed by the local copy) hold the rest.
+
+Undo: revert the PR (Contact loads Turnstile in the page again; the old CSP comes back with it).
+The frame host can stay; to remove it, delete the route and the DNS record (Executor
+`cloudflare-full-access` `workerRoutes.workerRoutesDeleteRoute`,
+`dnsRecordsForAZone.dnsRecordsForAZoneDeleteDnsRecord`) after the revert is live.
 
 ## automancer.co.uk refuses forged mail (t21934)
 

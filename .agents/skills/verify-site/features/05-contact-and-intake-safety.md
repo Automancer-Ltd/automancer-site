@@ -23,7 +23,12 @@ picked and named above the first field.
   phone destinations, keyboard order into the form, and usable navigation at 200% text.
 - `the security check takes space only after it mounts and fits a narrow screen`: the check
   leaves no empty row before it loads, and the standard widget fits at 320px and 200% text.
-- `reading the contact page never starts the security check, but using the form does`.
+- `reading the contact page never starts the security check, but using the form does`: the
+  check's frame on `check.automancer.uk` loads on first use, Cloudflare's script loads only in it,
+  and it draws in a typing pause.
+- `the contact page never runs Cloudflare's script, and its check frame cannot touch the form`
+  (`security.spec.ts`, t27305): the frame cannot read a field or navigate the page, and a token
+  posted by anything but the frame is ignored.
 - `a slow security script offers email without losing the draft or preventing a later send`.
 - `a refused or failed send keeps the enquiry and never shows an error code` and
   `a blocked security check offers a draft even when the clipboard is denied`.
@@ -35,3 +40,7 @@ picked and named above the first field.
 
 **Gotchas.** Never submit to the real `ENDPOINT_URL` (`src/config/site.ts`): stub it as
 `stubIntake()` in `tests/journey/visitor.spec.ts` does.
+The security check frame is served by the edge Worker, not the build: a local run answers
+`check.automancer.uk` from `ops/edge/worker.js` with the local copy as its parent
+(`serveCheckFrame()` in `tests/journey/check-frame.ts`); give every new contact test its
+`test.beforeEach`. Cloudflare's script is stubbed inside the frame (`TURNSTILE_STUB`).

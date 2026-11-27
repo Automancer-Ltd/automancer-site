@@ -70,7 +70,7 @@ src/data/site-content.ts    staticPages metadata (PageMeta) and collection loade
 src/data/static-markdown.ts Markdown twin prose for static pages, twinRoute()
 src/data/page-words.ts      lists a page and its twin both show (home ladder, service offers, FAQs, About's rules)
 src/data/api.ts             API_ENDPOINTS registry behind /api/index.json, /openapi.json, /developers/
-src/config/site.ts          ENDPOINT_URL, FIELD_LIMITS, TURNSTILE_SITE_KEY, LEAD_ERROR_COPY
+src/config/site.ts          ENDPOINT_URL, FIELD_LIMITS, TURNSTILE_SITE_KEY, SECURITY_CHECK_URL, LEAD_ERROR_COPY
 src/content/                case-studies/*.md and field-notes/*.md (schema: src/content.config.ts)
 src/scripts/                the browser code pages load: TypeScript, linted and type-checked; Astro puts
                             each page's own script in the page (assetsInlineLimit in astro.config.mjs).
@@ -103,7 +103,12 @@ ops/indexnow.mjs            tells search engines (IndexNow) which pages each rel
 ## Contracts the tests hold
 
 - No first-party browser storage (`tests/no-browser-storage.test.ts`).
-- Pages may contact only this site; `/contact/` adds the enquiry API and Turnstile's frame
+- Pages may contact only this site; `/contact/` adds the enquiry API and the security check frame
+  on `check.automancer.uk`. No page runs a script from another origin: Cloudflare Turnstile runs
+  only in that frame, which the edge Worker serves (`securityCheck()`, t27305), so it can never
+  read the form; the form takes only `loaded`/`token`/`expired`/`error` from that frame's window
+  and origin (`docs/DEPLOYMENT.md` › The security check runs on its own origin). Deploy the Worker
+  before merging a change to the frame or its messages
   (`tests/csp.test.ts` across all 37 HTML files including redirect stubs, `security.csp` in
   `astro.config.mjs`, SVG/XML edge CSP in `ops/edge/worker.js`, and live verification in
   `ops/verify-production.sh`). A new third-party request needs its origin added there on purpose.
