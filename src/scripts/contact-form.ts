@@ -222,6 +222,22 @@ function start(form: HTMLFormElement): void {
   let lastInputAt = 0;
   let checkFrame: HTMLIFrameElement | null = null;
   let checkToken = '';
+  // A Send pressed while the check is still loading or drawing waits for its token.
+  let tokenWaiter: ((token: string) => void) | null = null;
+  function settleWaiter(token: string): void {
+    const waiter = tokenWaiter;
+    tokenWaiter = null;
+    waiter?.(token);
+  }
+  function tokenSoon(ms: number): Promise<string> {
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => settleWaiter(''), ms);
+      tokenWaiter = (token) => {
+        clearTimeout(timer);
+        resolve(token);
+      };
+    });
+  }
 
   function turnstileToken(): string {
     return checkToken;
@@ -233,6 +249,7 @@ function start(form: HTMLFormElement): void {
     clearTimeout(turnstileLoadTimer);
     turnstileState = 'failed';
     showDeliveryError(SECURITY_CHECK_COPY);
+    settleWaiter('');
   }
   function resetTurnstile(): void {
     checkToken = '';
@@ -260,9 +277,11 @@ function start(form: HTMLFormElement): void {
       if (turnstileState !== 'loading' && turnstileState !== 'failed') return;
       clearTimeout(turnstileLoadTimer);
       turnstileState = 'loaded';
-      scheduleTurnstileRender();
+      if (tokenWaiter) renderTurnstile();
+      else scheduleTurnstileRender();
     } else if (said === 'token') {
       checkToken = typeof event.data?.token === 'string' ? event.data.token : '';
+      settleWaiter(checkToken);
     } else if (said === 'expired') {
       checkToken = '';
     } else if (said === 'error') {
@@ -335,7 +354,14 @@ function start(form: HTMLFormElement): void {
     }
 
     if (turnstileState === 'loaded') renderTurnstile();
-    const token = turnstileToken();
+    let token = turnstileToken();
+    if (!token && (turnstileState === 'loading' || turnstileState === 'ready')) {
+      submitBtn.disabled = true;
+      submitLabel.textContent = 'Sending…';
+      token = await tokenSoon(8_000);
+      submitBtn.disabled = false;
+      submitLabel.textContent = SEND_LABEL;
+    }
     if (!token) {
       if (turnstileState === 'failed' || !slot) return securityCheckUnavailable();
       loadTurnstile();

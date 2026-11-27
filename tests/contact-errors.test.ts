@@ -406,20 +406,22 @@ describe('Turnstile widget execution errors', () => {
     expect(page.shown).not.toContain('TurnstileError');
   });
 
-  it('takes the token only from the check frame, at its origin', async () => {
+  it('waits for the check frame to issue a token, and takes it only from that frame, at its origin', async () => {
     const page = openContactPage(script, { status: 200 });
     checkSays(page.window, 'expired');
+    const form = page.window.document.querySelector('form#contact-form')!;
+    form.dispatchEvent(new page.window.Event('submit', { bubbles: true, cancelable: true }));
+    // Send pressed before the widget has issued a token: it waits rather than refuse at once.
+    expect(page.submitBtn.disabled).toBe(true);
     const forged = (data: object, origin: string, source: unknown) =>
       page.window.dispatchEvent(new page.window.MessageEvent('message', { data, origin, source: source as never }));
     const frame = page.window.document.querySelector<HTMLIFrameElement>('.turnstile-slot iframe')!;
     forged({ securityCheck: 'token', token: 'forged' }, 'https://evil.example', frame.contentWindow);
     forged({ securityCheck: 'token', token: 'forged' }, new URL(SECURITY_CHECK_URL).origin, page.window);
-    await page.submit();
+    await new Promise((resolve) => setTimeout(resolve, 20));
     expect(page.requests).toEqual([]);
-    expect(page.shown).toBe('Please complete the security check above.');
     checkSays(page.window, 'token', 'test-token');
-    await page.submit();
-    expect(page.requests).toHaveLength(1);
+    await vi.waitFor(() => expect(page.requests).toHaveLength(1));
     expect(JSON.parse(page.requests[0]!).turnstileToken).toBe('test-token');
   });
 });

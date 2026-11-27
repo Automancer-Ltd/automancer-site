@@ -151,16 +151,17 @@ test("the contact page never runs Cloudflare's script, and its check frame canno
   expect(new URL(page.url()).hostname).not.toBe('exfil.example');
   await expect(page.locator('#name')).toHaveValue('FACTORY_TEST_NAME');
 
-  // A token posted by anything but the check frame is ignored: Send still asks for the check.
+  // A token posted by anything but the check frame is ignored: Send waits for the frame's own
+  // token, and without one it asks for the check and sends nothing.
   await page.locator('#email').fill('FACTORY_TEST_FORM@example.com');
   await page.locator('#time-sink').fill('FACTORY_TEST_MESSAGE');
   await page.route('https://api.automancer.uk/**', (route) => route.fulfill({ status: 500 }));
-  await page.evaluate(() => postMessage({ securityCheck: 'token', token: 'forged' }, '*'));
   await check.evaluate(() => parent.postMessage({ securityCheck: 'expired' }, '*'));
   const posted: string[] = [];
   page.on('request', (request) => { if (request.method() === 'POST' && request.url().startsWith('https://api.automancer.uk/')) posted.push(request.postData() ?? ''); });
   await page.getByRole('button', { name: 'Send it to Waseem' }).click();
-  await expect(page.locator('#form-error')).toHaveText('Please complete the security check above.');
+  await page.evaluate(() => postMessage({ securityCheck: 'token', token: 'forged' }, '*'));
+  await expect(page.locator('#form-error')).toHaveText('Please complete the security check above.', { timeout: 15_000 });
   expect(posted).toEqual([]);
   expect((await violations()).filter((v) => v.startsWith('require-trusted-types-for'))).toEqual([]);
 });
