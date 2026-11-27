@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import worker, { SENTRY_INGEST, SENTRY_PROJECT } from '../../ops/edge/worker.js';
 import { TEST_SENTRY_DSN } from '../support/build-env';
+import { serveCheckFrame, stubTurnstile } from './check-frame';
 
 interface Report {
   exception?: { values?: { type?: string; stacktrace?: { frames?: { filename?: string; lineno?: number; colno?: number }[] } }[] };
@@ -13,6 +14,8 @@ interface Report {
 // A config assertion cannot catch a new SDK attaching personal data elsewhere.
 // The SDK posts to this site's ERROR_TUNNEL (the edge Worker passes it on, t24432);
 // a post to Sentry's own address would be refused by the page's CSP and fail below.
+test.beforeEach(({ page, baseURL }) => serveCheckFrame(page, baseURL));
+
 test('error reports keep source locations without raw browser data', async ({ page }) => {
   const reports: Report[] = [];
   const envelopes: string[] = [];
@@ -45,10 +48,7 @@ test('error reports keep source locations without raw browser data', async ({ pa
     }
     await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
   });
-  await page.route('**/challenges.cloudflare.com/**', (route) => route.fulfill({
-    contentType: 'text/javascript',
-    body: 'window.turnstile={getResponse:()=>"journey-token",reset(){},render(){}};',
-  }));
+  await stubTurnstile(page);
   await page.route('**/telemetry-probe*', (route) => route.fulfill({ status: 503, body: 'unavailable' }));
   // The lazily loaded SDK must work under the page's Trusted Types policy.
   await page.addInitScript(() => {

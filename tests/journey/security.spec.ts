@@ -1,4 +1,8 @@
 import { expect, test, type Page } from '@playwright/test';
+import { SECURITY_CHECK_URL } from '../../src/config/site';
+import { CHECK_FRAME, serveCheckFrame, stubTurnstile } from './check-frame';
+
+test.beforeEach(({ page, baseURL }) => serveCheckFrame(page, baseURL));
 
 // A policy string alone cannot prove that a browser refuses injected code.
 // These harmless probes never send data or touch browser storage.
@@ -17,10 +21,7 @@ const PAGE_MODULE = '**/_astro/BaseLayout.astro_astro_type_script_*.js';
 
 /** Stub Turnstile, and append `probe` to the site's own page-load module. */
 async function compromisePageModule(page: Page, probe: string) {
-  await page.route('**/challenges.cloudflare.com/**', (route) => route.fulfill({
-    contentType: 'text/javascript',
-    body: 'window.turnstile={getResponse:()=>"journey-token",reset(){},render(){}};',
-  }));
+  await stubTurnstile(page);
   await page.route(PAGE_MODULE, async (route) => {
     const original = await route.fetch();
     await route.fulfill({ response: original, body: `${await original.text()}\n;${probe}` });
@@ -118,9 +119,10 @@ test('pages refuse unapproved scripts, event handlers, eval and HTML strings', a
   }
 });
 
-// The shared module runs before the contact form starts, when its old policy
-// name was still free. No script may register it now.
-test('the contact page loads Turnstile without a Trusted Types policy', async ({ page }) => {
+// Cloudflare's script runs only in the security check frame on its own host (t27305): never in
+// the page with the form, which no script may give a Trusted Types policy either. The frame
+// cannot read the form or move the page, and the page takes a message only from that frame.
+test("the contact page never runs Cloudflare's script, and its check frame cannot touch the form", async ({ page }) => {
   await compromisePageModule(page, `(() => {
     try {
       trustedTypes.createPolicy('turnstile', {});
@@ -130,12 +132,37 @@ test('the contact page loads Turnstile without a Trusted Types policy', async ({
   const violations = await recordViolations(page);
   await page.goto('/contact/');
   await expect(page.locator('html')).toHaveAttribute('data-policy-probe', 'TypeError');
-  const script = page.locator('script[src^="https://challenges.cloudflare.com/turnstile/v0/api.js"]');
-  await expect(script).toHaveCount(0);
-  expect(await page.evaluate(() => typeof window.turnstile)).toBe('undefined');
-  await page.locator('#contact-form input').first().focus();
-  await expect(script).toHaveCount(1);
-  await expect.poll(() => page.evaluate(() => typeof window.turnstile)).toBe('object');
+  await page.locator('#name').fill('FACTORY_TEST_NAME');
+  const frame = page.locator('.turnstile-slot iframe');
+  await expect(frame).toHaveAttribute('src', SECURITY_CHECK_URL);
+  await expect(page.getByText('Security check', { exact: true })).toBeVisible();
+  const check = page.frame({ url: CHECK_FRAME })!;
+  await expect.poll(() => check.evaluate(() => typeof (window as unknown as { turnstile?: object }).turnstile)).toBe('object');
+  expect(await page.evaluate(() => typeof (window as unknown as { turnstile?: object }).turnstile)).toBe('undefined');
+  await expect(page.locator('script[src*="challenges.cloudflare.com"]')).toHaveCount(0);
+
+  const reach = await check.evaluate(() => {
+    const tried: Record<string, string> = {};
+    try { tried.form = String((parent.document.getElementById('name') as HTMLInputElement).value); } catch (error) { tried.form = (error as Error).name; }
+    try { top!.location.href = 'https://exfil.example/'; tried.navigate = 'allowed'; } catch (error) { tried.navigate = (error as Error).name; }
+    return tried;
+  });
+  expect(reach).toEqual({ form: 'SecurityError', navigate: 'SecurityError' });
+  expect(new URL(page.url()).hostname).not.toBe('exfil.example');
+  await expect(page.locator('#name')).toHaveValue('FACTORY_TEST_NAME');
+
+  // A token posted by anything but the check frame is ignored: Send waits for the frame's own
+  // token, and without one it asks for the check and sends nothing.
+  await page.locator('#email').fill('FACTORY_TEST_FORM@example.com');
+  await page.locator('#time-sink').fill('FACTORY_TEST_MESSAGE');
+  await page.route('https://api.automancer.uk/**', (route) => route.fulfill({ status: 500 }));
+  await check.evaluate(() => parent.postMessage({ securityCheck: 'expired' }, '*'));
+  const posted: string[] = [];
+  page.on('request', (request) => { if (request.method() === 'POST' && request.url().startsWith('https://api.automancer.uk/')) posted.push(request.postData() ?? ''); });
+  await page.getByRole('button', { name: 'Send it to Waseem' }).click();
+  await page.evaluate(() => postMessage({ securityCheck: 'token', token: 'forged' }, '*'));
+  await expect(page.locator('#form-error')).toHaveText('Please complete the security check above.', { timeout: 15_000 });
+  expect(posted).toEqual([]);
   expect((await violations()).filter((v) => v.startsWith('require-trusted-types-for'))).toEqual([]);
 });
 

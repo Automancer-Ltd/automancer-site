@@ -9,14 +9,16 @@
  */
 import { expect, test, type Page } from '@playwright/test';
 import { business, formatGBP, services } from '../../src/data/business';
-import { ENDPOINT_URL } from '../../src/config/site';
+import { ENDPOINT_URL, SECURITY_CHECK_URL } from '../../src/config/site';
+import { CHECK_FRAME, TURNSTILE_STUB, serveCheckFrame } from './check-frame';
 
 const ENQUIRY = {
   name: 'Journey Visitor',
   email: 'journey-visitor@example.com',
   time_sink: 'Chasing invoices by hand every Friday.',
 };
-const TURNSTILE_STUB = 'window.turnstile={getResponse:()=>"journey-token",reset(){},render(){}}; window.onTurnstileLoad();';
+
+test.beforeEach(({ page, baseURL }) => serveCheckFrame(page, baseURL));
 
 /** Stub the third-party check and the intake endpoint; returns the bodies the form posted. */
 async function stubIntake(page: Page, reply: { status: number; body: object }) {
@@ -380,21 +382,9 @@ test('the direct contact links and required form fields fit on the first screen'
 test('the security check takes space only after it mounts and fits a narrow screen', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 640 });
   await page.route(ENDPOINT_URL, (route) => route.abort());
+  // The frame on the check host is the widget's box: Cloudflare's standard widget, 300 × 65.
   await page.route('**/challenges.cloudflare.com/**', (route) =>
-    route.fulfill({
-      contentType: 'text/javascript',
-      // Model the dimensions of Cloudflare's standard widget inside its shadow host.
-      body: `window.turnstile = { render(slot) {
-        const host = document.createElement('div');
-        const iframe = document.createElement('iframe');
-        iframe.title = 'Security widget';
-        iframe.style.width = '300px';
-        iframe.style.height = '65px';
-        iframe.style.border = '0';
-        host.attachShadow({mode: 'open'}).append(iframe);
-        slot.append(host);
-      } }; window.onTurnstileLoad();`,
-    }),
+    route.fulfill({ contentType: 'text/javascript', body: TURNSTILE_STUB }),
   );
   await page.goto('/contact/');
   const check = page.locator('.form-security');
@@ -675,7 +665,7 @@ test('with reduced motion, the form jumps straight to its error and its confirma
 });
 
 test('reading the contact page never starts the security check, but using the form does', async ({ page }) => {
-  // The stub records what the form asks it to render, and calls the onload
+  // The stub records what the frame asks it to render, and calls the onload
   // callback named in the script URL, as the real api.js does.
   await page.clock.install();
   const asked: string[] = [];
@@ -683,16 +673,17 @@ test('reading the contact page never starts the security check, but using the fo
     asked.push(route.request().url());
     return route.fulfill({
       contentType: 'text/javascript',
-      body: `window.turnstile={getResponse:()=>"journey-token",reset(){},render(el,o){window.__rendered={slot:el.className,sitekey:o.sitekey,theme:o.theme,onError:typeof o['error-callback']};}};
+      body: `window.turnstile={reset(){},render(el,o){window.__rendered={slot:el,sitekey:o.sitekey,theme:o.theme,onError:typeof o['error-callback']};o.callback('journey-token');return 'w';}};
         window[new URL(document.currentScript.src).searchParams.get('onload')]();`,
     });
   });
+  const frame = page.locator('.turnstile-slot iframe');
   await page.goto('/contact/');
   await page.clock.fastForward(3000);
-  await expect(page.locator('script[src*="/turnstile/"]')).toHaveCount(0);
+  await expect(frame).toHaveCount(0);
   await page.getByRole('link', { name: /^Leave a voicemail/ }).focus();
   await page.clock.fastForward(12_000);
-  await expect(page.locator('script[src*="/turnstile/"]')).toHaveCount(0);
+  await expect(frame).toHaveCount(0);
   expect(asked).toEqual([]);
 
   await page.clock.pauseAt(await page.evaluate(() => Date.now() + 5000));
@@ -700,16 +691,25 @@ test('reading the contact page never starts the security check, but using the fo
   await page.locator('#name').fill('Typing');
   await expect.poll(() => asked.length).toBe(1);
   expect(asked[0]).toContain('render=explicit');
-  await expect.poll(() => page.evaluate(() => typeof (window as unknown as { turnstile?: object }).turnstile)).toBe('object');
-  const rendered = () => page.evaluate(() => (window as unknown as { __rendered?: object }).__rendered);
+  // Cloudflare's script loads in the frame on the check host, never in the page with the form.
+  await expect(frame).toHaveAttribute('src', SECURITY_CHECK_URL);
+  await expect(frame).toHaveAttribute('sandbox', 'allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox');
+  const check = page.frame({ url: CHECK_FRAME })!;
+  await expect.poll(() => check.evaluate(() => typeof (window as unknown as { turnstile?: object }).turnstile)).toBe('object');
+  expect(await page.evaluate(() => typeof (window as unknown as { turnstile?: object }).turnstile)).toBe('undefined');
+  await expect(page.locator('script[src*="challenges.cloudflare.com"]')).toHaveCount(0);
+  const rendered = () => check.evaluate(() => (window as unknown as { __rendered?: object }).__rendered);
   expect(await rendered(), 'mounting the widget can block active typing').toBeUndefined();
+  await expect(page.getByText('Security check', { exact: true })).toBeHidden();
   await page.clock.runFor(600);
-  expect(await rendered()).toEqual({ slot: expect.stringContaining('turnstile-slot'), sitekey: expect.stringMatching(/^0x/), theme: 'dark', onError: 'function' });
+  await expect.poll(rendered).toEqual({ slot: '#check', sitekey: expect.stringMatching(/^0x/), theme: 'dark', onError: 'function' });
+  await expect(page.getByText('Security check', { exact: true })).toBeVisible();
 
   // More typing never loads it twice.
   await page.locator('#email').fill('x@example.com');
   await page.locator('#name').fill('Again');
   expect(asked).toHaveLength(1);
+  await expect(frame).toHaveCount(1);
 });
 
 test('a slow security script offers email without losing the draft or preventing a later send', async ({ page }) => {

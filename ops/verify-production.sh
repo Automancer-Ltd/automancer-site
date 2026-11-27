@@ -90,6 +90,10 @@ readonly SITE_NAMES=("automancer.uk" "www.automancer.uk")
 # from the Worker (so with its security headers). WWW_URL is a variable only
 # so --self-test can point it at its fixture.
 WWW_URL='https://www.automancer.uk'
+# The contact form's security check frame (t27305): Cloudflare's script runs
+# only there, on its own host, framed by automancer.uk alone. CHECK_URL is a
+# variable only so --self-test can point it at its fixture.
+CHECK_URL='https://check.automancer.uk'
 readonly WWW_PROBE='/services/?ref=www%20check'
 # automancer.co.uk and its www only redirect to automancer.uk (a Cloudflare
 # redirect rule on their own zone; docs/DEPLOYMENT.md › automancer.co.uk). Plain
@@ -888,8 +892,10 @@ PY
 
 # check_page_csp — every served HTML page (/, /contact/, and a 404) carries the
 # build's <meta http-equiv="content-security-policy"> starting from
-# default-src 'none', enforcing Trusted Types, scoping Turnstile and the intake
-# API to /contact/ alone, and letting the page send only to its own site: error
+# default-src 'none', enforcing Trusted Types, running no script from another
+# origin (Turnstile runs only in the security check frame, which /contact/ alone
+# may frame, t27305), scoping the intake API to /contact/, and letting the page
+# send only to its own site: error
 # reports go to the edge Worker's /_errors (t24432), so the Sentry DSN origin
 # served in the page's JavaScript bundle must never be in connect-src.
 check_page_csp() {
@@ -938,8 +944,7 @@ report_origin = next(iter(origins), None)
 if not preview and not report_origin:
     sys.exit("served JS bundle carries no Sentry DSN origin to keep out of connect-src")
 
-TURNSTILE = "https://challenges.cloudflare.com"
-TURNSTILE_ENTRY = f"{TURNSTILE}/turnstile/v0/api.js"
+SECURITY_CHECK = "https://check.automancer.uk"
 ENQUIRY = "https://api.automancer.uk"
 BAD = re.compile(r"^\*|^https?://\*|^http:|unsafe-eval|^https?:$")
 
@@ -977,12 +982,11 @@ for route, path in (("/", sys.argv[3]), ("/contact/", sys.argv[4]), ("/404", sys
     want_connect = {"'self'"} | ({ENQUIRY} if is_contact else set())
     if set(pol.get("connect-src", [])) != want_connect:
         sys.exit(f"{route} connect-src is {sorted(pol.get('connect-src', []))}, expected {sorted(want_connect)}")
-    if pol.get("frame-src") != ([TURNSTILE] if is_contact else None):
-        sys.exit(f"{route} frame-src is {pol.get('frame-src')}, expected {[TURNSTILE] if is_contact else None}")
-    external_scripts = [src for src in pol.get("script-src", []) if src.startswith("https://")]
-    want_scripts = [TURNSTILE_ENTRY] if is_contact else []
-    if external_scripts != want_scripts:
-        sys.exit(f"{route} script-src external sources are {external_scripts}, expected {want_scripts}")
+    if pol.get("frame-src") != ([SECURITY_CHECK] if is_contact else None):
+        sys.exit(f"{route} frame-src is {pol.get('frame-src')}, expected {[SECURITY_CHECK] if is_contact else None}")
+    external_scripts = [src for src in pol.get("script-src", []) if not src.startswith("'")]
+    if external_scripts:
+        sys.exit(f"{route} script-src lets scripts from {external_scripts} run in the page; only this site's own may")
     for name, srcs in pol.items():
         for src in srcs:
             if BAD.search(src):
@@ -1328,6 +1332,83 @@ check_www_redirect() {
     return 1
   fi
   printf 'GET %s -> 301 %s with the edge headers\n' "$url" "$location"
+}
+
+# check_security_check_frame — the security check frame /contact/ loads (t27305)
+# answers from the Worker on its own host: framed only by automancer.uk, running
+# only its own hashed script and Turnstile's entry point, with no way to connect
+# anywhere, and nothing else served on that host.
+check_security_check_frame() {
+  local page hdr missing err rc=0 code verdict
+  page=$(need_tmp) hdr=$(need_tmp) missing=$(need_tmp) err=$(need_tmp)
+  curl -sS --max-time "$HTTP_TIMEOUT_SECS" -o "$page" -D "$hdr" "${CHECK_URL}/" 2>"$err" || rc=$?
+  if (( rc != 0 )); then
+    printf 'GET %s/ did not complete: %s (%s)\n' "$CHECK_URL" "$(tr -d '\n' <"$err")" "$(curl_exit_hint "$rc")"
+    rm -f "$page" "$hdr" "$missing" "$err"
+    return 1
+  fi
+  code=$(curl -sS --max-time "$HTTP_TIMEOUT_SECS" -o /dev/null -D "$missing" -w '%{http_code}' "${CHECK_URL}/contact/" 2>"$err") || code=000
+  if ! verdict=$(python3 - "$page" "$hdr" "$missing" "$code" 2>&1 <<'PY'
+import base64, hashlib, re, sys
+from pathlib import Path
+
+body = Path(sys.argv[1]).read_text(encoding="utf-8", errors="replace")
+def headers(path):
+    out = {}
+    for line in Path(path).read_text(encoding="utf-8", errors="replace").splitlines()[1:]:
+        name, _, value = line.partition(":")
+        if value:
+            out[name.strip().lower()] = value.strip()
+    return out
+first = Path(sys.argv[2]).read_text(encoding="utf-8", errors="replace").splitlines()[:1]
+status = first[0].split()[1] if first and len(first[0].split()) > 1 else "?"
+got = headers(sys.argv[2])
+if status != "200":
+    sys.exit(f"the frame answered HTTP {status}, expected 200")
+if not got.get("content-type", "").startswith("text/html"):
+    sys.exit(f"the frame is {got.get('content-type')}, expected text/html")
+pol = {}
+for part in got.get("content-security-policy", "").split(";"):
+    toks = part.strip().split()
+    if toks:
+        pol[toks[0].lower()] = toks[1:]
+want = {
+    "default-src": ["'none'"],
+    "frame-ancestors": ["https://automancer.uk"],
+    "frame-src": ["https://challenges.cloudflare.com"],
+    "base-uri": ["'none'"],
+    "form-action": ["'none'"],
+    "require-trusted-types-for": ["'script'"],
+    "trusted-types": ["'none'"],
+}
+for name, value in want.items():
+    if pol.get(name) != value:
+        sys.exit(f"the frame's {name} is {pol.get(name)}, expected {value}")
+if "connect-src" in pol:
+    sys.exit(f"the frame may connect to {pol['connect-src']}; it must connect nowhere")
+scripts = pol.get("script-src", [])
+external = [s for s in scripts if not s.startswith("'")]
+if external != ["https://challenges.cloudflare.com/turnstile/v0/api.js"]:
+    sys.exit(f"the frame may run scripts from {external}, expected only Turnstile's entry point")
+if any(not re.fullmatch(r"'sha256-[A-Za-z0-9+/=]+'", s) for s in scripts if s.startswith("'")):
+    sys.exit(f"the frame's script-src allows {scripts}: only hashes and Turnstile's entry point")
+for inline in re.findall(r"<script>(.*?)</script>", body, re.S):
+    digest = "'sha256-" + base64.b64encode(hashlib.sha256(inline.encode()).digest()).decode() + "'"
+    if digest not in scripts:
+        sys.exit("the frame's own script is not the one its policy allows, so the check cannot start")
+if 'data-parent="https://automancer.uk"' not in body:
+    sys.exit("the frame sends its token to a parent other than https://automancer.uk")
+if sys.argv[4] != "404" or "frame-ancestors 'none'" not in headers(sys.argv[3]).get("content-security-policy", ""):
+    sys.exit(f"another path on the check host answered HTTP {sys.argv[4]}, expected an unframeable 404")
+print("the check frame runs only its own script and Turnstile, framed by automancer.uk alone, and serves nothing else")
+PY
+  ); then
+    printf 'security check frame: %s\n' "$(printf '%s' "$verdict" | tr '\n' ' ')"
+    rm -f "$page" "$hdr" "$missing" "$err"
+    return 1
+  fi
+  rm -f "$page" "$hdr" "$missing" "$err"
+  printf '%s\n' "$verdict"
 }
 
 # redirect_hop <url> — one request, no redirect followed. Prints
@@ -2199,7 +2280,7 @@ self_test() {
 
   # Served page <meta> CSP + Trusted Types + connect-src of this site alone.
   local base_csp="default-src 'none'; connect-src 'self'; img-src 'self' data:; font-src 'self'; manifest-src 'self'; form-action 'self'; base-uri 'self'; require-trusted-types-for 'script'; trusted-types 'none'; script-src 'self'; script-src-attr 'none'"
-  local contact_csp="default-src 'none'; connect-src 'self' https://api.automancer.uk; img-src 'self' data:; font-src 'self'; manifest-src 'self'; form-action 'self'; base-uri 'self'; require-trusted-types-for 'script'; trusted-types 'none'; frame-src https://challenges.cloudflare.com; script-src 'self' https://challenges.cloudflare.com/turnstile/v0/api.js; script-src-attr 'none'"
+  local contact_csp="default-src 'none'; connect-src 'self' https://api.automancer.uk; img-src 'self' data:; font-src 'self'; manifest-src 'self'; form-action 'self'; base-uri 'self'; require-trusted-types-for 'script'; trusted-types 'none'; frame-src https://check.automancer.uk; script-src 'self'; script-src-attr 'none'"
   local dsn_js='const dsn="https://0123456789abcdef0123456789abcdef@o4511673494732800.ingest.de.sentry.io/4511769898647632"'
   python3 - "$SELFTEST_SCENARIO" "$base_csp" "$contact_csp" "$dsn_js" <<'PY'
 import json, sys
@@ -2241,7 +2322,7 @@ open(out, "w").write(json.dumps({
 PY
   self_test_expect pass "served pages carry <meta http-equiv=content-security-policy>" check_page_csp
   self_test_expect pass "served page connect-src keeps the bundled Sentry DSN origin out" check_page_csp
-  self_test_expect pass "served contact page restricts the Turnstile script to its entry path" check_page_csp
+  self_test_expect pass "served contact page runs no script from another origin" check_page_csp
   python3 - "$SELFTEST_SCENARIO" <<'PY'
 import json, sys
 from pathlib import Path
@@ -2249,10 +2330,10 @@ from pathlib import Path
 path = Path(sys.argv[1])
 scenario = json.loads(path.read_text())
 contact = scenario["routes"]["/contact/"]
-contact["body"] = contact["body"].replace("https://challenges.cloudflare.com/turnstile/v0/api.js", "https://challenges.cloudflare.com")
+contact["body"] = contact["body"].replace("script-src 'self';", "script-src 'self' https://challenges.cloudflare.com/turnstile/v0/api.js;")
 path.write_text(json.dumps(scenario))
 PY
-  self_test_expect fail "served contact page restricts the Turnstile script to its entry path" check_page_csp
+  self_test_expect fail "served contact page runs no script from another origin" check_page_csp
 
   # The edge Worker's error tunnel refuses another site, another project and batches.
   local problem='"headers":{"Content-Type":"application/problem+json"}'
@@ -2347,6 +2428,51 @@ PY
   self_test_scenario "{\"routes\":{\"${WWW_PROBE}\":{\"status\":301,\"body\":\"\",\"headers\":{\"Location\":\"${www_want}\",${www_hsts}}}},\"default\":{\"status\":404,\"body\":\"\"}}"
   self_test_expect pass "www answers one 301 to the same address on the apex" check_www_redirect
   self_test_expect pass "the www redirect comes from the Worker" check_www_redirect
+
+  CHECK_URL=$BASE_URL
+  local mutation
+  for mutation in framed_anywhere connects stale_hash extra_script serves_more; do
+    case $mutation in
+      framed_anywhere) label="the security check frame may be framed only by automancer.uk" ;;
+      connects) label="the security check frame may connect nowhere" ;;
+      stale_hash) label="the security check frame's own script is the one its policy allows" ;;
+      extra_script) label="the security check frame runs scripts only from Turnstile's entry point" ;;
+      serves_more) label="the check host serves nothing but the frame" ;;
+    esac
+    for variant in "$mutation" good; do
+      python3 - "$SELFTEST_SCENARIO" "$variant" <<'PY'
+import base64, hashlib, json, sys
+out, variant = sys.argv[1:3]
+script = "window.onTurnstileLoad=()=>{};"
+digest = base64.b64encode(hashlib.sha256(script.encode()).digest()).decode()
+if variant == "stale_hash":
+    script += "void 0;"
+policy = [
+    "default-src 'none'",
+    f"script-src 'sha256-{digest}' https://challenges.cloudflare.com/turnstile/v0/api.js" + (" https://evil.example/x.js" if variant == "extra_script" else ""),
+    "frame-src https://challenges.cloudflare.com",
+    "base-uri 'none'", "form-action 'none'",
+    "frame-ancestors " + ("*" if variant == "framed_anywhere" else "https://automancer.uk"),
+    "require-trusted-types-for 'script'", "trusted-types 'none'",
+] + (["connect-src https://exfil.example"] if variant == "connects" else [])
+body = f'<!doctype html><html data-parent="https://automancer.uk"><script>{script}</script><script async src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"></script></html>'
+missing = {"status": 200, "body": "<html>page</html>", "headers": {"Content-Type": "text/html"}} if variant == "serves_more" else \
+    {"status": 404, "body": "Not found", "headers": {"Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'"}}
+open(out, "w").write(json.dumps({
+    "routes": {
+        "/": {"status": 200, "body": body, "headers": {"Content-Type": "text/html; charset=utf-8", "Content-Security-Policy": "; ".join(policy)}},
+        "/contact/": missing,
+    },
+    "default": {"status": 404, "body": ""},
+}))
+PY
+      if [[ $variant == good ]]; then
+        self_test_expect pass "$label" check_security_check_frame
+      else
+        self_test_expect fail "$label" check_security_check_frame
+      fi
+    done
+  done
 
   REDIRECT_HTTP_BASE="${BASE_URL}/http/" REDIRECT_HTTPS_BASE="${BASE_URL}/https/"
   for mutation in skips_upgrade drops_query no_hsts short_hsts no_subdomains; do
@@ -2643,6 +2769,7 @@ main() {
     if ! poll_check "${SITE_NAMES[*]} point at no GitHub Pages address" check_no_github_dns; then :; fi
     if ! poll_check "only the CAs in use may issue certificates for ${CAA_DOMAINS[*]} (signed CAA)" check_caa; then :; fi
     if ! poll_check "www.automancer.uk answers one 301 to the apex from the Worker" check_www_redirect; then :; fi
+    if ! poll_check "the contact form's security check frame runs only its own script and Turnstile, framed by automancer.uk alone" check_security_check_frame; then :; fi
     if ! poll_check "${REDIRECT_DOMAINS[*]} upgrade to HTTPS on their own name, then 301 to automancer.uk with HSTS" check_redirect_domains; then :; fi
   fi
   if ! poll_check "served HTML pages enforce default-src 'none', Trusted Types and a connect-src of this site alone" check_page_csp; then :; fi

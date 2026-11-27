@@ -35,6 +35,9 @@
 //     copy kept before the newest release seen here is fetched again instead
 //     of served (RELEASE_KEY, t26545). A view that teaches a data centre a new
 //     release keeps every sitemap page of it there too (warmRelease, t26986).
+//   - check.automancer.uk (CHECK_HOST) answers only the contact form's security
+//     check frame, so Cloudflare's Turnstile script never runs in a page of the
+//     site and cannot read the form (securityCheck, t27305).
 // Everything else passes through untouched. Deploy and undo: docs/DEPLOYMENT.md.
 //
 // The files come from the GitHub Pages project address (PAGES), not from
@@ -1180,8 +1183,140 @@ function pageAnswer(request, headerList, body, state) {
   return out;
 }
 
+// The contact form's security check, on a host of its own (t27305). Cloudflare's Turnstile script
+// used to run in the /contact/ page itself, where it could read every field a visitor fills in and
+// send the page anywhere. It now runs only in this one-page frame on CHECK_HOST, another origin, so
+// the browser keeps it out of the form: it sees the frame and nothing else, and the sandbox the
+// form puts on the frame stops it from navigating the page. The frame tells the form only that the
+// check loaded, failed or expired, and the token it issued, and only through postMessage to
+// CHECK_PARENT. The form asks it to draw the widget ('render') and to clear a spent token
+// ('reset'). Turnstile's widget hostname, automancer.uk, covers its subdomains, so the same site
+// key issues tokens here; the intake checks the token, not the host it was issued on.
+// CHECK_HOST has no other page: everything else is a 404 and only GET and HEAD exist. It needs
+// a proxied DNS record and a route to this Worker (docs/DEPLOYMENT.md, The security check).
+export const CHECK_HOST = 'check.automancer.uk';
+// Who may frame the check and receive its token. env.CHECK_PARENT replaces it only where a
+// copy of the site is served from another origin (the journey's local copy); production has none.
+export const CHECK_PARENT = ORIGIN;
+// The public site key of the widget "automancer.uk lead form" (src/config/site.ts says the same).
+export const CHECK_SITE_KEY = '0x4AAAAAAFillry1PYXs0p-E';
+export const TURNSTILE_SCRIPT = 'https://challenges.cloudflare.com/turnstile/v0/api.js';
+const CHECK_STYLE = 'html,body{margin:0;background:transparent;overflow:hidden}';
+// Runs before api.js. Its source is hashed into the frame's policy, so it carries no per-request
+// value: the parent's origin and the site key are read from <html>.
+const CHECK_SCRIPT = `(() => {
+  const root = document.documentElement;
+  const parentOrigin = root.dataset.parent;
+  const send = (state, token) => parent.postMessage(token ? { securityCheck: state, token } : { securityCheck: state }, parentOrigin);
+  let loaded = false;
+  let wanted = false;
+  let widget = null;
+  function render() {
+    if (widget !== null) return;
+    try {
+      widget = turnstile.render('#check', {
+        sitekey: root.dataset.sitekey,
+        theme: 'dark',
+        callback: (token) => send('token', token),
+        'expired-callback': () => send('expired'),
+        'timeout-callback': () => send('expired'),
+        'error-callback': () => { send('error'); return true; },
+      });
+    } catch {
+      send('error');
+    }
+  }
+  window.onTurnstileLoad = () => {
+    loaded = true;
+    send('loaded');
+    if (wanted) render();
+  };
+  addEventListener('message', (event) => {
+    if (event.source !== parent || event.origin !== parentOrigin) return;
+    const ask = event.data && event.data.securityCheck;
+    if (ask === 'render') {
+      wanted = true;
+      if (loaded) render();
+    } else if (ask === 'reset' && widget !== null) {
+      try { turnstile.reset(widget); } catch { send('error'); }
+    }
+  });
+  addEventListener('error', (event) => {
+    if (event.target instanceof HTMLScriptElement) send('error');
+  }, true);
+})();`;
+const CHECK_HTML_PARENT = /^https?:\/\/[a-z0-9.-]+(?::\d+)?$/;
+let checkHashes = null;
+
+async function sha256Source(text) {
+  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', ENCODE.encode(text)));
+  return `'sha256-${btoa(String.fromCharCode(...digest))}'`;
+}
+
+/** The Content-Security-Policy of the security check frame, for a parent at `parent`. */
+export async function checkPolicy(parent) {
+  checkHashes ??= Promise.all([sha256Source(CHECK_SCRIPT), sha256Source(CHECK_STYLE)]);
+  const [script, style] = await checkHashes;
+  return [
+    "default-src 'none'",
+    `script-src ${script} ${TURNSTILE_SCRIPT}`,
+    `frame-src ${new URL(TURNSTILE_SCRIPT).origin}`,
+    `style-src ${style}`,
+    // Turnstile sizes its own frame with a style attribute.
+    "style-src-attr 'unsafe-inline'",
+    "base-uri 'none'",
+    "form-action 'none'",
+    `frame-ancestors ${parent}`,
+    "require-trusted-types-for 'script'",
+    "trusted-types 'none'",
+  ].join('; ');
+}
+
+/** The answer on CHECK_HOST: the security check frame at `/`, and nothing else. */
+export async function securityCheck(request, env) {
+  const url = new URL(request.url);
+  const parent = CHECK_HTML_PARENT.test(env?.CHECK_PARENT ?? '') ? env.CHECK_PARENT : CHECK_PARENT;
+  const headers = new Headers({
+    'Strict-Transport-Security': SECURITY_HEADERS['Strict-Transport-Security'],
+    'X-Content-Type-Options': 'nosniff',
+    'Referrer-Policy': 'no-referrer',
+    'Permissions-Policy': SECURITY_HEADERS['Permissions-Policy'],
+    'Origin-Agent-Cluster': '?1',
+    'X-Robots-Tag': 'noindex',
+    'Cache-Control': 'no-cache',
+  });
+  if (url.protocol === 'http:') {
+    url.protocol = 'https:';
+    headers.set('Location', url.toString());
+    return new Response(null, { status: 301, headers });
+  }
+  if (request.method !== 'GET' && request.method !== 'HEAD') {
+    headers.set('Allow', 'GET, HEAD');
+    headers.set('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'");
+    return new Response(null, { status: 405, headers });
+  }
+  if (url.pathname !== '/' || url.search) {
+    headers.set('Content-Type', 'text/plain; charset=utf-8');
+    headers.set('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'");
+    return new Response(request.method === 'HEAD' ? null : 'Not found\n', { status: 404, headers });
+  }
+  headers.set('Content-Type', 'text/html; charset=utf-8');
+  headers.set('Content-Security-Policy', await checkPolicy(parent));
+  const body =
+    `<!doctype html><html lang="en" data-parent="${parent}" data-sitekey="${CHECK_SITE_KEY}">` +
+    '<meta charset="utf-8"><meta name="color-scheme" content="dark"><title>Security check</title>' +
+    `<style>${CHECK_STYLE}</style><div id="check"></div><script>${CHECK_SCRIPT}</script>` +
+    `<script async src="${TURNSTILE_SCRIPT}?render=explicit&amp;onload=onTurnstileLoad"></script></html>`;
+  return new Response(request.method === 'HEAD' ? null : body, { status: 200, headers });
+}
+
 export default {
   async fetch(request, env, ctx) {
+    if (new URL(request.url).hostname === CHECK_HOST) {
+      const check = await securityCheck(request, env);
+      if (EDGE_SOURCE.test(env?.EDGE_SOURCE ?? '')) check.headers.set(EDGE_SOURCE_HEADER, env.EDGE_SOURCE);
+      return check;
+    }
     const out = secured(await respond(request, env, ctx));
     if (EDGE_SOURCE.test(env?.EDGE_SOURCE ?? '')) out.headers.set(EDGE_SOURCE_HEADER, env.EDGE_SOURCE);
     return out;

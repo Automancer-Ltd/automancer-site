@@ -28,9 +28,9 @@
  * visitor would have seen. If they stay green, this file is wrong, not the fix.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { Window, type HTMLButtonElement, type HTMLElement, type HTMLInputElement } from 'happy-dom';
+import { Window, type HTMLButtonElement, type HTMLElement, type HTMLIFrameElement, type HTMLInputElement } from 'happy-dom';
 import { readDistFile } from './support/dist';
-import { LEAD_ERROR_COPY } from '../src/config/site';
+import { LEAD_ERROR_COPY, SECURITY_CHECK_URL } from '../src/config/site';
 
 const PAGE = 'contact/index.html';
 
@@ -87,6 +87,25 @@ afterEach(async () => {
 });
 
 /**
+ * A message from the security check frame (securityCheck() in ops/edge/worker.js, t27305), as the
+ * browser delivers it: from the frame's window, at its origin. The first one starts the frame, as
+ * using the form does.
+ */
+function checkSays(window: Window, securityCheck: string, token?: string): void {
+  const form = window.document.querySelector('form#contact-form')!;
+  form.dispatchEvent(new window.Event('focusin', { bubbles: true }));
+  const frame = form.querySelector<HTMLIFrameElement>('.turnstile-slot iframe');
+  expect(frame?.getAttribute('src'), 'using the form did not start the security check frame').toBe(SECURITY_CHECK_URL);
+  // The DOM here loads no frame, so give it the window a browser would: one the page posts to.
+  if (!frame!.contentWindow) Object.defineProperty(frame, 'contentWindow', { value: { postMessage() {} } });
+  window.dispatchEvent(new window.MessageEvent('message', {
+    data: token ? { securityCheck, token } : { securityCheck },
+    origin: new URL(SECURITY_CHECK_URL).origin,
+    source: frame!.contentWindow as never,
+  }));
+}
+
+/**
  * The built /contact/ page in a DOM, its served form script running, the
  * security check already passed (Turnstile answers with a token) and the
  * intake API stubbed with `response`. Each call is a fresh visit.
@@ -127,10 +146,9 @@ function openContactPage(
     return new window.Response(JSON.stringify(response.body ?? null), { status: response.status ?? 200 });
   };
   window.eval(scriptText);
-  // Turnstile has loaded (its api.js calls onTurnstileLoad) and the visitor passed it.
-  const turnstile = { getResponse: () => 'test-token', reset() {}, render() {} };
-  Object.assign(window, { turnstile });
-  (window as unknown as { onTurnstileLoad(): void }).onTurnstileLoad();
+  // The visitor uses the form, the security check frame loads, and the visitor passes the check.
+  checkSays(window, 'loaded');
+  checkSays(window, 'token', 'test-token');
 
   const submitBtn = form.querySelector<HTMLButtonElement>('button[type="submit"]')!;
   expect(form.hidden, 'the served script never took over the form (it is still hidden)').toBe(false);
@@ -141,6 +159,8 @@ function openContactPage(
       form.dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
       // Send is disabled from the moment an enquiry leaves until the page has its answer.
       await vi.waitFor(() => expect(submitBtn.disabled).toBe(false));
+      // A send that did not go through resets the widget, and Turnstile issues a new token.
+      checkSays(window, 'token', 'test-token');
     },
     get shown() {
       return window.document.querySelector('#form-error')!.textContent;
@@ -372,17 +392,36 @@ describe('aborted or timed-out submission', () => {
 describe('Turnstile widget execution errors', () => {
   const script = builtContactScript();
 
-  it('handles 600010, gives the visitor an email fallback, and does not leak an error code', () => {
+  it('handles an error in the check frame (600010), gives the visitor an email fallback, and does not leak an error code', () => {
     const html = readDistFile(PAGE)!;
-    expect(html).toContain('data-error-callback="onTurnstileError"');
+    // Cloudflare's script never loads in the page with the form: only its frame does.
+    expect(html).not.toContain('challenges.cloudflare.com/turnstile');
 
     const page = openContactPage(script, { status: 200 });
-    const onError = (page.window as unknown as { onTurnstileError?: () => boolean }).onTurnstileError;
-    expect(onError, 'the widget error callback was not installed globally').toBeTypeOf('function');
-    expect(onError!()).toBe(true);
+    expect(page.shown).toBe('');
+    checkSays(page.window, 'error');
     expect(page.shown).toMatch(/security check could not load/i);
     expect(page.recoveryVisible).toBe(true);
     expect(page.shown).not.toContain('600010');
     expect(page.shown).not.toContain('TurnstileError');
+  });
+
+  it('waits for the check frame to issue a token, and takes it only from that frame, at its origin', async () => {
+    const page = openContactPage(script, { status: 200 });
+    checkSays(page.window, 'expired');
+    const form = page.window.document.querySelector('form#contact-form')!;
+    form.dispatchEvent(new page.window.Event('submit', { bubbles: true, cancelable: true }));
+    // Send pressed before the widget has issued a token: it waits rather than refuse at once.
+    expect(page.submitBtn.disabled).toBe(true);
+    const forged = (data: object, origin: string, source: unknown) =>
+      page.window.dispatchEvent(new page.window.MessageEvent('message', { data, origin, source: source as never }));
+    const frame = page.window.document.querySelector<HTMLIFrameElement>('.turnstile-slot iframe')!;
+    forged({ securityCheck: 'token', token: 'forged' }, 'https://evil.example', frame.contentWindow);
+    forged({ securityCheck: 'token', token: 'forged' }, new URL(SECURITY_CHECK_URL).origin, page.window);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(page.requests).toEqual([]);
+    checkSays(page.window, 'token', 'test-token');
+    await vi.waitFor(() => expect(page.requests).toHaveLength(1));
+    expect(JSON.parse(page.requests[0]!).turnstileToken).toBe('test-token');
   });
 });

@@ -23,7 +23,7 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import Bead from '../components/Bead.astro';
 import SpectrumGlow from '../components/SpectrumGlow.astro';
-import { ENDPOINT_URL, TURNSTILE_SCRIPT_ENTRY, TURNSTILE_SCRIPT_URL, TURNSTILE_SITE_KEY } from '../config/site';
+import { ENDPOINT_URL, SECURITY_CHECK_URL } from '../config/site';
 import type { EnquiryPageData } from '../scripts/contact-form';
 import { business } from '../data/business';
 import { AFTER_SEND_STEPS, ENQUIRY_FIELDS, SERVICE_OPTIONS, SERVICE_PARAM, enquiryField } from '../data/enquiry';
@@ -38,9 +38,9 @@ const enquiry: EnquiryPageData = {
   fields: ENQUIRY_FIELDS.map(({ id, label }) => ({ id, label })),
   services: SERVICE_OPTIONS.map(({ value, label }) => ({ value, label })),
 };
-// Authorize the widget's entry point, including Cloudflare's version redirect.
-Astro.csp!.insertScriptResource(TURNSTILE_SCRIPT_ENTRY);
-Astro.csp!.insertDirective(`frame-src ${new URL(TURNSTILE_SCRIPT_ENTRY).origin}`);
+// The page runs only its own scripts. Cloudflare's security check runs in a frame on another
+// origin (SECURITY_CHECK_URL), where it cannot read the form (t27305).
+Astro.csp!.insertDirective(`frame-src ${new URL(SECURITY_CHECK_URL).origin}`);
 Astro.csp!.insertDirective(`connect-src ${new URL(ENDPOINT_URL).origin}`);
 ---
 
@@ -48,10 +48,6 @@ Astro.csp!.insertDirective(`connect-src ${new URL(ENDPOINT_URL).origin}`);
   title="Contact"
   description="Tell us what's eating your week. No calendar gauntlet, no chatbot. Waseem reads it himself, and we promise a meeting within one week of first contact."
 >
-  {/* The template keeps the script inert until the visitor uses the form. */}
-  <template slot="head" id="turnstile-loader">
-    <script is:inline async src={TURNSTILE_SCRIPT_URL}></script>
-  </template>
   <section class="page-hero contact-hero hatch">
     <SpectrumGlow class="page-hero__glow" px={26} />
     <div class="page-hero__inner">
@@ -146,7 +142,7 @@ Astro.csp!.insertDirective(`connect-src ${new URL(ENDPOINT_URL).origin}`);
 
             <div class="field form-security">
               <span class="sys" style="color:var(--muted)">Security check</span>
-              <div class="cf-turnstile turnstile-slot" data-sitekey={TURNSTILE_SITE_KEY} data-theme="dark" data-error-callback="onTurnstileError"></div>
+              <div class="turnstile-slot"></div>
             </div>
 
             <p id="form-error" class="form__micro" style="display:none; color:var(--spec-1)" role="alert"></p>
@@ -317,7 +313,9 @@ Astro.csp!.insertDirective(`connect-src ${new URL(ENDPOINT_URL).origin}`);
   outline: 2px solid var(--white); outline-offset: 2px; border-color: var(--white);
 }
 .field--hero label { font-size: 0.8rem; color: var(--ink); }
-.form-security:has(.turnstile-slot:empty) { display: none; }
+/* The check's frame loads hidden when the form is first used and shows once it is drawn. */
+.form-security:has(.turnstile-slot:not([data-mounted])) { display: none; }
+.turnstile-slot iframe { display: block; inline-size: 300px; block-size: 65px; border: 0; }
 /* The standard widget is 300px wide. On narrow phones, borrow evenly from the page gutters. */
 .turnstile-slot {
   min-block-size: 65px;
