@@ -18,6 +18,16 @@ exact `dist/` it publishes, so a heavier production build fails the release inst
 
 ## Decisions behind the numbers
 
+- **Chromium's later pages arrive against the dictionary from their first view (t27582, 27 Nov 2026).**
+  Warming a release (t26986) kept only each page's Brotli copy, and a kept Brotli copy is served at
+  once to a browser holding the dictionary, its dictionary copy kept only for the next view. On a
+  site this quiet that next view rarely comes before the next release, so the dictionary (t26098)
+  almost never reached a visitor: on production, a fresh Chromium visit (`/` then five pages, read
+  with `ops/perf/dictionary-reach.mjs`) offered the dictionary on 5 of 5 later pages and got Brotli
+  on all 5, 75,993 B on the wire. `warmRelease()` now keeps both copies of every page, one after the
+  other (about 128 requests to Pages per release per data centre, from about 66). The measured
+  result after release is in the t27582 FYI and the project summary.
+
 - **A release is kept whole at each data centre after one view (t26986, 26 Nov 2026).**
   Pages kept at the edge (t25774) follow the release (t26545), so after every release each page's
   first view at each data centre waited for GitHub again, and this site releases several times a

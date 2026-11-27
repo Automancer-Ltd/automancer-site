@@ -171,7 +171,7 @@ ops/indexnow.mjs            tells search engines (IndexNow) which pages each rel
   it. A stable home page frame keeps the same dictionary URL across releases. The Worker
   sends the `.dcz` only when `Available-Dictionary` is the hash the copy starts with, and Brotli
   otherwise; `keptPage()` keeps it apart from the Brotli copy and never makes a visitor wait for it
-  when a Brotli copy is already kept. Only Chromium takes `dcz` today. The dictionary file and the
+  when a Brotli copy is already kept, so `warmRelease()` keeps both copies of every page (t27582). Only Chromium takes `dcz` today. The dictionary file and the
   `.dcz` copies must come from the same build, and the Worker must be live before a build that names
   a dictionary (`tests/precompress.test.ts`, `tests/edge-worker.test.ts`,
   `tests/journey/dictionary.spec.ts`).

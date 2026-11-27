@@ -592,8 +592,10 @@ describe('pages kept at the edge', () => {
     // The first view at a data centre that has seen no release waits for Pages, and keeps the rest.
     const first = await view('/kept/');
     expect(first.res.headers.get(PAGE_CACHE_HEADER)).toBe('miss');
-    expect(fetched()).toEqual(expect.arrayContaining(['/sitemap-index.xml', '/sitemap-0.xml', '/services/index.html.br', '/privacy/index.html.br', '/gone/index.html.br']));
-    expect(fetched().filter((p) => p.startsWith('/kept/') || p.includes('rss') || p.includes('example'))).toEqual(['/kept/index.html.br', '/kept/']);
+    expect(fetched()).toEqual(expect.arrayContaining(['/sitemap-index.xml', '/sitemap-0.xml', '/services/index.html.br', '/privacy/index.html.br', '/gone/index.html.br',
+      '/services/index.html.dcz', '/privacy/index.html.dcz']));
+    // The page the view fetched is not fetched again, only its other copy (t27582).
+    expect(fetched().filter((p) => p.startsWith('/kept/') || p.includes('rss') || p.includes('example'))).toEqual(['/kept/index.html.br', '/kept/', '/kept/index.html.dcz', '/kept/']);
     for (const request of calls) expect([...request.headers.keys()], request.url).toEqual([]);
     for (const path of ['/services/', '/privacy/']) expect((await view(path)).res.headers.get(PAGE_CACHE_HEADER), path).toBe('hit');
     expect(kept.has(pageCacheKey('/gone/').url)).toBe(false);
@@ -613,6 +615,35 @@ describe('pages kept at the edge', () => {
     kept.delete('https://automancer.uk/.edge-cache/release');
     await view('/kept/', { 'Cache-Control': 'no-cache' });
     expect(fetched()).not.toContain('/sitemap-index.xml');
+  });
+
+  it("keeps each page's dictionary copy too, so a browser holding the dictionary gets it from the first view (t27582)", async () => {
+    remember(dictionary);
+    const loc = (paths: string[]) => paths.map((p) => `<url><loc>https://automancer.uk${p}</loc></url>`).join('');
+    pages['/privacy/'] = '<html>privacy, first</html>';
+    pages['/sitemap-index.xml'] = '<sitemapindex><sitemap><loc>https://automancer.uk/sitemap-0.xml</loc></sitemap></sitemapindex>';
+    pages['/sitemap-0.xml'] = `<urlset>${loc(['/kept/', '/services/', '/privacy/'])}</urlset>`;
+    await view('/kept/');
+    release({ '/kept/': '<html>second</html>', '/services/': '<html>services, second</html>', '/privacy/': '<html>privacy, second</html>' });
+    // A Firefox view teaches the release; a Chromium visitor's later pages come compressed
+    // against the dictionary at once, where they came as Brotli before.
+    await view('/kept/');
+    calls = [];
+    for (const path of ['/services/', '/privacy/', '/kept/']) {
+      const next = await view(path, holding(dictionary));
+      expect([next.coding, next.res.headers.get(PAGE_CACHE_HEADER)], path).toEqual(['dcz', 'hit']);
+      expect(next.text, path).toContain('second');
+    }
+    // Served from the edge: Pages is asked again only after answering, never waited for.
+    expect(calls.map((r) => new URL(r.url).pathname)).not.toContain('/automancer-site/sitemap-index.xml');
+
+    // A Chromium view teaching the next release leaves Firefox's copies kept too.
+    release({ '/kept/': '<html>third</html>', '/services/': '<html>services, third</html>', '/privacy/': '<html>privacy, third</html>' });
+    await view('/privacy/', holding(dictionary));
+    for (const path of ['/services/', '/kept/']) {
+      const next = await view(path);
+      expect([next.coding, next.res.headers.get(PAGE_CACHE_HEADER), next.text], path).toEqual(['br', 'hit', `<html>${path === '/kept/' ? '' : 'services, '}third</html>`]);
+    }
   });
 
   it('takes files of one release dated a second apart as the same release (t26986)', async () => {
