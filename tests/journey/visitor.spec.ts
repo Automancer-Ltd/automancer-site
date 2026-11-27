@@ -740,6 +740,8 @@ test('a slow security script offers email without losing the draft or preventing
 
     releaseScript.resolve();
     await expect(error).toBeHidden();
+    // Finish scrolling before clicking: the newly displayed frame moves Send on a phone.
+    await send.evaluate((button) => button.scrollIntoView({ block: 'center', behavior: 'instant' }));
     await send.click();
     await expect(page.locator('#form-confirm')).toBeVisible();
     expect(posted).toHaveLength(1);
