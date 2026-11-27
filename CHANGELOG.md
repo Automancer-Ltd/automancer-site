@@ -1,5 +1,10 @@
 # Release notes
 
+## v2026.11.27.1 — 27 November 2026
+
+Automancer has added a new field note to help visitors understand the evidence behind its published information.
+
+
 ## v2026.11.26.4 — 26 November 2026
 
 Visitors get a clearer introduction to Automancer and page text that matches what they see on the website.
