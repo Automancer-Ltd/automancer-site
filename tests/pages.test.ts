@@ -9,6 +9,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { SITE_URL, pageCheckPages, type BuiltPage } from './support/dist';
+import { BRANDED_TITLE_MAX } from '../src/lib/meta';
 
 const pages = pageCheckPages();
 
@@ -43,18 +44,34 @@ describe('every emitted page', () => {
     }
   });
 
-  it('has a non-empty <title> under 60 characters', () => {
+  // t27598: a title or description is whole, never clipped to a character
+  // budget. Google sets no limit on either and shortens them itself, with an
+  // ellipsis, to fit the reader's screen; a clipped one read "how to tell
+  // before | Automancer" in results, tabs and link previews. The brand is
+  // added only while the whole title still fits in 60 characters
+  // (src/lib/meta.ts); that the headline is whole is held against
+  // /api/pages.json in agent-readiness.test.ts.
+  it('has a non-empty <title>, branded only while it fits in 60 characters, shared by og:title and twitter:title', () => {
     for (const page of pages) {
       const title = page.doc.querySelector('title')?.text.trim() ?? '';
       expect(title.length, `${page.route}: empty <title>`).toBeGreaterThan(0);
-      expect(
-        title.length,
-        `${page.route}: <title> is ${title.length} chars ("${title}") — must stay under 60 or SERPs truncate it`
-      ).toBeLessThan(60);
+      if (title.endsWith(' | Automancer')) {
+        expect(
+          title.length,
+          `${page.route}: <title> "${title}" is ${title.length} chars with the brand: a headline this long goes out alone`
+        ).toBeLessThanOrEqual(BRANDED_TITLE_MAX);
+      } else {
+        expect(
+          `${title} | Automancer`.length,
+          `${page.route}: <title> "${title}" left the brand off though it fits`
+        ).toBeGreaterThan(BRANDED_TITLE_MAX);
+      }
+      expect(metaContent(page, 'meta[property="og:title"]'), `${page.route}: og:title`).toBe(title);
+      expect(metaContent(page, 'meta[name="twitter:title"]'), `${page.route}: twitter:title`).toBe(title);
     }
   });
 
-  it('has a meta description between 50 and 160 characters', () => {
+  it('has a meta description of at least 50 characters that ends a sentence, shared by og:description and twitter:description', () => {
     for (const page of pages) {
       const desc = metaContent(page, 'meta[name="description"]');
       expect(
@@ -62,9 +79,11 @@ describe('every emitted page', () => {
         `${page.route}: missing/empty meta description`
       ).toBeGreaterThanOrEqual(50);
       expect(
-        desc.length,
-        `${page.route}: meta description is ${desc.length} chars — Google truncates past ~160`
-      ).toBeLessThanOrEqual(160);
+        desc,
+        `${page.route}: meta description "${desc}" stops mid-sentence: give the whole description`
+      ).toMatch(/[.?!]["”’)]?$/u);
+      expect(metaContent(page, 'meta[property="og:description"]'), `${page.route}: og:description`).toBe(desc);
+      expect(metaContent(page, 'meta[name="twitter:description"]'), `${page.route}: twitter:description`).toBe(desc);
     }
   });
 

@@ -6,7 +6,6 @@ import '../../styles/case-cards.css';
 import SpectrumGlow from '../../components/SpectrumGlow.astro';
 import ArticleContents from '../../components/ArticleContents.astro';
 import { getCollection, render } from 'astro:content';
-import { fitDescription, fitTitle } from '../../lib/meta';
 import { formatGBP, serviceById } from '../../data/business';
 import { contactHref } from '../../data/enquiry';
 import { caseStudyCard, cardAlt, cardPath } from '../../data/share-cards';
@@ -42,9 +41,7 @@ const notes = [d.anonymised && 'anonymised', d.status].filter((n): n is string =
 const sourced = evidenceRows(d);
 ---
 
-{/* SERP metadata is length-fitted (see src/lib/meta.ts); the visible
-     headline below keeps the frontmatter copy verbatim. */}
-<BaseLayout title={fitTitle(d.title)} description={fitDescription(d.description)} image={cardPath('work', entry.id)} imageAlt={cardAlt(caseStudyCard(entry))} markdown={`/work/${entry.id}.md`}>
+<BaseLayout title={d.title} description={d.description} image={cardPath('work', entry.id)} imageAlt={cardAlt(caseStudyCard(entry))} markdown={`/work/${entry.id}.md`}>
   <!-- Designed hero -->
   <article>
     <header class="page-hero hatch">
