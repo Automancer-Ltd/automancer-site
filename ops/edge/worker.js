@@ -18,7 +18,8 @@
 //   - Every response, HTML, Markdown, JSON, error or redirect, carries the
 //     same SECURITY_HEADERS, so people and machines get the same answers.
 //   - Fingerprinted files are cached for a year and fonts and images for a
-//     day, in browsers and at the edge (cachePolicy; t18923).
+//     day, in browsers and at the edge (cachePolicy; t18923), their Brotli
+//     copies included (edgeKept; t28262).
 //   - GitHub Pages is asked for the file only: none of the visitor's IP
 //     address, cookies, Referer or browser details go with it (pagesRequest).
 //   - A browser that takes Brotli gets the copy the build compressed at the
@@ -561,14 +562,26 @@ export function pagesRequest(url, request, names = PAGES_REQUEST_HEADERS) {
   return new Request(url, { method: request.method, headers });
 }
 
+/**
+ * The fetch options that keep a file with a lifetime (cachePolicy) in this data centre's cache for
+ * that lifetime. Only a found file is kept; a 404 or an error is asked for again next time.
+ * cacheEverything makes Cloudflare keep a file whose name it does not cache by default (t28262):
+ * every Brotli copy is a `.br` file, so without it the page-load module, the logo and the
+ * compression dictionary a browser takes as Brotli came from GitHub on every request
+ * (cf-cache-status DYNAMIC), and on a quiet site GitHub's own cache, which keeps a file ten
+ * minutes at most, had mostly let it go.
+ */
+function edgeKept(policy) {
+  return policy ? { cf: { cacheEverything: true, cacheTtlByStatus: { '200-299': policy.edge, '300-599': -1 } } } : {};
+}
+
 const isHtml = (response) => (response.headers.get('Content-Type') ?? '').startsWith('text/html');
 
 async function fetchPageFile(url, request, policy) {
   const file = atPages(url.pathname, url.search);
   const options = {
     redirect: 'manual',
-    // Only a found file is kept; a 404 or an error is asked for again next time.
-    ...(policy && { cf: { cacheTtlByStatus: { '200-299': policy.edge, '300-599': -1 } } }),
+    ...edgeKept(policy),
   };
   // Byte offsets into the Pages copy are wrong after the HTML lock is removed.
   const pagePath = url.pathname.endsWith('/') || url.pathname.endsWith('.html');
@@ -776,7 +789,7 @@ async function brotliCopy(request, pathname, file, policy, coding = 'br') {
   const [res, page] = await Promise.all([
     fetch(pagesRequest(atPages(file.path), request), {
       redirect: 'manual',
-      ...(policy && { cf: { cacheTtlByStatus: { '200-299': policy.edge, '300-599': -1 } } }),
+      ...edgeKept(policy),
     }),
     html && request.method === 'GET' ? fetch(atPages(pathname)).catch(() => null) : null,
   ]);

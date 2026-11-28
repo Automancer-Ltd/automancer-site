@@ -379,7 +379,7 @@ describe('edge Worker in front of GitHub Pages', () => {
     const main = await get('/assets/js/main.js?v=e090f3949bfe28a5dfc14fc6eb9823288129792f');
     expect(main.headers.get('Cache-Control')).toBe(year);
     expect(main.headers.get('Expires')).toBeNull();
-    expect(fetchSpy.mock.calls.at(-1)?.[1]).toMatchObject({ cf: { cacheTtlByStatus: { '200-299': 31536000, '300-599': -1 } } });
+    expect(fetchSpy.mock.calls.at(-1)?.[1]).toMatchObject({ cf: { cacheEverything: true, cacheTtlByStatus: { '200-299': 31536000, '300-599': -1 } } });
     // Unversioned: fonts and images for a day; main.js and pages keep the origin's ten minutes.
     expect((await get('/assets/fonts/syne-800-latin.woff2')).headers.get('Cache-Control')).toMatch(/^public, max-age=86400, stale-while-revalidate=/);
     expect((await get('/assets/js/main.js')).headers.get('Cache-Control')).toBe('max-age=600');
@@ -392,6 +392,31 @@ describe('edge Worker in front of GitHub Pages', () => {
       // A `.br` beside a file is its Brotli copy, served under the file's own URL (t24283).
       expect(name.replace(/\.br$/, ''), `dist/_astro/${name} has no content hash`).toMatch(/\.[\w-]{8}\.\w+$/);
     }
+  });
+
+  // Cloudflare keeps by default only files whose names it knows (.js, .svg, .txt ...), and a
+  // Brotli copy is a `.br` file: until t28262 the page-load module, the logo and the compression
+  // dictionary a browser took as Brotli came from GitHub on every request (cf-cache-status DYNAMIC).
+  it('keeps the Brotli copy of every file with a lifetime at the edge too; twins and pages stay with Pages (t28262)', async () => {
+    const fetchSpy = vi.fn((input: RequestInfo | URL, _init?: RequestInit) => {
+      const path = new URL(input instanceof Request ? input.url : String(input)).pathname;
+      return Promise.resolve(new Response(path.endsWith('.br') ? brotliCompressSync('x') : 'x', { headers: { 'Content-Type': 'application/octet-stream' } }));
+    });
+    vi.stubGlobal('fetch', fetchSpy);
+    const asked = async (path: string) => {
+      fetchSpy.mockClear();
+      const res = (await worker.fetch(new Request(`https://automancer.uk${path}`, { headers: { 'Accept-Encoding': 'gzip, br' } }))) as Response;
+      expect(res.headers.get('Content-Encoding'), path).toBe('br');
+      const brotli = (fetchSpy.mock.calls as [RequestInfo | URL, RequestInit?][]).find(([input]) => String(input instanceof Request ? input.url : input).endsWith('.br'));
+      expect(brotli, path).toBeDefined();
+      return brotli?.[1];
+    };
+    const year = { cf: { cacheEverything: true, cacheTtlByStatus: { '200-299': 31536000, '300-599': -1 } } };
+    expect(await asked('/_astro/BaseLayout.astro_astro_type_script_index_0_lang.GxPpYu8M.js')).toMatchObject(year);
+    expect(await asked('/_dictionary/e51c96dbcdd9683a.txt')).toMatchObject(year);
+    expect(await asked('/assets/images/logo.svg')).toMatchObject({ cf: { cacheEverything: true, cacheTtlByStatus: { '200-299': 86400, '300-599': -1 } } });
+    // A twin, the API and feeds must never be an older copy: only Pages answers them.
+    for (const path of ['/about.md', '/api/pages.json', '/field-notes/rss.xml', '/llms.txt']) expect(await asked(path), path).not.toHaveProperty('cf');
   });
 
   it('gives every file a built page loads from this site a lifetime that matches its URL', () => {
