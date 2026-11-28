@@ -60,6 +60,9 @@ const pages = allHtmlFiles();
 
 describe('page Content Security Policy', () => {
   const reportOrigin = bundledReportOrigin();
+  const moduleHashes = Object.fromEntries(readdirSync(join(DIST, '_astro'))
+    .filter((name) => name.endsWith('.js'))
+    .map((name) => [`/_astro/${name}`, `sha256-${createHash('sha256').update(readFileSync(join(DIST, '_astro', name))).digest('base64')}`]));
 
   it('the test build bundles a DSN, so connect-src is checked against a real origin', () => {
     expect(reportOrigin).not.toBeNull();
@@ -105,6 +108,19 @@ describe('page Content Security Policy', () => {
       expect(policy.get('frame-src') ?? null).toEqual(isContact ? [SECURITY_CHECK] : null);
       // Only this site's own scripts, on every page: no origin, host or scheme source at all.
       expect(policy.get('script-src')?.filter((source) => !source.startsWith("'"))).toEqual([]);
+
+      const map = page.doc.querySelector('script[type="importmap"]');
+      const firstModule = page.doc.querySelector('script[type="module"], link[rel="modulepreload"]');
+      expect(map, `${route} has no module integrity map`).not.toBeNull();
+      expect(map!.range[0]).toBeLessThan(firstModule!.range[0]);
+      expect(JSON.parse(map!.rawText)).toEqual({ integrity: moduleHashes });
+      const mapHash = createHash('sha256').update(map!.rawText).digest('base64');
+      expect(policy.get('script-src')).toContain(`'sha256-${mapHash}'`);
+      for (const tag of page.doc.querySelectorAll('script[src], link[rel="modulepreload"]')) {
+        const url = tag.getAttribute('src') ?? tag.getAttribute('href') ?? '';
+        expect(tag.getAttribute('integrity')).toMatch(/^sha256-/);
+        expect(tag.getAttribute('integrity')).toBe(moduleHashes[url]);
+      }
 
       const styleSources = policy.get('style-src-elem') ?? policy.get('style-src') ?? [];
       expect(styleSources).not.toContain("'unsafe-inline'");

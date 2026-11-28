@@ -126,9 +126,11 @@ describe('page-weight budgets', () => {
 
   it('keeps the code a visitor downloads on their first error within budget', () => {
     // Every emitted chunk no page names in a <script src>: loaded by import() only.
-    const named = allHtmlFiles().map((page) => page.html).join('\n');
+    const named = new Set(allHtmlFiles().flatMap((page) =>
+      page.doc.querySelectorAll('script[src], link[rel="modulepreload"]')
+        .map((tag) => tag.getAttribute('src') ?? tag.getAttribute('href'))));
     const lazy = readdirSync(join(DIST, '_astro'))
-      .filter((name) => name.endsWith('.js') && !named.includes(`/_astro/${name}`))
+      .filter((name) => name.endsWith('.js') && !named.has(`/_astro/${name}`))
       .map((name) => ({ name, bytes: statSync(join(DIST, '_astro', name)).size }));
     expect(
       lazy.length,
