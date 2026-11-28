@@ -17,19 +17,22 @@ Run builds, tests and typechecks through `checkq` on auto-vps.
 
 ```bash
 checkq -- pnpm install --frozen-lockfile   # also runs `astro sync` (LSP types in .astro/)
-checkq -- pnpm run check                   # fast (~5 s): oxlint, tsrs, vitest on the dist/ that exists
-checkq -- pnpm run verify                  # the full verdict CI runs: lint, typecheck (tsrs, then astro check for .astro), build, audit
+checkq -- pnpm run check                   # quick (~6 s): oxlint, tsrs, the audit; rebuilds dist/ first only if the tree changed since
+checkq -- pnpm run verify                  # the verdict CI and the deploy run: lint, tsrs, build, then the audit with astro check beside it
 checkq -- pnpm run journey                 # visitor journey in a real browser (phone + desktop) on the built dist/
 checkq -- pnpm run compare                 # every sitemap page, phone + laptop, screenshot-compared with origin/main
 pnpm run serve                             # the built dist/ as production serves it, through the edge Worker
 ```
 
-`check` audits whatever `dist/` already holds, so after a source change a stale `dist/` fails it
-for reasons your change did not cause: run `verify` (it rebuilds) or delete `dist/` first. Tests and
-the journey build alike, with monitoring on as production ships it (`tests/support/build-env.ts`),
-so `check` after `journey` audits a good build; the deploy runs the same audit on the exact `dist/`
-it publishes. `SKIP_BUILD=1` skips the build in either: `SKIP_BUILD=1 pnpm run journey` serves the
-`dist/` already there, as CI does straight after `verify`, so the journey reads the audited bytes.
+Both are `ops/verify.mjs` (t28204). `check` rebuilds `dist/` when it is missing or older than a file
+the build reads (`src/`, `public/`, `ops/`, the root config), so it never audits bytes your change
+did not make; it leaves out astro check (about 5 s). `verify` always builds, then runs astro check
+(`--noSync`: it only reads the `.astro/` types the build just wrote) beside the audit, and reports
+both. Tests and the journey build alike, with monitoring on as production ships it
+(`auditBuildEnv` in `tests/support/build-env.ts`), so `check` after `journey` audits a good build.
+`SKIP_BUILD=1` skips the build in all three: the deploy runs `SKIP_BUILD=1 pnpm run verify` on the
+exact `dist/` it publishes, and `SKIP_BUILD=1 pnpm run journey` serves the `dist/` already there,
+as CI does straight after `verify`, so the journey reads the audited bytes.
 
 - **The visitor journey** (`tests/journey/`, Playwright): nav, published prices, the contact form's
   validation, send, refusal and outage paths, the edge Worker's headers, painted screenshots, and no
