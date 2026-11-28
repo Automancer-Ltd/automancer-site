@@ -80,9 +80,8 @@ note "deploy-preview: publishing ${ref} -> ${sha}"
 
 # A dedicated linked worktree of the target clone holds the candidate source.
 # node_modules is kept between deploys so the gate is fast; nothing else in it
-# is trusted across runs. Ignored files go too: a stale dist/ from an earlier
-# ref made `pnpm run check` (which audits an existing dist/) fail the gate
-# before `pnpm run test` rebuilt it.
+# is trusted across runs. Ignored files go too, so no file from an earlier ref
+# (a dist/, .astro/ types) reaches the gate.
 git -C "$TARGET" worktree prune
 if [[ -d $BUILD ]]; then
   git -C "$BUILD" checkout --quiet --detach "$sha"

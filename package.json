@@ -16,12 +16,12 @@
     "lint": "oxlint --type-aware --deny-warnings src tests",
     "typecheck:ts": "test -f .astro/content.d.ts || astro sync; tsrs --noEmit",
     "typecheck": "pnpm run typecheck:ts && astro check",
-    "check": "pnpm run lint && pnpm run typecheck:ts && if [ -f dist/index.html ]; then SKIP_BUILD=1 vitest run; else SKIP_BUILD=1 vitest run tests/storage-sentinel.test.ts; fi",
+    "check": "node ops/verify.mjs --quick",
     "test": "vitest run",
     "test:watch": "vitest",
     "journey": "playwright test",
     "compare": "node ops/compare-builds.mjs",
-    "verify": "pnpm run lint && pnpm run typecheck && pnpm run test"
+    "verify": "node ops/verify.mjs"
   },
   "dependencies": {
     "@astrojs/sitemap": "^3.7.6",

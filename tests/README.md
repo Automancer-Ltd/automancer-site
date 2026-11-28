@@ -2,14 +2,15 @@
 
 Vitest audits the **production build output** (`dist/`), the bytes GitHub Pages
 serves, not the source templates. `tests/global-setup.ts` runs `pnpm run build`
-once per invocation, with monitoring on as in production (the dummy DSN in
-`tests/support/build-env.ts`, unless `PUBLIC_AUT_SENTRY_WEB_DSN` is set); skip it
-with `SKIP_BUILD=1` when `dist/` is fresh. The deploy does exactly that: it builds
-once with production's settings and runs this suite on the dist/ it then
-publishes. Each test file's header says what it guards.
+once per invocation, with monitoring on as in production (`auditBuildEnv` in
+`tests/support/build-env.ts`: the dummy DSN unless `PUBLIC_AUT_SENTRY_WEB_DSN` is
+set); skip it with `SKIP_BUILD=1` when `dist/` is fresh. The deploy does exactly
+that: it builds once with production's settings and runs `SKIP_BUILD=1 pnpm run
+verify` on the dist/ it then publishes. Each test file's header says what it guards.
 
 ```sh
-pnpm run verify        # what CI runs: lint, typecheck, build + audit
+pnpm run verify        # what CI and the deploy run: lint, typecheck, build + audit (ops/verify.mjs)
+pnpm run check         # lint, tsrs + audit, rebuilding dist/ only when the tree changed since
 pnpm run test          # build + audit only
 ```
 
