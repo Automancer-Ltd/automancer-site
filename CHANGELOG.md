@@ -1,5 +1,10 @@
 # Release notes
 
+## v2026.11.28.2 — 28 November 2026
+
+Site checks now rebuild an out-of-date site before checking it, so changes are checked against the latest pages.
+
+
 ## v2026.11.27.5 — 27 November 2026
 
 The case study page update has limited evidence, so it is omitted.
