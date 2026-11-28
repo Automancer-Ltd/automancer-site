@@ -16,6 +16,33 @@ interface Report {
 // a post to Sentry's own address would be refused by the page's CSP and fail below.
 test.beforeEach(({ page, baseURL }) => serveCheckFrame(page, baseURL));
 
+for (const [name, asset] of [
+  ['page script', '**/_astro/BaseLayout.astro_astro_type_script_*.js'],
+  ['error reporting module', '**/_astro/prod.*.js'],
+]) {
+  test(`the browser refuses changed bytes in the ${name}`, async ({ page }) => {
+    await page.route('**/_errors', (route) => route.fulfill({ status: 200, body: '{}' }));
+    await page.route(asset, async (route) => {
+      const original = await route.fetch();
+      await route.fulfill({ response: original, body: `${await original.text()}\n/* integrity check */` });
+    });
+    const refused = page.waitForEvent('console', {
+      predicate: (message) => message.type() === 'error' && /integrity.*digest|valid digest.*integrity/i.test(message.text()),
+      timeout: 10_000,
+    });
+    await page.goto('/');
+    if (name === 'error reporting module') {
+      const src = await page.locator('script[src*="/_astro/BaseLayout.astro_astro_type_script_"]').getAttribute('src');
+      await page.evaluate((script) => {
+        const error = new TypeError('Integrity check');
+        error.stack = `TypeError: Integrity check\n    at check (${new URL(script!, location.href)}:12:34)`;
+        window.dispatchEvent(new ErrorEvent('error', { error }));
+      }, src);
+    }
+    expect((await refused).text()).toContain('/_astro/');
+  });
+}
+
 test('error reports keep source locations without raw browser data', async ({ page }) => {
   const reports: Report[] = [];
   const envelopes: string[] = [];
